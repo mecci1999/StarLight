@@ -1,32 +1,35 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "tauri-app",
+  "productName": "StarLight",
   "version": "0.1.0",
-  "identifier": "com.tauri-app.pc",
+  "identifier": "com.starlight.pc",
   "build": {
     "beforeDevCommand": "pnpm dev",
     "devUrl": "http://127.0.0.1:6130",
     "beforeBuildCommand": "pnpm build",
     "frontendDist": "../dist"
   },
+  "bundle": {
+    "category": "MicroserviceSystemMonitoring",
+    "copyright": "StarLight",
+    "licenseFile": "./copyright/License.txt",
+    "resources": [
+      "tray"
+    ],
+    "createUpdaterArtifacts": true,
+    "active": true,
+    "icon": [],
+    "windows": {},
+    "macOS": {}
+  },
   "app": {
     "withGlobalTauri": true,
-    "windows": [
-      {
-        "title": "tauri-app",
-        "width": 800,
-        "height": 600
-      }
-    ],
+    "windows": [],
     "security": {
       "csp": null,
       "capabilities": ["default-capability", "mobile-capability", "desktop-capability"]
     },
     "macOSPrivateApi": true
   },
-  "bundle": {
-    "active": true,
-    "targets": "all",
-    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/128x128@2x.png", "icons/icon.icns", "icons/icon.ico"]
-  }
+  "plugins": {}
 }
