@@ -3,7 +3,7 @@ import vue from '@vitejs/plugin-vue'
 import AutoImport from 'unplugin-auto-import/vite' //自动导入
 import Components from 'unplugin-vue-components/vite' //组件注册
 import { NaiveUiResolver } from 'unplugin-vue-components/resolvers'
-// import { getRootPath, getSrcPath } from './build/config/getPath'
+import { getRootPath, getSrcPath } from './build/config/getPath'
 import vueJsx from '@vitejs/plugin-vue-jsx'
 import terser from '@rollup/plugin-terser'
 import VueSetupExtend from 'vite-plugin-vue-setup-extend'
@@ -16,20 +16,20 @@ export default defineConfig(({ mode }: ConfigEnv) => {
   const config = loadEnv(mode, process.cwd())
   return {
     resolve: {
-      // alias: {
-      //   // 配置主路径别名@
-      //   '@': getSrcPath(),
-      //   // 配置移动端路径别名@
-      //   '#': getSrcPath('src/mobile'),
-      //   // 配置路径别名~(根路径)
-      //   '~': getRootPath()
-      // }
+      alias: {
+        // 配置主路径别名@
+        '@': getSrcPath(),
+        // 配置移动端路径别名@
+        '#': getSrcPath('src/mobile'),
+        // 配置路径别名~(根路径)
+        '~': getRootPath()
+      }
     },
     css: {
       preprocessorOptions: {
         scss: {
           api: 'modern-compiler',
-          additionalData: '@use "@/styles/scss/global/variable.scss" as *;' // 加载全局样式，使用scss特性
+          additionalData: '@use "@/styles/global/variable.scss" as *;' // 加载全局样式，使用scss特性
         }
       }
     },
@@ -53,8 +53,8 @@ export default defineConfig(({ mode }: ConfigEnv) => {
       /**自动导入组件，但是不会自动导入jsx和tsx*/
       Components({
         dirs: ['src/components/**', 'src/mobile/components/**'], // 设置需要扫描的目录
-        resolvers: [NaiveUiResolver()],
-        dts: 'src/typings/components.d.ts'
+        dts: 'src/typings/components.d.ts',
+        resolvers: [NaiveUiResolver()]
       }),
       /** 压缩代码 */
       terser({
