@@ -8,6 +8,7 @@ import vueJsx from '@vitejs/plugin-vue-jsx'
 import terser from '@rollup/plugin-terser'
 import VueSetupExtend from 'vite-plugin-vue-setup-extend'
 import vueDevTools from 'vite-plugin-vue-devtools'
+import UnoCSS from '@unocss/vite'
 
 // https://vitejs.dev/config/
 /**! 不需要优化前端打包(如开启gzip) */
@@ -41,6 +42,7 @@ export default defineConfig(({ mode }: ConfigEnv) => {
       vue(),
       VueSetupExtend(), // setup 中给组件命名(keepAlive需要)
       vueJsx(), // 开启jsx功能
+      UnoCSS(),
       AutoImport({
         imports: [
           'vue',

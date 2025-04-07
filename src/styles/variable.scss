@@ -2,7 +2,7 @@
 * {
   font-family: var(--font-family), sans-serif !important;
   font-weight: 500 !important;
-  caret-color: #13987f !important; /* 改变输入框光标的颜色 */
+  caret-color: #165dff !important; /* 改变输入框光标的颜色 */
 }
 html,
 body,
@@ -20,191 +20,205 @@ svg {
   // 是否启用透明高斯模糊
   --blur-enabled: 1;
 
-  --center-bg-color: #fff;
-  --right-bg-color: #f1f1f1;
-  // 阴影样式的颜色
-  --box-shadow-color: rgba(0, 0, 0, 0.08);
+  // 主色调
+  --color-primary-7: #0e42d2; // 点击 click
+  --color-primary-6: #165dff; // 常规
+  --color-primary-5: #4080ff; // 悬浮 hover
+  --color-primary-4: #6aa1ff; // 特殊场景
+  --color-primary-3: #94bfff; // 一般禁用
+  --color-primary-2: #bedaff; // 文字禁用
+  --color-primary-1: #e8f3ff; // 浅色/白底悬浮
+
+  // 边框颜色
+  --color-border-4: #86909c; // 重/按钮描边
+  --color-border-3: #c9cdd4; // 深/悬浮
+  --color-border-2: #e5e6eb; // 一般
+  --color-border-1: #f2f3f5; // 浅色
+
+  // 填充颜色
+  --color-fill-5: #4e5969; // 重/特殊场景
+  --color-fill-4: #c9cdd4; // 重/特殊场景
+  --color-fill-3: #e5e6eb; // 深/灰底悬浮
+  --color-fill-2: #f2f3f5; // 常规/白底悬浮
+  --color-fill-1: #f7f8fa; // 浅色/禁用
+
   // 文字颜色
-  --text-color: #18181c;
-  // 整体图标颜色
-  --icon-color: #000;
-  --action-bar-icon-color: #404040;
-  --action-bar-icon-hover: #e7e7e7;
-  // 搜索框背景颜色
-  --search-bg-color: #f3f3f3;
-  // 消息列表样式
-  --bg-msg-first-child: #eeeeee;
-  --bg-msg-hover: #f3f3f3;
-  --bg-active-msg: #13987f;
-  // 聊天框整体样式
-  --bg-chat-drawer: #f0f0f0;
-  --bg-setting-item: #fdfdfd;
-  --setting-item-line: #f1f1f1;
-  // 弹出框背景样式
-  --bg-popover: #fdfdfd;
-  // 右键菜单样式或者需要透明的菜单的样式
-  --bg-menu: linear-gradient(45deg, rgba(255, 255, 255, 0.45) 40%, rgba(255, 255, 255, 0.65) 60%);
-  --bg-menu-hover: rgba(10, 20, 28, 0.1);
-  --line-color: #e3e3e3;
-  // 通用左边菜单栏的hover样式
-  --bg-left-menu: rgba(241, 241, 241, 1);
-  --bg-left-menu-hover: rgba(90, 90, 90, 0.1);
-  --bg-left-active: rgba(90, 90, 90, 0.2);
-  //通用按钮样式
-  --button-bg-color: #f1f1f1;
-  // 通用禁用时的样式
-  --disabled-color: #c1c1c1;
-  // 气泡背景颜色
-  --bg-bubble: rgb(253, 253, 253);
-  --bg-bubble-active: #f1f1f1;
-  // 翻译气泡背景色
-  --bg-translate-bubble: rgba(200, 200, 200, 0.4);
-  // 头像状态的背景颜色
-  --bg-avatar: rgba(241, 241, 241, 1);
-  // 个人信息框背景颜色
-  --info-hover: #eeeeee70;
-  --info-text-color: #202020;
-  // 系统托盘hover样式
-  --tray-hover: #eee;
-  --tray-hover-e: #f5dce1;
-  // 信息框背景颜色
-  --bg-info: rgba(255, 255, 255);
-  // 表情框样式
-  --bg-emoji: rgba(255, 255, 255, 0.6);
-  --emoji-hover: #e3e3e3;
-  --emoji-active-color: #13987f;
-  // 回复消息样式
-  --reply-color: #909090;
-  --reply-hover: #505050;
-  --bg-reply-img-count: #e3e3e3;
-  // 编辑资料背景颜色
-  --bg-edit: #f0f0f0;
-  // 聊天框时间戳样式
-  --time-color: #e3e3e3;
-  // chat模块样式
-  --chat-bt-color: #fff;
-  --chat-left-bg: #cef9ec;
-  --chat-right-bg: #f1f1f1;
-  --chat-text-color: #505050;
-  --chat-hover-color: #e3e3e3;
-  // 搜索框内样式
-  --search-color: #eee;
-  // bate
-  --bate-color: #a789d9;
-  --bate-bg: #d9ccf7;
-  // 卡片hover样式
-  --card-bg: #13987f60;
-  // 安装进度条样式
-  --progress-bg: #e0e9fc;
-  // 回复消息框背景
-  --reply-bg: rgba(204, 204, 204, 0.4);
-  // 危险样式
-  --danger-text: #c14053;
-  --danger-bg: #f6dfe3;
-  // 头像边框颜色
-  --avatar-border-color: #fff;
-  // hover头像样式
-  --avatar-hover-bg: rgba(255, 255, 255, 0.1);
-  // 插件背景颜色
-  --plugin-bg-color: #eee;
-  // 列表悬浮的颜色
-  --float-block-hover-color: #767676;
-  // 悬浮按钮hover样式
-  --float-hover-bg-color: rgb(221, 240, 236);
+  --color-text-5: #ffffff; // 置灰信息
+  --color-text-4: #c9cdd4; // 置灰信息
+  --color-text-3: #86909c; // 次要信息
+  --color-text-2: #4e5969; // 次强调/正文标题
+  --color-text-1: #1d2129; // 强调/正文标题
+
+  // 背景颜色
+  --color-bg-5: #ffffff; // 下拉弹出框、Tooltip 背景颜色
+  --color-bg-4: #ffffff; // 三级容器背景
+  --color-bg-3: #ffff; // 二级容器背景
+  --color-bg-2: #ffffff; // 一级容器背景
+  --color-bg-1: #ffffff; // 整体背景色
+  --color-bg-white: #ffffff; // 白色
+
+  // 成功色
+  --color-success-7: #009a29; // 点击
+  --color-success-6: #00b42a; // 常规
+  --color-success-5: #23c343; // 悬浮
+  --color-success-4: #4cd263; // 特殊场景
+  --color-success-3: #7be188; // 一般禁用
+  --color-success-2: #aff0b5; // 文字禁用
+  --color-success-1: #e8ffea; // 浅色/白底悬浮
+
+  // 提示色
+  --color-warning-7: #d25f00; // 点击
+  --color-warning-6: #ff7d00; // 常规
+  --color-warning-5: #ff9a2e; // 悬浮
+  --color-warning-4: #ffb65d; // 特殊场景
+  --color-warning-3: #ffcf8b; // 一般禁用
+  --color-warning-2: #ffe4ba; // 文字禁用
+  --color-warning-1: #fff7e8; // 浅色/白底悬浮
+
+  // 错误色
+  --color-danger-7: #cb272d; // 点击
+  --color-danger-6: #f53f3f; // 常规
+  --color-danger-5: #f76560; // 悬浮
+  --color-danger-4: #f98981; // 特殊场景
+  --color-danger-3: #fbaca3; // 一般禁用
+  --color-danger-2: #fdcdc5; // 文字禁用
+  --color-danger-1: #ffece8; // 浅色/白底悬浮
+
+  // 链接色
+  --color-link-7: #0e42d2; // 点击
+  --color-link-6: #165dff; // 常规
+  --color-link-5: #4080ff; // 悬浮
+  --color-link-4: #6aa1ff; // 特殊场景
+  --color-link-3: #94bfff; // 一般禁用
+  --color-link-2: #bedaff; // 文字禁用
+  --color-link-1: #e8f3ff; // 浅色/白底悬浮
+
+  // 字体大小
+  --font-size-body-3: 14px; // 正文-常规
+  --font-size-body-2: 13px; // 正文-常规-小
+  --font-size-body-1: 12px; // 辅助文案/次要文案
+  --font-size-caption: 12px; // 水印文本
+  --font-size-title-1: 16px; // 标题-小
+  --font-size-title-2: 20px; // 标题-中
+  --font-size-title-3: 24px; // 标题-大
+  --font-size-display-1: 36px; // 运营标题-小
+  --font-size-display-2: 48px; // 运营标题-中
+  --font-size-display-3: 56px; // 运营标题-大
+
+  // 字体粗细
+  --font-weight-400: 400; // 常规
+  --font-weight-500: 500; // 中等（加粗）
+  --font-weight-600: 600; // 半粗
+  --font-weight-700: 700; // 粗体
+  --font-weight-800: 800; // 中黑
+  --font-weight-900: 900; // 黑体
+  --font-weight-300: 300; // 细体
+  --font-weight-200: 200; // 纤细
+  --font-weight-100: 100; // 极细
+
+  // 大小
+  --size-1: 4px; // 最小
+  --size-2: 8px; // 小
+  --size-3: 12px; // 中
+  --size-4: 16px; // 大
+  --size-5: 20px; // 超大
+  --size-mini: 24px; // 迷你
+  --size-small: 28px; // 较小
+  --size-default: 32px; // 中等
+  --size-large: 36px; // 较大
+
+  // 边框
+  --border-none: 0; // 无边框
+  --border-width-1: 1px; // 常规
+  --border-width-2: 2px; // 较粗
+  --border-width-3: 3px; // 粗
+
+  --border-radius-none: 0; // 无圆角
+  --border-radius-small: 2px; // 圆角-常规
+  --border-radius-medium: 4px; // 圆角-中等
+  --border-radius-large: 8px; // 圆角-大
+  --border-radius-round: 50%; // 圆形
+
+  // 阴影
+  --shadow-special: 0 0 1px rgba(0, 0, 0, 0.3); // 特殊
+  --shadow-center-1: 0 -2px 5px rgba(0, 0, 0, 0.1); // 1
+  --shadow-center-2: 0 0 10px rgba(0, 0, 0, 0.1); // 2
+  --shadow-center-3: 0 0 20px rgba(0, 0, 0, 0.1); // 3
 }
 
 html[data-theme='dark'] {
-  --center-bg-color: #1b1b1b;
-  --right-bg-color: #161616;
-  // 阴影样式的颜色
-  --box-shadow-color: rgba(90, 90, 90, 0.1);
+  // 主色调
+  --color-primary-7: #689fff; // 点击 click
+  --color-primary-6: #3c7eff; // 常规
+  --color-primary-5: #306fff; // 悬浮 hover
+  --color-primary-4: #1d4dd2; // 特殊场景
+  --color-primary-3: #0e32a6; // 一般禁用
+  --color-primary-2: #041b79; // 文字禁用
+  --color-primary-1: #000d4d; // 浅色/白底悬浮
+
+  // 边框颜色
+  --color-border-4: #929293; // 重/按钮描边
+  --color-border-3: #5f5f60; // 深/悬浮
+  --color-border-2: #484849; // 一般
+  --color-border-1: #2e2e30; // 浅色
+
+  // 填充颜色
+  --color-fill-5: #4e5969; // 重/特殊场景
+  --color-fill-4: #5f5f60; // 重/特殊场景
+  --color-fill-3: #484849; // 深/灰底悬浮
+  --color-fill-2: #2e2e30; // 常规/白底悬浮
+  --color-fill-1: #17171a; // 浅色/禁用
+
   // 文字颜色
-  --text-color: #fff;
-  // 整体图标颜色
-  --icon-color: #c1c1c1;
-  --action-bar-icon-color: #c1c1c1;
-  --action-bar-icon-hover: #242424;
-  // 搜索框背景颜色
-  --search-bg-color: #282828;
-  // 消息列表样式
-  --bg-msg-first-child: #282828;
-  --bg-msg-hover: #2d2d2d;
-  --bg-active-msg: rgba(19, 152, 127, 0.6);
-  // 聊天框整体样式
-  --bg-chat-drawer: #1b1b1b;
-  --bg-setting-item: #262626;
-  --setting-item-line: #333333;
-  // 弹出框背景样式
-  --bg-popover: #303030;
-  // 右键菜单样式或者需要透明的菜单的样式
-  --bg-menu: linear-gradient(45deg, rgba(33, 33, 33, 0.65) 60%, rgba(33, 33, 33, 0.95) 90%);
-  --bg-menu-hover: #323232;
-  --line-color: #404040;
-  // 通用左边菜单栏的hover样式
-  --bg-left-menu: rgba(22, 22, 22, 1);
-  --bg-left-menu-hover: #3b3b3b;
-  --bg-left-active: #444444;
-  //通用按钮样式
-  --button-bg-color: #3f3f3f;
-  // 通用禁用时的样式
-  --disabled-color: #575757;
-  // 气泡背景颜色
-  --bg-bubble: rgb(38, 38, 38);
-  --bg-bubble-active: rgba(66, 66, 66, 0.8);
-  // 翻译气泡背景色
-  --bg-translate-bubble: rgba(144, 144, 144, 0.2);
-  // 头像状态的背景颜色
-  --bg-avatar: rgba(22, 22, 22, 1);
-  // 个人信息框背景颜色
-  --info-hover: #3b3b3b60;
-  --info-text-color: #eee;
-  // 系统托盘hover样式
-  --tray-hover: #3b3b3b;
-  --tray-hover-e: #bb8188;
-  // 信息框背景颜色
-  --bg-info: rgba(27, 27, 27);
-  // 表情框样式
-  --bg-emoji: rgba(27, 27, 27, 0.8);
-  --emoji-hover: #3b3b3b;
-  --emoji-active-color: #13987f;
-  // 回复消息样式
-  --reply-color: #e3e3e3;
-  --reply-hover: #b1b1b1;
-  --bg-reply-img-count: #505050;
-  // 编辑资料背景颜色
-  --bg-edit: #262626;
-  // 聊天框时间戳样式
-  --time-color: #3b3b3b;
-  // chat模块样式
-  --chat-bt-color: #3b3b3b;
-  --chat-left-bg: #355b55;
-  --chat-right-bg: #161616;
-  --chat-text-color: #b1b1b1;
-  --chat-hover-color: #262626;
-  // 搜索框内样式
-  --search-color: #333;
-  // bate
-  --bate-color: #a789d9;
-  --bate-bg: #403555;
-  // 卡片hover样式
-  --card-bg: #13987f20;
-  // 安装进度条样式
-  --progress-bg: transparent;
-  // 回复消息框背景
-  --reply-bg: rgba(30, 30, 30, 0.6);
-  // 危险样式
-  --danger-text: #da8583;
-  --danger-bg: #37292c;
-  // 头像边框颜色
-  --avatar-border-color: #1b1b1b;
-  // hover头像样式
-  --avatar-hover-bg: rgba(30, 30, 30, 0.6);
-  // 插件背景颜色
-  --plugin-bg-color: #3b3b3b;
-  // 列表悬浮的颜色
-  --float-block-hover-color: #fff;
-  // 悬浮按钮hover样式
-  --float-hover-bg-color: rgb(25, 50, 45);
+  --color-text-5: #ffffff; // 置灰信息
+  --color-text-4: #5f5f60; // 置灰信息
+  --color-text-3: #929293; // 次要信息
+  --color-text-2: #c5c5c5; // 次强调/正文标题
+  --color-text-1: #f6f6f6; // 强调/正文标题
+
+  // 背景颜色
+  --color-bg-5: #373739; // 下拉弹出框、Tooltip 背景颜色
+  --color-bg-4: #313132; // 三级容器背景
+  --color-bg-3: #2a2a2b; // 二级容器背景
+  --color-bg-2: #232324; // 一级容器背景
+  --color-bg-1: #17171a; // 整体背景色
+  --color-bg-white: #f6f6f6; // 白色
+
+  // 成功色
+  --color-success-7: #50d266; // 点击
+  --color-success-6: #27c346; // 常规
+  --color-success-5: #1db440; // 悬浮
+  --color-success-4: #129a37; // 特殊场景
+  --color-success-3: #0a802d; // 一般禁用
+  --color-success-2: #046625; // 文字禁用
+  --color-success-1: #004d1c; // 浅色/白底悬浮
+
+  // 提示色
+  --color-warning-7: #ffb357; // 点击
+  --color-warning-6: #ff9626; // 常规
+  --color-warning-5: #ff8d1f; // 悬浮
+  --color-warning-4: #d26913; // 特殊场景
+  --color-warning-3: #a64b0a; // 一般禁用
+  --color-warning-2: #793004; // 文字禁用
+  --color-warning-1: #4d1b00; // 浅色/白底悬浮
+
+  // 错误色
+  --color-danger-7: #f98d86; // 点击
+  --color-danger-6: #f76965; // 常规
+  --color-danger-5: #f54e4e; // 悬浮
+  --color-danger-4: #cb2e34; // 特殊场景
+  --color-danger-3: #a1161f; // 一般禁用
+  --color-danger-2: #770611; // 文字禁用
+  --color-danger-1: #4d000a; // 浅色/白底悬浮
+
+  // 链接色
+  --color-link-7: #689fff; // 点击 click
+  --color-link-6: #3c7eff; // 常规
+  --color-link-5: #306fff; // 悬浮 hover
+  --color-link-4: #1d4dd2; // 特殊场景
+  --color-link-3: #0e32a6; // 一般禁用
+  --color-link-2: #041b79; // 文字禁用
+  --color-link-1: #000d4d; // 浅色/白底悬浮
 }
 /**! end */
 // 线性动画

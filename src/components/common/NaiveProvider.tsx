@@ -14,15 +14,21 @@ import {
 import { useSettingStore } from '@/store/setting'
 import { ThemeEnum } from '@/types/enums'
 import NavieProviderContent from './NavieProviderContent'
+import { defineProps } from 'vue'
 
 export default defineComponent({
   name: 'NavieProvider',
+  props: {
+    notificMax: {
+      type: Number,
+      default: 3
+    },
+    messageMax: {
+      type: Number,
+      default: 3
+    }
+  },
   setup(props, { slots }) {
-    const { notificMax, messageMax } = defineProps<{
-      notificMax?: number
-      messageMax?: number
-    }>()
-
     const settingStore = useSettingStore()
     const { themes } = storeToRefs(settingStore)
 
@@ -39,29 +45,29 @@ export default defineComponent({
         borderFocus: '0',
         boxShadowFocus: '0'
       },
-      // Checkbox: {
-      //   colorChecked: '#13987f',
-      //   borderChecked: '1px solid #13987f',
-      //   borderFocus: '1px solid #13987f',
-      //   boxShadowFocus: '0 0 0 2px rgba(19, 152, 127, 0.3)'
-      // },
+      Checkbox: {
+        colorChecked: '#165dff',
+        borderChecked: '1px solid #165dff',
+        borderFocus: '1px solid #165dff',
+        boxShadowFocus: '0 0 0 2px rgba(22,93,255, 0.3)'
+      },
       Tag: {
         borderRadius: '4px'
       },
-      // Button: {
-      //   borderRadiusMedium: '10px',
-      //   borderRadiusSmall: '6px',
-      //   colorPrimary: '#13987f'
-      // },
-      // Tabs: {
-      //   tabTextColorSegment: '#707070',
-      //   tabPaddingMediumSegment: '4px',
-      //   tabTextColorActiveLine: '#13987f',
-      //   tabTextColorHoverLine: '#13987f',
-      //   tabTextColorActiveBar: '#13987f',
-      //   tabTextColorHoverBar: '#13987f',
-      //   barColor: '#13987f'
-      // },
+      Button: {
+        borderRadiusMedium: '10px',
+        borderRadiusSmall: '6px',
+        colorPrimary: '#165dff'
+      },
+      Tabs: {
+        tabTextColorSegment: '#707070',
+        tabPaddingMediumSegment: '4px',
+        tabTextColorActiveLine: '#165dff',
+        tabTextColorHoverLine: '#165dff',
+        tabTextColorActiveBar: '#165dff',
+        tabTextColorHoverBar: '#165dff',
+        barColor: '#165dff'
+      },
       Popover: {
         padding: '5px',
         borderRadius: '8px'
@@ -72,31 +78,31 @@ export default defineComponent({
       Avatar: {
         border: '1px solid #fff'
       },
-      // Switch: {
-      //   railColorActive: '#13987f',
-      //   loadingColor: '#13987f',
-      //   boxShadowFocus: '0 0 0 2px rgba(19, 152, 127, 0.3)'
-      // },
-      // Radio: {
-      //   boxShadowActive: 'inset 0 0 0 1px #13987f',
-      //   boxShadowFocus: 'inset 0 0 0 1px #13987f,0 0 0 2px rgba(19, 152, 127, 0.3)',
-      //   boxShadowHover: 'inset 0 0 0 1px #13987f',
-      //   dotColorActive: '#13987f'
-      // },
-      // Message: {
-      //   iconColorSuccess: '#13987f',
-      //   iconColorLoading: '#13987f',
-      //   loadingColor: '#13987f',
-      //   borderRadius: '8px'
-      // },
-      // Slider: {
-      //   handleSize: '12px',
-      //   fontSize: '10px',
-      //   markFontSize: '8px',
-      //   fillColor: '#13987f',
-      //   fillColorHover: '#13987f',
-      //   indicatorBorderRadius: '8px'
-      // },
+      Switch: {
+        railColorActive: '#165dff',
+        loadingColor: '#165dff',
+        boxShadowFocus: '0 0 0 2px rgba(22,93,255, 0.3)'
+      },
+      Radio: {
+        boxShadowActive: 'inset 0 0 0 1px #165dff',
+        boxShadowFocus: 'inset 0 0 0 1px #165dff,0 0 0 2px rgba(22,93,255, 0.3)',
+        boxShadowHover: 'inset 0 0 0 1px #165dff',
+        dotColorActive: '#165dff'
+      },
+      Message: {
+        iconColorSuccess: '#165dff',
+        iconColorLoading: '#165dff',
+        loadingColor: '#165dff',
+        borderRadius: '8px'
+      },
+      Slider: {
+        handleSize: '12px',
+        fontSize: '10px',
+        markFontSize: '8px',
+        fillColor: '#165dff',
+        fillColorHover: '#165dff',
+        indicatorBorderRadius: '8px'
+      },
       Notification: {
         borderRadius: '8px'
       }
@@ -124,6 +130,13 @@ export default defineComponent({
       }
     }
 
+    /** 跟随系统主题模式切换主题 */
+    const followOS = () => {
+      globalTheme.name = prefers.matches ? darkTheme : lightTheme
+      document.documentElement.dataset.theme = prefers.matches ? ThemeEnum.DARK : ThemeEnum.LIGHT
+      themes.value.content = prefers.matches ? ThemeEnum.DARK : ThemeEnum.LIGHT
+    }
+
     watchEffect(() => {
       if (themes.value.pattern === ThemeEnum.OS) {
         followOS()
@@ -137,13 +150,6 @@ export default defineComponent({
       }
     })
 
-    /** 跟随系统主题模式切换主题 */
-    const followOS = () => {
-      globalTheme.name = prefers.matches ? darkTheme : lightTheme
-      document.documentElement.dataset.theme = prefers.matches ? ThemeEnum.DARK : ThemeEnum.LIGHT
-      themes.value.content = prefers.matches ? ThemeEnum.DARK : ThemeEnum.LIGHT
-    }
-
     return () => (
       <NConfigProvider
         themeOverrides={themes.value.content === ThemeEnum.DARK ? darkThemeOverrides : lightThemeOverrides}
@@ -152,8 +158,8 @@ export default defineComponent({
         dateLocale={dateZhCN}>
         <NLoadingBarProvider>
           <NDialogProvider>
-            <NNotificationProvider max={notificMax}>
-              <NMessageProvider max={messageMax}>
+            <NNotificationProvider max={props.notificMax}>
+              <NMessageProvider max={props.messageMax}>
                 <NModalProvider>
                   {slots.default?.()}
                   <NavieProviderContent />

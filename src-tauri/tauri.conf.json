@@ -31,5 +31,9 @@
     },
     "macOSPrivateApi": true
   },
-  "plugins": {}
+  "plugins": {
+    "updater": {
+      "active": false
+    }
+  }
 }

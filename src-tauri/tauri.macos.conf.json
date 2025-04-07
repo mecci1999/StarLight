@@ -47,8 +47,8 @@
           "y": 170
         },
         "windowSize": {
-          "height": 400,
-          "width": 660
+          "height": 600,
+          "width": 900
         }
       },
       "files": {},
@@ -66,8 +66,8 @@
         "fullscreen": false,
         "resizable": false,
         "center": true,
-        "width": 400,
-        "height": 660,
+        "width": 600,
+        "height": 900,
         "skipTaskbar": false,
         "transparent": false,
         "visible": false,
