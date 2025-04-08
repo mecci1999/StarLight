@@ -1,14 +1,14 @@
-import { ConfigEnv, defineConfig, loadEnv } from 'vite'
-import vue from '@vitejs/plugin-vue'
-import AutoImport from 'unplugin-auto-import/vite' //自动导入
-import Components from 'unplugin-vue-components/vite' //组件注册
-import { NaiveUiResolver } from 'unplugin-vue-components/resolvers'
-import { getRootPath, getSrcPath } from './build/config/getPath'
-import vueJsx from '@vitejs/plugin-vue-jsx'
 import terser from '@rollup/plugin-terser'
-import VueSetupExtend from 'vite-plugin-vue-setup-extend'
-import vueDevTools from 'vite-plugin-vue-devtools'
 import UnoCSS from '@unocss/vite'
+import vue from '@vitejs/plugin-vue'
+import vueJsx from '@vitejs/plugin-vue-jsx'
+import AutoImport from 'unplugin-auto-import/vite' //自动导入
+import { NaiveUiResolver } from 'unplugin-vue-components/resolvers'
+import Components from 'unplugin-vue-components/vite' //组件注册
+import { ConfigEnv, defineConfig, loadEnv } from 'vite'
+import vueDevTools from 'vite-plugin-vue-devtools'
+import VueSetupExtend from 'vite-plugin-vue-setup-extend'
+import { getRootPath, getSrcPath } from './build/config/getPath'
 
 // https://vitejs.dev/config/
 /**! 不需要优化前端打包(如开启gzip) */
@@ -30,7 +30,7 @@ export default defineConfig(({ mode }: ConfigEnv) => {
       preprocessorOptions: {
         scss: {
           api: 'modern-compiler',
-          additionalData: '@use "@/styles/global/variable.scss" as *;' // 加载全局样式，使用scss特性
+          additionalData: '@use "@/styles/variable.scss" as *;' // 加载全局样式，使用scss特性
         }
       }
     },

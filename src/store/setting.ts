@@ -11,7 +11,7 @@ export const useSettingStore = defineStore(StoresEnum.SETTING, {
     themes: {
       content: '',
       pattern: '',
-      versatile: 'simple'
+      versatile: isDesktop.value ? 'default' : 'simple'
     },
     escClose: true,
     showMode: ShowModeEnum.ICON,
