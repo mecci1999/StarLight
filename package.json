@@ -20,7 +20,7 @@
     "dev": "vite",
     "========= 打包vue(tauri项目会连带执行不需要单独执行) =========": "",
     "build": "vue-tsc --noEmit && vite build",
-    "========= 启动HuLa桌面应用程序 =========": "",
+    "========= 启动StarLight桌面应用程序 =========": "",
     "tauri:dev": "tauri dev",
     "========= 打包桌面应用程序 =========": "",
     "tauri:build": "tauri build",

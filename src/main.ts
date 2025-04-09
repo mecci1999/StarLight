@@ -21,5 +21,5 @@ app.config.errorHandler = (error) => {
 
 if (process.env.NODE_ENV === 'development') {
   // 打印项目版本信息
-  import('@/utils/console.ts').then((module) => module.consolePrint())
+  import('@/utils/console').then((module) => module.consolePrint())
 }
