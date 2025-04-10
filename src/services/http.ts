@@ -1,6 +1,6 @@
 import { fetch } from '@tauri-apps/plugin-http'
 import { AppException, ErrorType } from '@/common/exception'
-import { RequestQueue } from '@/utils/requestQueue'
+import { RequestQueue } from '@/utils/RequestQueue'
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow'
 import { getCookie } from '@/utils/cookie'
 
@@ -92,6 +92,12 @@ const shouldBlockRequest = async (url: string) => {
   }
 }
 
+// 添加一个标记,避免多个请求同时刷新token
+let isRefreshing = false
+// 使用队列实现
+const requestQueue = new RequestQueue()
+async function refreshTokenAndRetry(): Promise<void> {}
+
 /**
  * @description HTTP 请求
  * @description 基于 Tauri 的 HTTP 请求封装，支持重试、请求队列等功能
@@ -99,14 +105,14 @@ const shouldBlockRequest = async (url: string) => {
  * @param {string} url 请求地址
  * @param {HttpParams} options 请求参数
  * @param {boolean} fullResponse 是否返回完整响应
- * @param {Promise<T | { data: T; resp: Response }>} abort 中断器
+ * @param {Promise<T | { data: T; response: Response }>} abort 中断器
  */
 async function Http<T = any>(
   url: string,
   options: HttpParams,
   fullResponse: boolean = false,
   abort?: AbortController
-): Promise<{ data: T; resp: Response } | T> {
+): Promise<{ data: T; response: Response } | T> {
   // 检查是否需要阻止请求
   const shouldBlock = await shouldBlockRequest(url)
   if (shouldBlock) {
@@ -124,7 +130,7 @@ async function Http<T = any>(
 
   // 默认重试配置，在登录窗口时禁用重试
   const defaultRetryOptions: RetryOptions = {
-    retries: 3,
+    retries: 3, // 默认重试次数为3次
     retryDelay: (attempt) => Math.pow(2, attempt) * 1000,
     retryOn: [] // 状态码意味着已经连接到服务器
   }
@@ -193,4 +199,149 @@ async function Http<T = any>(
 
   // 定义重试函数
   let tokenRefreshCount = 0 // 在闭包中存储计数器
+  async function attemptFetch(currentAttempt: number): Promise<{ data: T; response: Response } | T> {
+    try {
+      const response = await fetch(url, fetchOptions)
+
+      // 先判断是否连接到服务器，fetch请求是否成功，如果不成功那么就是本地客户端网络异常
+      if (!response.ok) {
+        throw new AppException(`HTTP error! status: ${response.status}`, {
+          type: ErrorType.Network,
+          code: response.status,
+          details: { url, method: options.method }
+        })
+      }
+
+      // 解析响应数据
+      const responseData = options.isBlob ? await response.arrayBuffer() : await response.json()
+
+      // 判断服务器返回的错误码进行操作
+      switch (responseData.status) {
+        case 401: {
+          console.log('🔄 Token无效，清除token并重新登录...')
+          // 触发重新登录事件
+          window.dispatchEvent(new Event('needReLogin'))
+          break
+        }
+        case 403: {
+          console.log('🤯 权限不足')
+          break
+        }
+        case 422: {
+          break
+        }
+        case 40004: {
+          // 限制token刷新重试次数，最多重试一次
+          if (tokenRefreshCount >= 1) {
+            console.log('🚫 Token刷新重试次数超过限制，退出重试')
+            window.dispatchEvent(new Event('needReLogin'))
+            throw new AppException('Token刷新失败', {
+              type: ErrorType.TokenExpired,
+              showError: true
+            })
+          }
+
+          try {
+            console.log('🔄 开始尝试刷新Token并重试请求')
+            // 刷新token
+            await refreshTokenAndRetry()
+            console.log('🔄 使用新Token重试原请求')
+            // 增加计数器
+            tokenRefreshCount++
+            return attemptFetch(currentAttempt)
+          } catch (refreshError) {
+            // 续签出错也触发重新登录
+            window.dispatchEvent(new Event('needReLogin'))
+            throw refreshError
+          }
+        }
+      }
+
+      // 如果fetch请求成功，但是服务器请求不成功并且返回了错误，那就抛出错误
+      if (responseData && responseData.status !== 200) {
+        throw new AppException(responseData.message || '服务端返回错误', {
+          type: ErrorType.Server,
+          code: responseData.status,
+          details: responseData,
+          showError: true
+        })
+      }
+
+      // 打印响应结果
+      console.log(`✅ 请求成功 → ${options.method} ${url}`, {
+        status: response.status,
+        data: responseData
+      })
+
+      // 若请求成功且没有业务报错
+      if (fullResponse) {
+        return { data: responseData, response: response }
+      }
+
+      return responseData
+    } catch (error: any) {
+      // 优化错误日志，仅在开发环境打印详细信息
+      if (import.meta.env.DEV) {
+        console.error(`尝试 ${currentAttempt + 1} 失败 →`, error)
+      }
+
+      // 处理网络相关错误
+      if (
+        error instanceof TypeError || // fetch 的网络错误会抛出 TypeError
+        error.name === 'AbortError' || // 请求中断
+        !navigator.onLine // 浏览器离线
+      ) {
+        // 获取友好的错误信息
+        const errorMessage = getNetworkErrorMessage(error)
+
+        // 重试请求
+        if (shouldRetry(currentAttempt, retries, abort)) {
+          console.warn(`${errorMessage}，准备重试 → 第 ${currentAttempt + 2} 次尝试`)
+          // 计算重试延迟
+          const delayMs = retryDelay ? retryDelay(currentAttempt) : 1000
+          // 等待一段时间后重试
+          await wait(delayMs)
+          // 重试请求
+          return attemptFetch(currentAttempt + 1)
+        }
+
+        // 重试次数用完，抛出友好的错误信息
+        throw new AppException(errorMessage, {
+          type: ErrorType.Network,
+          details: { attempts: currentAttempt + 1 },
+          showError: true
+        })
+      }
+
+      // 未知错误，使用友好的错误提示
+      throw new AppException(ERROR_MESSAGES.UNKNOWN, {
+        type: error instanceof TypeError ? ErrorType.Network : ErrorType.Unknown,
+        details: { attempts: currentAttempt + 1 },
+        showError: true
+      })
+    }
+  }
+
+  // 添加获取网络错误信息的辅助函数
+  function getNetworkErrorMessage(error: any): string {
+    if (!navigator.onLine) {
+      return ERROR_MESSAGES.OFFLINE
+    }
+
+    if (error.name === 'AbortError') {
+      return ERROR_MESSAGES.ABORTED
+    }
+
+    // 检查是否包含超时关键词
+    if (error.message?.toLowerCase().includes('timeout')) {
+      return ERROR_MESSAGES.TIMEOUT
+    }
+
+    return ERROR_MESSAGES.NETWORK
+  }
+
+  // 第一次执行，attempt=0
+  return attemptFetch(0)
 }
+
+export default Http
