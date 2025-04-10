@@ -108,3 +108,20 @@ export enum ShowModeEnum {
   /** 文字方式 */
   TEXT
 }
+
+/**
+ * URL前缀模块
+ */
+export enum URLEnum {
+  USER = '/user', // 用户模块
+  AUTH = '/auth', // 认证模块
+  CONFIG = '/config' // 配置模块
+}
+
+/**
+ * 接口版本
+ */
+export enum VersionEnum {
+  V1 = 'v1',
+  V2 = 'v2'
+}

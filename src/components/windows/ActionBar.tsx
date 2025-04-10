@@ -1,6 +1,6 @@
 export default defineComponent({
   name: 'ActionBar',
   setup(props, { slots }) {
-    return () => <div></div>
+    return () => <div class="action-bar" data-tauri-drag-region></div>
   }
 })

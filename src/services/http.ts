@@ -2,7 +2,8 @@ import { fetch } from '@tauri-apps/plugin-http'
 import { AppException, ErrorType } from '@/common/exception'
 import { RequestQueue } from '@/utils/RequestQueue'
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow'
-import { getCookie } from '@/utils/cookie'
+import { getCookie } from '@/utils/Cookie'
+import url from '@/api/url'
 
 // 错误信息常量
 const ERROR_MESSAGES = {
@@ -96,7 +97,64 @@ const shouldBlockRequest = async (url: string) => {
 let isRefreshing = false
 // 使用队列实现
 const requestQueue = new RequestQueue()
-async function refreshTokenAndRetry(): Promise<void> {}
+async function refreshTokenAndRetry(): Promise<string> {
+  if (isRefreshing) {
+    console.log('🔄 已有刷新请求在进行中，加入等待队列')
+
+    return new Promise((resolve) => {
+      requestQueue.enqueue(resolve, 1)
+    })
+  }
+
+  isRefreshing = true
+  try {
+    const refreshToken = getCookie('REFRESH_TOKEN')
+    if (!refreshToken) {
+      console.error('❌ 无刷新令牌')
+      throw new AppException('无刷新令牌')
+    }
+
+    console.log('📤 正在使用refreshToken获取新的token')
+    const response = await fetch(url.refreshToken, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Cookie: `REFRESH_TOKEN=${refreshToken}`
+      },
+      body: JSON.stringify({ refreshToken })
+    })
+
+    const data = await response.json()
+
+    if (!response.ok || data.status !== 200) {
+      // 重新登录
+      window.dispatchEvent(new Event('needReLogin'))
+      throw new Error('刷新令牌失败')
+    }
+
+    // 获取新的token和refreshToken
+    const token = getCookie('ACCESS_TOKEN')
+    const newRefreshToken = getCookie('REFRESH_TOKEN')
+
+    console.log('🔑 Token刷新成功', `token: ${token}, refresh_token: ${newRefreshToken}`)
+
+    if (token) {
+      await requestQueue.processQueue(token)
+
+      return token
+    }
+
+    window.dispatchEvent(new Event('needReLogin'))
+    throw new Error('刷新令牌失败')
+  } catch (error) {
+    console.error('❌ 刷新Token过程出错:', error)
+    requestQueue.clear() // 发生错误时清空队列
+    window.dispatchEvent(new Event('needReLogin'))
+    throw error
+  } finally {
+    isRefreshing = false
+  }
+}
 
 /**
  * @description HTTP 请求
@@ -197,6 +255,24 @@ async function Http<T = any>(
     url += `?${queryString}`
   }
 
+  // 添加获取网络错误信息的辅助函数
+  function getNetworkErrorMessage(error: any): string {
+    if (!navigator.onLine) {
+      return ERROR_MESSAGES.OFFLINE
+    }
+
+    if (error.name === 'AbortError') {
+      return ERROR_MESSAGES.ABORTED
+    }
+
+    // 检查是否包含超时关键词
+    if (error.message?.toLowerCase().includes('timeout')) {
+      return ERROR_MESSAGES.TIMEOUT
+    }
+
+    return ERROR_MESSAGES.NETWORK
+  }
+
   // 定义重试函数
   let tokenRefreshCount = 0 // 在闭包中存储计数器
   async function attemptFetch(currentAttempt: number): Promise<{ data: T; response: Response } | T> {
@@ -244,8 +320,8 @@ async function Http<T = any>(
           try {
             console.log('🔄 开始尝试刷新Token并重试请求')
             // 刷新token
-            await refreshTokenAndRetry()
-            console.log('🔄 使用新Token重试原请求')
+            const token = await refreshTokenAndRetry()
+            console.log('🔄 使用新Token重试原请求', `token: ${token}`)
             // 增加计数器
             tokenRefreshCount++
             return attemptFetch(currentAttempt)
@@ -320,24 +396,6 @@ async function Http<T = any>(
         showError: true
       })
     }
-  }
-
-  // 添加获取网络错误信息的辅助函数
-  function getNetworkErrorMessage(error: any): string {
-    if (!navigator.onLine) {
-      return ERROR_MESSAGES.OFFLINE
-    }
-
-    if (error.name === 'AbortError') {
-      return ERROR_MESSAGES.ABORTED
-    }
-
-    // 检查是否包含超时关键词
-    if (error.message?.toLowerCase().includes('timeout')) {
-      return ERROR_MESSAGES.TIMEOUT
-    }
-
-    return ERROR_MESSAGES.NETWORK
   }
 
   // 第一次执行，attempt=0
