@@ -72,6 +72,7 @@
     "crypto-js": "^4.2.0",
     "dayjs": "^1.11.13",
     "lodash-es": "^4.17.21",
+    "mitt": "^3.0.1",
     "naive-ui": "^2.41.0",
     "pinia": "^3.0.1",
     "pinia-plugin-persistedstate": "^4.2.0",

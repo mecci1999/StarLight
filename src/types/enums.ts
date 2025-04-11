@@ -19,7 +19,9 @@ export enum ThemeEnum {
 /** pinia存储的名称 */
 export enum StoresEnum {
   /** 设置 */
-  SETTING = 'setting'
+  SETTING = 'setting',
+  /** 置顶 */
+  ALWAYS_ON_TOP = 'alwaysOnTop'
 }
 
 /**
@@ -124,4 +126,14 @@ export enum URLEnum {
 export enum VersionEnum {
   V1 = 'v1',
   V2 = 'v2'
+}
+
+/**
+ * Mitt事件类型
+ */
+export enum MittEnum {
+  /** 缩小窗口 */
+  SHRINK_WINDOW = 'windowShrink',
+  /** 触发home窗口事件 */
+  HOME_WINDOW_RESIZE = 'homeWindowResize'
 }
