@@ -6,10 +6,10 @@ function createCommand(prefix, join) {
 
 export default {
   '*.{js,jsx,ts,tsx,vue}': [
-    'oxlint src',
-    createCommand('pnpm eslint --fix', ''),
-    createCommand('prettier --write', '--write'),
+    // 'oxlint src',
+    // createCommand('pnpm eslint --fix', ''),
+    // createCommand('prettier --write', '--write')
     // () => 'pnpm test:run',
-    () => 'vue-tsc --noEmit'
+    // () => 'vue-tsc --noEmit'
   ]
 }

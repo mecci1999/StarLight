@@ -56,8 +56,14 @@ export default defineComponent({
       },
       Button: {
         borderRadiusMedium: '10px',
-        borderRadiusSmall: '6px',
-        colorPrimary: '#165dff'
+        borderRadiusSmall: '4px',
+        colorPrimary: 'var(--color-primary-6)',
+        colorHoverPrimary: 'var(--color-primary-5)',
+        colorSecondary: 'var(--color-secondary)',
+        colorSecondaryHover: 'var(--color-secondary-hover)',
+        borderPrimary: 'var(--color-primary-6)',
+        borderFocusPrimary: 'var(--color-primary-6)',
+        borderHoverPrimary: 'var(--color-primary-5)'
       },
       Tabs: {
         tabTextColorSegment: '#707070',
@@ -105,6 +111,9 @@ export default defineComponent({
       },
       Notification: {
         borderRadius: '8px'
+      },
+      Modal: {
+        boxShadow: 'var(--shadow-center-3)'
       }
     }
 

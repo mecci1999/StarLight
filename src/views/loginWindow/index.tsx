@@ -1,5 +1,6 @@
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
 import { useWindow } from '@/hooks/useWindow'
+import WindowActionBar from '@/components/WindowActionBar'
 
 export default defineComponent({
   name: 'LoginWindow',
@@ -14,6 +15,11 @@ export default defineComponent({
       await getCurrentWebviewWindow().show()
     })
 
-    return () => <div>登录页面</div>
+    return () => (
+      <div class={'login-window bg-[--color-bg-1] size-full rounded-8px select-none'} data-tauri-drag-region>
+        {/* 窗口顶部操作栏 */}
+        <WindowActionBar maxW={false} shrink={false} />
+      </div>
+    )
   }
 })

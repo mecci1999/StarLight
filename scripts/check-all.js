@@ -35,7 +35,7 @@ async function main() {
       description: '配置文件检查'
     },
     {
-      script: join(__dirname, 'check-dependenceies.js'),
+      script: join(__dirname, 'check-dependencies.js'),
       description: '环境检查'
     }
   ]

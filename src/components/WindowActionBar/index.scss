@@ -1,0 +1,15 @@
+.hover-box {
+  @apply w-28px h-24px flex-center hover:bg-[--color-fill-3];
+}
+
+.action-close {
+  @apply w-28px h-24px flex-center cursor-pointer hover:bg-#c22b1c svg:hover:color-[#fff];
+}
+
+.n-modal {
+  // align-self: start;
+  margin: 60px auto;
+  &-mask {
+    background-color: var(--color-mask-bg) !important;
+  }
+}
