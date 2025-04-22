@@ -38,7 +38,7 @@ export default defineComponent({
 
     const commonTheme: GlobalThemeOverrides = {
       Input: {
-        borderRadius: '10px',
+        borderRadius: '4px',
         borderHover: '0',
         border: '0',
         borderDisabled: '0',
@@ -46,33 +46,39 @@ export default defineComponent({
         boxShadowFocus: '0'
       },
       Checkbox: {
-        colorChecked: '#165dff',
-        borderChecked: '1px solid #165dff',
-        borderFocus: '1px solid #165dff',
+        colorChecked: 'var(--color-primary-6)',
+        borderChecked: '1px solid var(--color-primary-6)',
+        borderFocus: '1px solid var(--color-primary-6)',
         boxShadowFocus: '0 0 0 2px rgba(22,93,255, 0.3)'
       },
       Tag: {
         borderRadius: '4px'
       },
       Button: {
-        borderRadiusMedium: '10px',
+        borderRadiusMedium: '6px',
         borderRadiusSmall: '4px',
         colorPrimary: 'var(--color-primary-6)',
         colorHoverPrimary: 'var(--color-primary-5)',
+        colorPressedPrimary: 'var(--color-primary-7)',
+        colorDisabledPrimary: 'var(--color-primary-3)',
+        colorFocusPrimary: 'var(--color-primary-7)',
         colorSecondary: 'var(--color-secondary)',
         colorSecondaryHover: 'var(--color-secondary-hover)',
         borderPrimary: 'var(--color-primary-6)',
-        borderFocusPrimary: 'var(--color-primary-6)',
-        borderHoverPrimary: 'var(--color-primary-5)'
+        borderFocusPrimary: 'var(--color-primary-7)',
+        borderHoverPrimary: 'var(--color-primary-5)',
+        borderPressedPrimary: 'var(--color-primary-7)',
+        borderDisabledPrimary: 'var(--color-primary-3)',
+        rippleColorPrimary: 'var(--color-primary-7)'
       },
       Tabs: {
         tabTextColorSegment: '#707070',
         tabPaddingMediumSegment: '4px',
-        tabTextColorActiveLine: '#165dff',
-        tabTextColorHoverLine: '#165dff',
-        tabTextColorActiveBar: '#165dff',
-        tabTextColorHoverBar: '#165dff',
-        barColor: '#165dff'
+        tabTextColorActiveLine: 'var(--color-primary-6)',
+        tabTextColorHoverLine: 'var(--color-primary-6)',
+        tabTextColorActiveBar: 'var(--color-primary-6)',
+        tabTextColorHoverBar: 'var(--color-primary-6)',
+        barColor: 'var(--color-primary-6)'
       },
       Popover: {
         padding: '5px',
@@ -85,28 +91,28 @@ export default defineComponent({
         border: '1px solid #fff'
       },
       Switch: {
-        railColorActive: '#165dff',
-        loadingColor: '#165dff',
+        railColorActive: 'var(--color-primary-6)',
+        loadingColor: 'var(--color-primary-6)',
         boxShadowFocus: '0 0 0 2px rgba(22,93,255, 0.3)'
       },
       Radio: {
-        boxShadowActive: 'inset 0 0 0 1px #165dff',
-        boxShadowFocus: 'inset 0 0 0 1px #165dff,0 0 0 2px rgba(22,93,255, 0.3)',
-        boxShadowHover: 'inset 0 0 0 1px #165dff',
-        dotColorActive: '#165dff'
+        boxShadowActive: 'inset 0 0 0 1px var(--color-primary-6)',
+        boxShadowFocus: 'inset 0 0 0 1px var(--color-primary-6),0 0 0 2px rgba(22,93,255, 0.3)',
+        boxShadowHover: 'inset 0 0 0 1px var(--color-primary-6)',
+        dotColorActive: 'var(--color-primary-6)'
       },
       Message: {
-        iconColorSuccess: '#165dff',
-        iconColorLoading: '#165dff',
-        loadingColor: '#165dff',
+        iconColorSuccess: 'var(--color-primary-6)',
+        iconColorLoading: 'var(--color-primary-6)',
+        loadingColor: 'var(--color-primary-6)',
         borderRadius: '8px'
       },
       Slider: {
         handleSize: '12px',
         fontSize: '10px',
         markFontSize: '8px',
-        fillColor: '#165dff',
-        fillColorHover: '#165dff',
+        fillColor: 'var(--color-primary-6)',
+        fillColorHover: 'var(--color-primary-6)',
         indicatorBorderRadius: '8px'
       },
       Notification: {
@@ -119,6 +125,11 @@ export default defineComponent({
 
     /** 浅色模式的主题颜色 */
     const lightThemeOverrides: GlobalThemeOverrides = {
+      common: {
+        primaryColor: '#165dff',
+        primaryColorHover: '#4080ff',
+        primaryColorPressed: '#0e42d2'
+      },
       ...commonTheme,
       Scrollbar: {
         color: '#d5d5d5',
@@ -132,6 +143,11 @@ export default defineComponent({
 
     /** 深色模式的主题颜色 */
     const darkThemeOverrides: GlobalThemeOverrides = {
+      common: {
+        primaryColor: '#3c7eff',
+        primaryColorHover: '#306fff',
+        primaryColorPressed: '#689fff'
+      },
       ...commonTheme,
       Scrollbar: {
         color: 'rgba(255, 255, 255, 0.2)',

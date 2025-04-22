@@ -1,5 +1,4 @@
 import { defineConfig } from '@unocss/vite'
-import presetUno from '@unocss/preset-uno'
 import transformerDirectives from '@unocss/transformer-directives' // 设置指令
 import transformerVariantGroup from '@unocss/transformer-variant-group' // 解决繁琐的多次写前缀的情况
 import presetWind3 from '@unocss/preset-wind3'

@@ -21,7 +21,9 @@ export enum StoresEnum {
   /** 设置 */
   SETTING = 'setting',
   /** 置顶 */
-  ALWAYS_ON_TOP = 'alwaysOnTop'
+  ALWAYS_ON_TOP = 'alwaysOnTop',
+  /** 登录历史 */
+  LOGIN_HISTORY = 'loginHistory'
 }
 
 /**

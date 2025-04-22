@@ -2,7 +2,7 @@
 * {
   font-family: var(--font-family), sans-serif !important;
   font-weight: 500 !important;
-  caret-color: #165dff !important; /* 改变输入框光标的颜色 */
+  caret-color: var(--color-primary-6) !important; /* 改变输入框光标的颜色 */
 }
 html,
 body,
@@ -229,7 +229,7 @@ html[data-theme='dark'] {
   --color-bg-4: #313132; // 三级容器背景
   --color-bg-3: #2a2a2b; // 二级容器背景
   --color-bg-2: #232324; // 一级容器背景
-  --color-bg-1: #111111; // 整体背景色
+  --color-bg-1: #1f1f1f; // 整体背景色
   --color-bg-white: #f6f6f6; // 白色
 
   // 成功色
@@ -411,10 +411,10 @@ html[data-blur='1'] {
 
 /**! 修改naive-ui Popselect选中的样式 */
 .n-base-select-menu .n-base-select-option.n-base-select-option--selected {
-  color: #13987f;
+  color: var(--color-primary-6);
 }
 .n-base-select-menu .n-base-select-option .n-base-select-option__check {
-  color: #13987f;
+  color: var(--color-primary-6);
 }
 
 /**! 通用菜单项目样式 */
@@ -480,6 +480,9 @@ html[data-blur='1'] {
   &.n-button--primary {
     border: 1px solid transparent;
     &:hover {
+      border: 1px solid transparent !important;
+    }
+    &:active {
       border: 1px solid transparent !important;
     }
   }
