@@ -417,6 +417,37 @@ html[data-blur='1'] {
   color: var(--color-primary-6);
 }
 
+/**! 修改naive-ui Message组件的样式 */
+.n-message {
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background-color: var(--color-bg-5);
+  color: var(--color-text-1);
+
+  &__icon--error-type {
+    i {
+      color: var(--color-danger-6) !important;
+    }
+  }
+
+  &__icon--info-type {
+    i {
+      color: var(--color-primary-6) !important;
+    }
+  }
+  &__icon--success-type {
+    i {
+      color: var(--color-success-6) !important;
+    }
+  }
+  &__icon--warning-type {
+    i {
+      color: var(--color-warning-6) !important;
+    }
+  }
+}
+
 /**! 通用菜单项目样式 */
 @mixin menu-item-style($position: fixed) {
   position: $position;
@@ -483,6 +514,9 @@ html[data-blur='1'] {
       border: 1px solid transparent !important;
     }
     &:active {
+      border: 1px solid transparent !important;
+    }
+    &:focus {
       border: 1px solid transparent !important;
     }
   }

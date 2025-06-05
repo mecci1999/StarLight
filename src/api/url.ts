@@ -15,7 +15,7 @@ export default {
   emailVerifyCode: `${prefix + URLEnum.AUTH}/${VersionEnum.V1}/verifyCode`, // 邮箱验证码
   login: `${prefix + URLEnum.AUTH}/${VersionEnum.V1}/login`, // 邮箱密码登录
   logout: `${prefix + URLEnum.AUTH}/${VersionEnum.V1}/logout`, // 退出登录
-  refreshToken: `${prefix + URLEnum.AUTH}/${VersionEnum.V1}/refreshToken`, // 续签
+  refreshToken: `${prefix + URLEnum.AUTH}/${VersionEnum.V1}/refresh`, // 续签
   forgetPassword: `${prefix + URLEnum.AUTH}/${VersionEnum.V1}/forgetHash`, // 忘记密码
   updatePassword: `${prefix + URLEnum.AUTH}/${VersionEnum.V1}/updateHash`, // 更新密码
   getRSAKey: `${prefix + URLEnum.AUTH}/${VersionEnum.V1}/rsa/getKey`, // 获取RSA密钥对
@@ -24,7 +24,8 @@ export default {
   getQRCodeStatus: `${prefix + URLEnum.AUTH}/${VersionEnum.V1}/qrcode/status`, // 获取二维码状态
   scanQRcode: `${prefix + URLEnum.AUTH}/${VersionEnum.V1}/qrcode/scan`, // 移动端扫描二维码
   confirmQRcode: `${prefix + URLEnum.AUTH}/${VersionEnum.V1}/qrcode/confirm`, // 移动端确认登录
-  cancelQRcode: `${prefix + URLEnum.AUTH}/${VersionEnum.V1}/qrcode/cancel` // 移动端取消登录
+  cancelQRcode: `${prefix + URLEnum.AUTH}/${VersionEnum.V1}/qrcode/cancel`, // 移动端取消登录
 
   // 用户模块
+  getUserInfo: `${prefix + URLEnum.USER}/${VersionEnum.V1}/getUserInfo` // 获取用户信息
 }

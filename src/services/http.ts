@@ -78,7 +78,7 @@ const shouldBlockRequest = async (url: string) => {
     if (!isLoginWindow) return false
 
     // 登录相关的接口永远不阻止
-    if (url.includes('/login') || url.includes('/refreshToken')) return false
+    if (url.includes('/login') || url.includes('/refreshToken') || url.includes('qrcode')) return false
 
     // 检查是否已登录成功(有双token)
     const hasToken = getCookie('ACCESS_TOKEN')
@@ -95,6 +95,7 @@ const shouldBlockRequest = async (url: string) => {
 
 // 添加一个标记,避免多个请求同时刷新token
 let isRefreshing = false
+
 // 使用队列实现
 const requestQueue = new RequestQueue()
 async function refreshTokenAndRetry(): Promise<string> {
@@ -107,6 +108,7 @@ async function refreshTokenAndRetry(): Promise<string> {
   }
 
   isRefreshing = true
+
   try {
     const refreshToken = getCookie('REFRESH_TOKEN')
     if (!refreshToken) {
@@ -306,7 +308,7 @@ async function Http<T = any>(
         case 422: {
           break
         }
-        case 40004: {
+        case 40001: {
           // 限制token刷新重试次数，最多重试一次
           if (tokenRefreshCount >= 1) {
             console.log('🚫 Token刷新重试次数超过限制，退出重试')

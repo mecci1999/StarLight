@@ -3,6 +3,10 @@ import { useSettingStore } from '@/store/setting'
 import { useNetwork } from '@vueuse/core'
 import { NAvatar, NButton, NCheckbox, NFlex, NInput, NScrollbar } from 'naive-ui'
 import { getCookie } from '@/utils/Cookie'
+import api from '@/api'
+import { useRouter } from 'vue-router'
+import { UserInfoType } from '@/types/userInfo'
+import { useWindow } from '@/hooks/useWindow'
 
 export default defineComponent({
   name: 'LoginWindowContentEmail',
@@ -13,11 +17,13 @@ export default defineComponent({
     }
   },
   setup(props, { slots }) {
-    const { loginHistories } = useLoginHistoriesStore()
+    const { loginHistories, addLoginHistory, removeLoginHistory } = useLoginHistoriesStore()
     // 网络连接是否正常
     const { isOnline } = useNetwork()
     const settingStore = useSettingStore()
     const { login } = storeToRefs(settingStore)
+    const router = useRouter()
+    const { createWebviewWindow } = useWindow()
 
     const TOKEN = ref(getCookie('ACCESS_TOKEN'))
     const REFRESH_TOKEN = ref(getCookie('REFRESH_TOKEN'))
@@ -39,13 +45,19 @@ export default defineComponent({
       passwordPH: '请输入密码',
       loginDisabled: !isOnline.value, // 登录按钮禁用状态
       emailValid: false, // 邮箱输入框是否有效
+      passwordValid: false, // 密码输入框是否有效
+      passwordErrorMsg: '', // 密码错误信息
       validCode: '', // 邮箱验证码
+      validCodeValid: false, // 验证码是否有效
+      validCodeErrorMsg: '', // 验证码错误信息
       countdown: 0, // 验证码倒计时
-      countdownTimer: null as any // 倒计时定时器
+      countdownTimer: null as any, // 倒计时定时器
+      loginErrorMsg: '', // 登录错误信息
+      showLoginError: false // 是否显示登录错误
     })
 
     const loginText = computed(() => {
-      return isOnline.value ? (isAutoLogin.value ? '登录' : '登录') : '网络异常'
+      return isOnline.value ? (isAutoLogin.value ? '自动登录' : '登录') : '网络异常'
     })
 
     const validCodeText = computed(() => {
@@ -54,7 +66,13 @@ export default defineComponent({
 
     // 登录按钮的禁用状态
     watchEffect(() => {
-      state.loginDisabled = !(state.info.email && state.info.password && props.protocol && isOnline.value)
+      state.loginDisabled = !(
+        state.info.email &&
+        state.info.password &&
+        state.validCode &&
+        props.protocol &&
+        isOnline.value
+      )
     })
 
     // 监听网络连接状态
@@ -65,29 +83,181 @@ export default defineComponent({
     /**
      * 选择账号
      */
-    const giveAccount = (item: any) => {
+    const giveAccount = (item: UserInfoType) => {
       state.info.email = item.email
+      state.info.password = item.hash || ''
+      state.info.avatar = item.avatar
+      state.info.nickname = item.nickName
+      state.info.userId = item.userId
+      state.arrowStatus = false
     }
 
     /**
      * 删除账号
      */
-    const deleteAccount = (item: any) => {}
+    const deleteAccount = (item: UserInfoType, e: Event) => {
+      e.stopPropagation()
+      window.$dialog.warning({
+        title: '删除账号',
+        content: `确定要删除账号 ${item.email} 吗？`,
+        positiveText: '确定',
+        negativeText: '取消',
+        onPositiveClick: () => {
+          removeLoginHistory(item)
+          window.$message.success('删除成功')
+        }
+      })
+    }
 
     /**
      * 登录
      */
-    const normalLogin = async () => {}
+    const normalLogin = async () => {
+      // 如果按钮处于禁用状态或正在加载中，不执行登录操作
+      if (state.loading) return
+
+      // 重置错误状态
+      state.emailValid = false
+      state.passwordValid = false
+      state.validCodeValid = false
+      state.showLoginError = false
+
+      // 验证邮箱格式
+      const emailReg = /^[a-zA-Z0-9_-]+@[a-zA-Z0-9_-]+(\.[a-zA-Z0-9_-]+)+$/
+      if (!emailReg.test(state.info.email)) {
+        state.emailValid = true
+        return
+      }
+
+      // 验证密码长度
+      if (state.info.password.length < 6 || state.info.password.length > 32) {
+        state.passwordValid = true
+        state.passwordErrorMsg = '密码长度应为6-32位'
+        return
+      }
+
+      // 验证验证码
+      if (!state.validCode || state.validCode.length !== 6) {
+        state.validCodeValid = true
+        state.validCodeErrorMsg = '请输入6位验证码'
+        return
+      }
+
+      try {
+        // 设置加载状态
+        state.loading = true
+
+        // 调用登录API
+        const response = await api.login({
+          email: state.info.email,
+          hash: state.info.password,
+          code: state.validCode
+        })
+
+        // 登录成功后的处理
+        console.log('登录成功', response)
+        window.$message.success('登录成功')
+
+        // 如果记住密码，保存登录信息到历史记录
+        // if (state.info.remember) {
+        //   const userInfo: UserInfoType = {
+        //     userId: response.userId || state.info.userId,
+        //     email: state.info.email,
+        //     password: state.info.remember ? state.info.password : undefined,
+        //     avatar: response.avatar || state.info.avatar || '',
+        //     nickName: response.nickName || state.info.nickname || state.info.email,
+        //     userStateId: response.userStateId || '',
+        //     avatarUpdateTime: response.avatarUpdateTime || Date.now(),
+        //     client: 'desktop'
+        //   }
+        //   addLoginHistory(userInfo)
+        // }
+
+        // 更新登录设置
+        settingStore.login.autoLogin = state.info.remember
+
+        // 跳转到主界面
+        setTimeout(async () => {
+          await createWebviewWindow('StarLight', 'home', 1080, 720, 'login', true)
+        }, 1000)
+      } catch (error: any) {
+        console.error('登录失败:', error)
+        state.showLoginError = true
+        state.loginErrorMsg = error?.message || '登录失败，请检查账号密码和验证码'
+        window.$message.error(state.loginErrorMsg)
+      } finally {
+        // 无论成功失败，都关闭加载状态
+        state.loading = false
+      }
+    }
 
     /**
      * 忘记密码
      */
-    const handleForget = () => {}
+    const handleForget = () => {
+      window.$dialog.info({
+        title: '忘记密码',
+        content: '请输入您的邮箱，我们将发送重置密码的链接到您的邮箱',
+        positiveText: '发送',
+        negativeText: '取消',
+        onPositiveClick: async () => {
+          try {
+            if (!state.info.email) {
+              window.$message.warning('请先输入邮箱')
+              return
+            }
+
+            const emailReg = /^[a-zA-Z0-9_-]+@[a-zA-Z0-9_-]+(\.[a-zA-Z0-9_-]+)+$/
+            if (!emailReg.test(state.info.email)) {
+              window.$message.warning('请输入有效的邮箱')
+              return
+            }
+
+            // 发送验证码
+            await api.verifyCode({
+              email: state.info.email,
+              type: 'forget'
+            })
+
+            window.$message.success('验证码已发送，请查收邮件')
+
+            // 弹出重置密码对话框
+            // window.$dialog.info({
+            //   title: '重置密码',
+            //   content: '请输入您收到的验证码',
+            //   positiveText: '确定',
+            //   negativeText: '取消',
+            //   onPositiveClick: async (e) => {
+            //     const code = e?.target?.value
+            //     if (!code || code.length !== 6) {
+            //       window.$message.warning('请输入6位验证码')
+            //       return false
+            //     }
+
+            //     try {
+            //       await api.forgetPassword({
+            //         email: state.info.email,
+            //         hash: '',
+            //         code
+            //       })
+            //       window.$message.success('密码重置链接已发送到您的邮箱')
+            //     } catch (error) {
+            //       window.$message.error('重置密码失败，请重试')
+            //       return false
+            //     }
+            //   }
+            // })
+          } catch (error) {
+            window.$message.error('发送验证码失败，请重试')
+          }
+        }
+      })
+    }
 
     /**
      * 发送验证码
      */
-    const handleValidCode = () => {
+    const handleValidCode = async () => {
       // 如果倒计时大于0，不允许再次发送
       if (state.countdown > 0) return
 
@@ -98,18 +268,46 @@ export default defineComponent({
         return
       }
 
-      // 发送验证码
-      // TODO: 这里添加发送验证码的API调用
+      try {
+        // 发送验证码
+        await api.verifyCode({
+          email: state.info.email,
+          type: 'login'
+        })
 
-      // 开始倒计时
-      state.countdown = 60
-      state.countdownTimer = setInterval(() => {
-        state.countdown--
-        if (state.countdown <= 0) {
-          clearInterval(state.countdownTimer)
-          state.countdownTimer = null
+        window.$message.success('验证码已发送，请查收邮件')
+
+        // 开始倒计时
+        state.countdown = 60
+        state.countdownTimer = setInterval(() => {
+          state.countdown--
+          if (state.countdown <= 0) {
+            clearInterval(state.countdownTimer)
+            state.countdownTimer = null
+          }
+        }, 1000)
+      } catch (error) {
+        window.$message.error('发送验证码失败，请重试')
+      }
+    }
+
+    // 自动登录
+    const autoLogin = async () => {
+      if (isAutoLogin.value) {
+        try {
+          state.loading = true
+          // 这里可以添加自动登录的逻辑
+          // 例如使用保存的token直接登录
+
+          setTimeout(async () => {
+            await createWebviewWindow('StarLight', 'home', 1080, 720, 'login', true)
+            state.loading = false
+          }, 1000)
+        } catch (error) {
+          state.loading = false
+          isAutoLogin.value = false
         }
-      }, 1000)
+      }
     }
 
     // 组件卸载时清除定时器
@@ -120,7 +318,12 @@ export default defineComponent({
       }
     })
 
-    onMounted(async () => {})
+    onMounted(async () => {
+      // 如果设置了自动登录，则自动登录
+      if (isAutoLogin.value) {
+        autoLogin()
+      }
+    })
 
     return () => (
       <NFlex class="ma text-center h-full" size={0} vertical={true}>
@@ -133,6 +336,7 @@ export default defineComponent({
           value={state.info.email}
           onUpdateValue={(value) => {
             state.info.email = value
+            state.emailValid = false
           }}
           type={'text'}
           placeholder={state.emailPH}
@@ -189,13 +393,12 @@ export default defineComponent({
                     onClick={() => {
                       giveAccount(item)
                     }}>
-                    <NAvatar class="size-28px bg-#ccc rounded-50%"></NAvatar>
+                    <NAvatar class="size-28px bg-#ccc rounded-50%" src={item.avatar}></NAvatar>
                     <p class="text-14px color-[--color-text-2]">{item.email}</p>
                     <svg
                       class="w-12px h-12px"
                       onClick={(e) => {
-                        e.stopPropagation()
-                        deleteAccount(item)
+                        deleteAccount(item, e)
                       }}>
                       <use href="#close" />
                     </svg>
@@ -215,11 +418,19 @@ export default defineComponent({
           value={state.info.password}
           onUpdateValue={(value) => {
             state.info.password = value
+            state.passwordValid = false
           }}
           showPasswordOn={'click'}
           type={'password'}
           placeholder={state.passwordPH}
           clearable={true}></NInput>
+
+        {/* 密码错误提示 */}
+        {state.passwordValid ? (
+          <div class="text-12px text-left absolute" style="top: 110px;">
+            <span class={'color-[--color-danger-6]'}>{state.passwordErrorMsg}</span>
+          </div>
+        ) : null}
 
         {/* 验证码 */}
         <NInput
@@ -229,6 +440,7 @@ export default defineComponent({
           value={state.validCode}
           onUpdateValue={(value) => {
             state.validCode = value
+            state.validCodeValid = false
           }}
           type={'text'}
           placeholder={'请输入验证码'}
@@ -236,11 +448,21 @@ export default defineComponent({
           {{
             suffix: () => (
               <div onClick={handleValidCode}>
-                <span class={'text-14px color-[--color-primary-6] cursor-pointer'}>{validCodeText.value}</span>
+                <span
+                  class={`text-14px ${state.countdown > 0 ? 'color-[--color-text-3]' : 'color-[--color-primary-6] cursor-pointer'}`}>
+                  {validCodeText.value}
+                </span>
               </div>
             )
           }}
         </NInput>
+
+        {/* 验证码错误提示 */}
+        {state.validCodeValid ? (
+          <div class="text-12px text-left absolute" style="top: 170px;">
+            <span class={'color-[--color-danger-6]'}>{state.validCodeErrorMsg}</span>
+          </div>
+        ) : null}
 
         <NFlex justify={'space-between'} class={'mb-12px'}>
           {/* 记住密码 */}
@@ -261,8 +483,21 @@ export default defineComponent({
           </div>
         </NFlex>
 
+        {/* 登录错误提示 */}
+        {state.showLoginError ? (
+          <div class="text-12px text-center mb-8px">
+            <span class={'color-[--color-danger-6]'}>{state.loginErrorMsg}</span>
+          </div>
+        ) : null}
+
         {/* 按钮 */}
-        <NButton loading={state.loading} class="w-full h-40px mt-8px mb-24px" onClick={normalLogin} type={'primary'}>
+        <NButton
+          loading={state.loading}
+          class="w-full h-40px mt-8px mb-24px"
+          onClick={normalLogin}
+          type={'primary'}
+          // disabled={state.loginDisabled}
+        >
           <span>{loginText.value}</span>
         </NButton>
       </NFlex>

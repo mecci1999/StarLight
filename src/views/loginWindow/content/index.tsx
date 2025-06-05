@@ -52,7 +52,7 @@ export default defineComponent({
         {/* 头部 */}
         <div class="header">
           <div class="title flex-center">{loginText.value}</div>
-          <div class="sub-title flex-center">还有有不落幕的星光✨，给你宇宙级别的浪漫～</div>
+          <div class="sub-title flex-center">还有永不落幕的星光✨，给你宇宙级别的浪漫～</div>
         </div>
         {/* 内容 */}
         <div class="content">
