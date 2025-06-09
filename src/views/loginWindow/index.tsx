@@ -8,18 +8,6 @@ import './index.scss'
 export default defineComponent({
   name: 'LoginWindow',
   setup(props, { slots }) {
-    const { createWebviewWindow } = useWindow()
-    /** 网络连接是否正常 */
-    const { isOnline } = useNetwork()
-
-    const state = reactive({
-      mode: 'e'
-    })
-
-    const openHomeWindow = async () => {
-      await createWebviewWindow('StarLight', 'home', 1080, 720, 'login', true)
-    }
-
     onMounted(async () => {
       await getCurrentWebviewWindow().show()
     })

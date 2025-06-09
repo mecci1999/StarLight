@@ -12,7 +12,7 @@ export type UserInfoType = {
   /** 权限 */
   isAdmin: boolean
   /** 注册来源 */
-  source: string
+  source?: string
   /** 用户状态 */
   status: string
   /** 客户端 */
@@ -20,11 +20,11 @@ export type UserInfoType = {
   /** 最后登录时间 */
   lastActiveAt: string
   /** 设备信息 */
-  devices: { [key: string]: any }
+  devices?: { [key: string]: any }
   /** 元数据 */
-  meta: { [key: string]: any }
+  meta?: { [key: string]: any }
   /** 时区 */
-  timezone: string
+  timezone?: string
   /** 语言 */
-  locale: string
+  locale?: string
 }

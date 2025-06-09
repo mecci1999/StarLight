@@ -1,0 +1,354 @@
+/**
+ * 注册页面
+ */
+import { useNetwork } from '@vueuse/core'
+import { NButton, NFlex, NInput } from 'naive-ui'
+import api from '@/api'
+import { RegisterUserReq } from '@/types/login'
+import { encryptPassword } from '@/utils/Crypto'
+
+export default defineComponent({
+  name: 'LoginWindowContentRegister',
+  props: {
+    protocol: {
+      type: Boolean,
+      default: true
+    }
+  },
+  emits: ['switchMode'],
+  setup(props, { slots, emit }) {
+    // 网络连接是否正常
+    const { isOnline } = useNetwork()
+
+    const state = reactive({
+      loading: false, // 注册按钮加载状态
+      // 注册信息
+      info: {
+        email: '',
+        password: '',
+        confirmPassword: ''
+      },
+      emailPH: '请输入邮箱',
+      passwordPH: '请输入密码',
+      confirmPasswordPH: '请确认密码',
+      registerDisabled: !isOnline.value, // 注册按钮禁用状态
+      emailValid: false, // 邮箱输入框是否有效
+      passwordValid: false, // 密码输入框是否有效
+      confirmPasswordValid: false, // 确认密码输入框是否有效
+      passwordErrorMsg: '', // 密码错误信息
+      confirmPasswordErrorMsg: '', // 确认密码错误信息
+      validCode: '', // 邮箱验证码
+      validCodeValid: false, // 验证码是否有效
+      validCodeErrorMsg: '', // 验证码错误信息
+      countdown: 0, // 验证码倒计时
+      countdownTimer: null as any, // 倒计时定时器
+      registerErrorMsg: '', // 注册错误信息
+      showRegisterError: false // 是否显示注册错误
+    })
+
+    const registerText = computed(() => {
+      return isOnline.value ? '注册' : '网络异常'
+    })
+
+    const validCodeText = computed(() => {
+      return state.countdown > 0 ? `${state.countdown}秒后可重新发送` : '获取验证码'
+    })
+
+    // 注册按钮的禁用状态
+    watchEffect(() => {
+      state.registerDisabled = !(
+        state.info.email &&
+        state.info.password &&
+        state.info.confirmPassword &&
+        state.validCode &&
+        props.protocol &&
+        isOnline.value
+      )
+    })
+
+    // 监听网络连接状态
+    watch(isOnline, (value) => {
+      state.registerDisabled = !value
+    })
+
+    /**
+     * 注册
+     */
+    const handleRegister = async () => {
+      // 如果按钮处于禁用状态或正在加载中，不执行注册操作
+      if (state.loading) return
+
+      // 重置错误状态
+      state.emailValid = false
+      state.passwordValid = false
+      state.confirmPasswordValid = false
+      state.validCodeValid = false
+      state.showRegisterError = false
+
+      // 验证邮箱格式
+      const emailReg = /^[a-zA-Z0-9_.-]+@[a-zA-Z0-9-]+(\.[-zA-Z0-9-]+)*\.[a-zA-Z0-9]{2,6}$/
+      if (!emailReg.test(state.info.email)) {
+        state.emailValid = true
+        return
+      }
+
+      // 验证密码长度
+      if (state.info.password.length < 6 || state.info.password.length > 32) {
+        state.passwordValid = true
+        state.passwordErrorMsg = '密码长度应为6-32位'
+        return
+      }
+
+      // 验证密码强度（至少包含字母和数字）
+      const passwordReg = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d@$!%*#?&]{6,32}$/
+      if (!passwordReg.test(state.info.password)) {
+        state.passwordValid = true
+        state.passwordErrorMsg = '密码必须包含字母和数字'
+        return
+      }
+
+      // 验证确认密码
+      if (state.info.password !== state.info.confirmPassword) {
+        state.confirmPasswordValid = true
+        state.confirmPasswordErrorMsg = '两次输入的密码不一致'
+        return
+      }
+
+      // 验证验证码
+      if (!state.validCode || state.validCode.length !== 6) {
+        state.validCodeValid = true
+        state.validCodeErrorMsg = '请输入6位验证码'
+        return
+      }
+
+      try {
+        // 设置加载状态
+        state.loading = true
+
+        // 从环境变量中获取密码加密密钥
+        const secretKey = import.meta.env.VITE_PASSWORD_SECRET_KEY as string
+
+        // 加密密码
+        const hash = encryptPassword(state.info.password, secretKey)
+
+        // 调用注册API
+        const registerData: RegisterUserReq = {
+          email: state.info.email,
+          hash: hash,
+          code: state.validCode
+        }
+
+        const response = await api.register(registerData)
+
+        // 注册成功后的处理
+        console.log('注册成功', response)
+        window.$message.success('注册成功，跳转到登录页面')
+
+        // 清空表单
+        state.info.email = ''
+        state.info.password = ''
+        state.info.confirmPassword = ''
+        state.validCode = ''
+
+        // 延迟1秒后切换到登录模式
+        setTimeout(() => {
+          emit('switchMode', 'login')
+        }, 1000)
+      } catch (error: any) {
+        console.error('注册失败:', error)
+        state.showRegisterError = true
+        state.registerErrorMsg = error?.message || '注册失败，请检查信息后重试'
+        window.$message.error(state.registerErrorMsg)
+      } finally {
+        // 无论成功失败，都关闭加载状态
+        state.loading = false
+      }
+    }
+
+    /**
+     * 发送验证码
+     */
+    const handleValidCode = async () => {
+      // 如果倒计时大于0，不允许再次发送
+      if (state.countdown > 0) return
+
+      // 判断邮箱是否正确
+      const reg = /^[a-zA-Z0-9_.-]+@[a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)*\.[a-zA-Z0-9]{2,6}$/
+      if (!reg.test(state.info.email)) {
+        state.emailValid = true
+        window.$message.error('请填写正确的邮箱帐号')
+        return
+      }
+
+      try {
+        // 发送验证码
+        await api.verifyCode({
+          email: state.info.email,
+          type: 'register'
+        })
+
+        window.$message.success('验证码已发送，请查收邮件')
+
+        // 开始倒计时
+        state.countdown = 60
+        state.countdownTimer = setInterval(() => {
+          state.countdown--
+          if (state.countdown <= 0) {
+            clearInterval(state.countdownTimer)
+            state.countdownTimer = null
+          }
+        }, 1000)
+      } catch (error) {
+        console.error('发送验证码失败:', error)
+        window.$message.error('发送验证码失败，请重试')
+      }
+    }
+
+    // 组件卸载时清除定时器
+    onUnmounted(() => {
+      if (state.countdownTimer) {
+        clearInterval(state.countdownTimer)
+        state.countdownTimer = null
+      }
+    })
+
+    return () => (
+      <NFlex class="ma text-center h-full" size={0} vertical={true}>
+        {/* 邮箱账号 */}
+        <NInput
+          class={'email-input mb-22px'}
+          size={'large'}
+          maxlength={32}
+          minlength={6}
+          value={state.info.email}
+          onUpdateValue={(value) => {
+            state.info.email = value
+            state.emailValid = false
+          }}
+          type={'text'}
+          placeholder={state.emailPH}
+          clearable={true}
+          onBlur={() => {
+            // 判断邮箱是否有效
+            if (state.info.email.length > 0) {
+              // 使用正则判断邮箱，修复了对qq邮箱的支持
+              const reg = /^[a-zA-Z0-9_.-]+@[a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)*\.[a-zA-Z0-9]{2,6}$/
+              if (!reg.test(state.info.email)) {
+                state.emailValid = true
+              } else {
+                state.emailValid = false
+              }
+            } else {
+              state.emailValid = false
+            }
+          }}
+        />
+        {/* 邮箱无效错误提示 */}
+        {state.emailValid ? (
+          <div class="text-12px text-left absolute top-46px">
+            <span class={'color-[--color-danger-6]'}>请输入有效的邮箱账号</span>
+          </div>
+        ) : null}
+
+        {/* 密码 */}
+        <NInput
+          class={'password-input mb-22px'}
+          size={'large'}
+          maxlength={32}
+          minlength={6}
+          value={state.info.password}
+          onUpdateValue={(value) => {
+            state.info.password = value
+            state.passwordValid = false
+          }}
+          showPasswordOn={'click'}
+          type={'password'}
+          placeholder={state.passwordPH}
+          clearable={true}
+        />
+
+        {/* 密码错误提示 */}
+        {state.passwordValid ? (
+          <div class="text-12px text-left absolute" style="top: 110px;">
+            <span class={'color-[--color-danger-6]'}>{state.passwordErrorMsg}</span>
+          </div>
+        ) : null}
+
+        {/* 确认密码 */}
+        <NInput
+          class={'password-input mb-22px'}
+          size={'large'}
+          maxlength={32}
+          minlength={6}
+          value={state.info.confirmPassword}
+          onUpdateValue={(value) => {
+            state.info.confirmPassword = value
+            state.confirmPasswordValid = false
+          }}
+          showPasswordOn={'click'}
+          type={'password'}
+          placeholder={state.confirmPasswordPH}
+          clearable={true}
+        />
+
+        {/* 确认密码错误提示 */}
+        {state.confirmPasswordValid ? (
+          <div class="text-12px text-left absolute" style="top: 174px;">
+            <span class={'color-[--color-danger-6]'}>{state.confirmPasswordErrorMsg}</span>
+          </div>
+        ) : null}
+
+        {/* 验证码 */}
+        <NInput
+          class={'password-input mb-12px'}
+          size={'large'}
+          maxlength={6}
+          value={state.validCode}
+          onUpdateValue={(value) => {
+            state.validCode = value
+            state.validCodeValid = false
+          }}
+          type={'text'}
+          placeholder={'请输入验证码'}
+          clearable={true}>
+          {{
+            suffix: () => (
+              <div onClick={handleValidCode}>
+                <span
+                  class={`text-14px ${
+                    state.countdown > 0 ? 'color-[--color-text-3]' : 'color-[--color-primary-6] cursor-pointer'
+                  }`}>
+                  {validCodeText.value}
+                </span>
+              </div>
+            )
+          }}
+        </NInput>
+
+        {/* 验证码错误提示 */}
+        {state.validCodeValid ? (
+          <div class="text-12px text-left absolute" style="top: 238px;">
+            <span class={'color-[--color-danger-6]'}>{state.validCodeErrorMsg}</span>
+          </div>
+        ) : null}
+
+        {/* 注册错误提示 */}
+        {state.showRegisterError ? (
+          <div class="text-12px text-center mb-8px">
+            <span class={'color-[--color-danger-6]'}>{state.registerErrorMsg}</span>
+          </div>
+        ) : null}
+
+        {/* 按钮 */}
+        <NButton
+          loading={state.loading}
+          class="w-full h-40px mt-8px mb-24px"
+          onClick={handleRegister}
+          type={'primary'}
+          disabled={state.registerDisabled}>
+          <span>{registerText.value}</span>
+        </NButton>
+      </NFlex>
+    )
+  }
+})

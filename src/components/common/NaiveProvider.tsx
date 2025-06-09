@@ -1,20 +1,19 @@
-import {
-  dateZhCN,
-  darkTheme,
-  lightTheme,
-  GlobalThemeOverrides,
-  zhCN,
-  NConfigProvider,
-  NLoadingBarProvider,
-  NDialogProvider,
-  NNotificationProvider,
-  NModalProvider,
-  NMessageProvider
-} from 'naive-ui'
 import { useSettingStore } from '@/store/setting'
 import { ThemeEnum } from '@/types/enums'
+import {
+  darkTheme,
+  dateZhCN,
+  GlobalThemeOverrides,
+  lightTheme,
+  NConfigProvider,
+  NDialogProvider,
+  NLoadingBarProvider,
+  NMessageProvider,
+  NModalProvider,
+  NNotificationProvider,
+  zhCN
+} from 'naive-ui'
 import NavieProviderContent from './NavieProviderContent'
-import { defineProps } from 'vue'
 
 export default defineComponent({
   name: 'NavieProvider',

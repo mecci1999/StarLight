@@ -4,6 +4,7 @@ import { useNetwork } from '@vueuse/core'
 import { NCheckbox, NFlex } from 'naive-ui'
 import LoginWindowContentEmail from './mode/email'
 import LoginWindowContentQRCode from './mode/qrcode'
+import LoginWindowContentRegister from './mode/register'
 import './index.scss'
 
 export default defineComponent({
@@ -47,6 +48,13 @@ export default defineComponent({
     // 组件卸载时清除定时器
     onUnmounted(() => {})
 
+    /**
+     * 处理模式切换
+     */
+    const handleSwitchMode = (mode: string) => {
+      state.mode = mode
+    }
+
     return () => (
       <div class={'login-window-content rounded-25px'}>
         {/* 头部 */}
@@ -58,6 +66,9 @@ export default defineComponent({
         <div class="content">
           {state.mode === 'login' ? <LoginWindowContentEmail protocol={state.protocol} /> : null}
           {state.mode === 'scan' ? <LoginWindowContentQRCode protocol={state.protocol} /> : null}
+          {state.mode === 'register' ? (
+            <LoginWindowContentRegister protocol={state.protocol} onSwitchMode={handleSwitchMode} />
+          ) : null}
         </div>
         {/* 底部 */}
         <div class="footer">

@@ -7,6 +7,7 @@ import api from '@/api'
 import { useRouter } from 'vue-router'
 import { UserInfoType } from '@/types/userInfo'
 import { useWindow } from '@/hooks/useWindow'
+import { encryptPassword } from '@/utils/Crypto'
 
 export default defineComponent({
   name: 'LoginWindowContentEmail',
@@ -52,7 +53,6 @@ export default defineComponent({
       validCodeErrorMsg: '', // 验证码错误信息
       countdown: 0, // 验证码倒计时
       countdownTimer: null as any, // 倒计时定时器
-      loginErrorMsg: '', // 登录错误信息
       showLoginError: false // 是否显示登录错误
     })
 
@@ -61,7 +61,7 @@ export default defineComponent({
     })
 
     const validCodeText = computed(() => {
-      return state.countdown > 0 ? `${state.countdown}秒后重新发送` : '获取验证码'
+      return state.countdown > 0 ? `${state.countdown}秒后可重新发送` : '获取验证码'
     })
 
     // 登录按钮的禁用状态
@@ -123,7 +123,7 @@ export default defineComponent({
       state.showLoginError = false
 
       // 验证邮箱格式
-      const emailReg = /^[a-zA-Z0-9_-]+@[a-zA-Z0-9_-]+(\.[a-zA-Z0-9_-]+)+$/
+      const emailReg = /^[a-zA-Z0-9_.-]+@[a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)*\.[a-zA-Z0-9]{2,6}$/
       if (!emailReg.test(state.info.email)) {
         state.emailValid = true
         return
@@ -147,10 +147,13 @@ export default defineComponent({
         // 设置加载状态
         state.loading = true
 
+        // 加密密码
+        const hash = encryptPassword(state.info.password, import.meta.env.VITE_PASSWORD_SECRET_KEY)
+
         // 调用登录API
         const response = await api.login({
           email: state.info.email,
-          hash: state.info.password,
+          hash,
           code: state.validCode
         })
 
@@ -159,19 +162,20 @@ export default defineComponent({
         window.$message.success('登录成功')
 
         // 如果记住密码，保存登录信息到历史记录
-        // if (state.info.remember) {
-        //   const userInfo: UserInfoType = {
-        //     userId: response.userId || state.info.userId,
-        //     email: state.info.email,
-        //     password: state.info.remember ? state.info.password : undefined,
-        //     avatar: response.avatar || state.info.avatar || '',
-        //     nickName: response.nickName || state.info.nickname || state.info.email,
-        //     userStateId: response.userStateId || '',
-        //     avatarUpdateTime: response.avatarUpdateTime || Date.now(),
-        //     client: 'desktop'
-        //   }
-        //   addLoginHistory(userInfo)
-        // }
+        if (state.info.remember) {
+          const userInfo: UserInfoType = {
+            userId: response.userId || state.info.userId,
+            email: state.info.email,
+            hash: state.info.remember ? state.info.password : undefined,
+            avatar: response.userInfo?.avatar || state.info.avatar || 'star_1',
+            nickName: response.userInfo?.nickName || state.info.nickname || state.info.email,
+            client: response.userInfo?.client || 'desktop',
+            isAdmin: response.userInfo?.isAdmin || false,
+            status: response.userInfo?.status || 'active',
+            lastActiveAt: response.userInfo?.lastActiveAt || new Date().toISOString()
+          }
+          addLoginHistory(userInfo)
+        }
 
         // 更新登录设置
         settingStore.login.autoLogin = state.info.remember
@@ -183,8 +187,6 @@ export default defineComponent({
       } catch (error: any) {
         console.error('登录失败:', error)
         state.showLoginError = true
-        state.loginErrorMsg = error?.message || '登录失败，请检查账号密码和验证码'
-        window.$message.error(state.loginErrorMsg)
       } finally {
         // 无论成功失败，都关闭加载状态
         state.loading = false
@@ -207,7 +209,8 @@ export default defineComponent({
               return
             }
 
-            const emailReg = /^[a-zA-Z0-9_-]+@[a-zA-Z0-9_-]+(\.[a-zA-Z0-9_-]+)+$/
+            // 使用正则判断邮箱，修复了对qq邮箱的支持
+            const emailReg = /^[a-zA-Z0-9_.-]+@[a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)*\.[a-zA-Z0-9]{2,6}$/
             if (!emailReg.test(state.info.email)) {
               window.$message.warning('请输入有效的邮箱')
               return
@@ -262,7 +265,8 @@ export default defineComponent({
       if (state.countdown > 0) return
 
       // 判断邮箱是否正确
-      const reg = /^[a-zA-Z0-9_-]+@[a-zA-Z0-9_-]+(\.[a-zA-Z0-9_-]+)+$/
+      const reg = /^[a-zA-Z0-9_.-]+@[a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)*\.[a-zA-Z0-9]{2,6}$/
+
       if (!reg.test(state.info.email)) {
         state.emailValid = true
         return
@@ -329,7 +333,7 @@ export default defineComponent({
       <NFlex class="ma text-center h-full" size={0} vertical={true}>
         {/* 邮箱账号 */}
         <NInput
-          class={{ 'email-input': true, 'pl-16px': loginHistories.length > 0, 'mb-22px': true }}
+          class={{ 'email-input': true, 'mb-22px': true }}
           size={'large'}
           maxlength={32}
           minlength={6}
@@ -345,7 +349,8 @@ export default defineComponent({
             // 判断邮箱是否有效
             if (state.info.email.length > 0) {
               // 使用正则判断邮箱
-              const reg = /^[a-zA-Z0-9_-]+@[a-zA-Z0-9_-]+(\.[a-zA-Z0-9_-]+)+$/
+              const reg = /^[a-zA-Z0-9_.-]+@[a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)*\.[a-zA-Z0-9]{2,6}$/
+
               if (!reg.test(state.info.email)) {
                 state.emailValid = true
               } else {
@@ -359,15 +364,16 @@ export default defineComponent({
             suffix: () =>
               loginHistories.length > 0 ? (
                 <div
+                  class="flex items-center justify-between"
                   onClick={() => {
                     state.arrowStatus = !state.arrowStatus
                   }}>
                   {!state.arrowStatus ? (
-                    <svg class="down w-18px h-18px color-#505050 cursor-pointer">
+                    <svg class="down w-16px h-16px color-#505050 cursor-pointer">
                       <use href="#down"></use>
                     </svg>
                   ) : (
-                    <svg class="down w-18px h-18px color-#505050 cursor-pointer">
+                    <svg class="down w-16px h-16px color-#505050 cursor-pointer">
                       <use href="#up"></use>
                     </svg>
                   )}
@@ -384,19 +390,34 @@ export default defineComponent({
 
         {/* 账号选择框 */}
         {loginHistories.length > 0 && state.arrowStatus ? (
-          <div class="account-box absolute min-w-36px max-h-140px bg-#fdfdfd mt-45px z-99 rounded-8px p-8px box-border">
-            <NScrollbar style={{ maxHeight: '120px' }} trigger={'none'}>
-              {loginHistories.map((item) => (
-                <NFlex vertical class={'p-8px cursor-pointer hover:bg-#f3f3f3 hover:rounded-6px'}>
+          <div class="account-box absolute w-full min-h-60px  bg-white mt-45px z-99 rounded-4px p-12px box-border shadow-lg border border-solid border-[--color-border-2]">
+            <NScrollbar style={{ maxHeight: '176px' }} trigger={'hover'}>
+              {loginHistories.map((item, index) => (
+                <NFlex
+                  key={item.userId || index}
+                  vertical
+                  class={
+                    'p-8px cursor-pointer hover:bg-[--color-fill-2] rounded-8px transition-all duration-200 mb-4px last:mb-0'
+                  }>
                   <div
-                    class="account-item flex-between-center"
+                    class="account-item flex items-center w-full"
                     onClick={() => {
                       giveAccount(item)
                     }}>
-                    <NAvatar class="size-28px bg-#ccc rounded-50%" src={item.avatar}></NAvatar>
-                    <p class="text-14px color-[--color-text-2]">{item.email}</p>
+                    <div class="flex items-center flex-1 min-w-0">
+                      <NAvatar
+                        class="size-32px bg-[--color-fill-3] rounded-50% mr-12px flex-shrink-0"
+                        src={item.avatar}
+                      />
+                      <div class="flex-1 min-w-0">
+                        <p class="text-14px color-[--color-text-1] font-medium truncate mb-2px">
+                          {item.nickName || item.email}
+                        </p>
+                        <p class="text-12px color-[--color-text-3] truncate">{item.email}</p>
+                      </div>
+                    </div>
                     <svg
-                      class="w-12px h-12px"
+                      class="w-14px h-14px color-[--color-text-3] hover:color-[--color-danger-6] transition-colors duration-200 flex-shrink-0 ml-8px"
                       onClick={(e) => {
                         deleteAccount(item, e)
                       }}>
@@ -484,11 +505,11 @@ export default defineComponent({
         </NFlex>
 
         {/* 登录错误提示 */}
-        {state.showLoginError ? (
+        {/* {state.showLoginError ? (
           <div class="text-12px text-center mb-8px">
             <span class={'color-[--color-danger-6]'}>{state.loginErrorMsg}</span>
           </div>
-        ) : null}
+        ) : null} */}
 
         {/* 按钮 */}
         <NButton

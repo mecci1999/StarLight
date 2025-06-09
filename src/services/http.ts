@@ -78,7 +78,14 @@ const shouldBlockRequest = async (url: string) => {
     if (!isLoginWindow) return false
 
     // 登录相关的接口永远不阻止
-    if (url.includes('/login') || url.includes('/refreshToken') || url.includes('qrcode')) return false
+    if (
+      url.includes('/login') ||
+      url.includes('/verifyCode') ||
+      url.includes('/register') ||
+      url.includes('/refreshToken') ||
+      url.includes('qrcode')
+    )
+      return false
 
     // 检查是否已登录成功(有双token)
     const hasToken = getCookie('ACCESS_TOKEN')

@@ -18,5 +18,7 @@ export type ServiceResponse = {
     message: string
     // 响应错误码
     code: number
+    // 响应是否成功
+    success: boolean
   }
 }

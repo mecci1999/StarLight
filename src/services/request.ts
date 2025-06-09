@@ -76,6 +76,17 @@ const responseInterceptor = async <T>(
       )
     }
 
+    // 检查接口返回是否成功
+    if (!serviceData.data.success) {
+      // 展示错误信息
+      return Promise.reject(
+        new AppException(serviceData.data.message, {
+          type: ErrorType.Server,
+          showError: true
+        })
+      )
+    }
+
     return Promise.resolve(serviceData.data.content)
   } catch (error) {
     return Promise.reject(error)
