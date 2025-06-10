@@ -1,6 +1,12 @@
+import { RouterView } from 'vue-router'
+
 export default defineComponent({
   name: 'HomeContainer',
   setup(props, { slots }) {
-    return () => <div style={'background: var(----color-bg-1)'}></div>
+    return () => (
+      <div class="flex-1 h-full bg-[--color-bg-1] overflow-hidden">
+        <RouterView />
+      </div>
+    )
   }
 })

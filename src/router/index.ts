@@ -22,7 +22,166 @@ const routes: Array<RouteRecordRaw> = [
   {
     path: '/home',
     name: 'home',
-    component: () => import('@/layout/index')
+    component: () => import('@/layout/index'),
+    redirect: '/home/service-topology',
+    children: [
+      // 📋 服务总览模块
+      {
+        path: 'service-topology',
+        name: 'service-topology',
+        component: () => import('@/views/homeWindow/service/topology')
+      },
+      {
+        path: 'service-list',
+        name: 'service-list',
+        component: () => import('@/views/homeWindow/service/list')
+      },
+      {
+        path: 'instance-monitor',
+        name: 'instance-monitor',
+        component: () => import('@/views/homeWindow/service/instance')
+      },
+      // 📊 性能监控模块
+      {
+        path: 'real-time-monitor',
+        name: 'real-time-monitor',
+        component: () => import('@/views/homeWindow/monitor/realtime')
+      },
+      {
+        path: 'metrics-analysis',
+        name: 'metrics-analysis',
+        component: () => import('@/views/homeWindow/monitor/metrics')
+      },
+      // {
+      //   path: 'custom-dashboard',
+      //   name: 'custom-dashboard',
+      //   component: () => import('@/views/homeWindow/monitor/dashboard')
+      // },
+      // 🚨 告警管理模块
+      {
+        path: 'alert-list',
+        name: 'alert-list',
+        component: () => import('@/views/homeWindow/alert/list')
+      },
+      {
+        path: 'alert-rules',
+        name: 'alert-rules',
+        component: () => import('@/views/homeWindow/alert/rules')
+      }
+      // {
+      //   path: 'notification-history',
+      //   name: 'notification-history',
+      //   component: () => import('@/views/homeWindow/alert/history')
+      // },
+      // 📝 日志中心模块
+      // {
+      //   path: 'service-logs',
+      //   name: 'service-logs',
+      //   component: () => import('@/views/homeWindow/logs/service')
+      // },
+      // {
+      //   path: 'exception-analysis',
+      //   name: 'exception-analysis',
+      //   component: () => import('@/views/homeWindow/logs/exception')
+      // },
+      // // 🔁 调用链追踪模块
+      // {
+      //   path: 'tracing',
+      //   name: 'tracing',
+      //   component: () => import('@/views/homeWindow/tracing/index')
+      // },
+      // {
+      //   path: 'slow-analysis',
+      //   name: 'slow-analysis',
+      //   component: () => import('@/views/homeWindow/tracing/slow')
+      // },
+      // // ⚙️ 配置管理模块
+      // {
+      //   path: 'config-center',
+      //   name: 'config-center',
+      //   component: () => import('@/views/homeWindow/config/center')
+      // },
+      // {
+      //   path: 'config-list',
+      //   name: 'config-list',
+      //   component: () => import('@/views/homeWindow/config/list')
+      // },
+      // {
+      //   path: 'config-history',
+      //   name: 'config-history',
+      //   component: () => import('@/views/homeWindow/config/history')
+      // },
+      // // 🧱 服务注册模块
+      // {
+      //   path: 'registry-view',
+      //   name: 'registry-view',
+      //   component: () => import('@/views/homeWindow/registry/view')
+      // },
+      // {
+      //   path: 'service-registry',
+      //   name: 'service-registry',
+      //   component: () => import('@/views/homeWindow/registry/service')
+      // },
+      // // 👥 用户权限模块
+      // {
+      //   path: 'user-management',
+      //   name: 'user-management',
+      //   component: () => import('@/views/homeWindow/user/management')
+      // },
+      // {
+      //   path: 'team-collaboration',
+      //   name: 'team-collaboration',
+      //   component: () => import('@/views/homeWindow/user/team')
+      // },
+      // {
+      //   path: 'role-management',
+      //   name: 'role-management',
+      //   component: () => import('@/views/homeWindow/user/role')
+      // },
+      // // 🔧 系统设置模块
+      // {
+      //   path: 'data-source',
+      //   name: 'data-source',
+      //   component: () => import('@/views/homeWindow/system/datasource')
+      // },
+      // {
+      //   path: 'plugin-management',
+      //   name: 'plugin-management',
+      //   component: () => import('@/views/homeWindow/system/plugin')
+      // },
+      // {
+      //   path: 'system-settings',
+      //   name: 'system-settings',
+      //   component: () => import('@/views/homeWindow/system/settings')
+      // },
+      // // 📂 审计事件模块
+      // {
+      //   path: 'audit-logs',
+      //   name: 'audit-logs',
+      //   component: () => import('@/views/homeWindow/audit/logs')
+      // },
+      // {
+      //   path: 'system-events',
+      //   name: 'system-events',
+      //   component: () => import('@/views/homeWindow/audit/events')
+      // },
+      // // 🧪 测试调试模块
+      // {
+      //   path: 'api-testing',
+      //   name: 'api-testing',
+      //   component: () => import('@/views/homeWindow/testing/api')
+      // },
+      // {
+      //   path: 'mock-service',
+      //   name: 'mock-service',
+      //   component: () => import('@/views/homeWindow/testing/mock')
+      // },
+      // {
+      //   path: 'debug-tools',
+      //   name: 'debug-tools',
+      //   component: () => import('@/views/homeWindow/testing/debug')
+      // }
+    ]
   }
 ]
 

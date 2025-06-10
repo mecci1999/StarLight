@@ -1,6 +1,7 @@
 import LoadingSpinner from '@/components/common/LoadingSpinner'
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
 import { isPermissionGranted, requestPermission } from '@tauri-apps/plugin-notification'
+import { Suspense, KeepAlive } from 'vue'
 
 export default defineComponent({
   name: 'Layout',
@@ -47,7 +48,7 @@ export default defineComponent({
     })
 
     return () => (
-      <div id="layout">
+      <div id="layout" class="bg-[--color-bg-1] rounded-8px select-none size-full">
         <Suspense>
           {{
             default: () => (
