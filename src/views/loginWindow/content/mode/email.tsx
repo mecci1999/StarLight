@@ -8,6 +8,7 @@ import { useRouter } from 'vue-router'
 import { UserInfoType } from '@/types/userInfo'
 import { useWindow } from '@/hooks/useWindow'
 import { encryptPassword } from '@/utils/Crypto'
+import { throttle } from 'lodash-es'
 
 export default defineComponent({
   name: 'LoginWindowContentEmail',
@@ -17,7 +18,8 @@ export default defineComponent({
       default: true
     }
   },
-  setup(props, { slots }) {
+  emits: ['switchMode'], // 添加事件发射
+  setup(props, { slots, emit }) {
     const { loginHistories, addLoginHistory, removeLoginHistory } = useLoginHistoriesStore()
     // 网络连接是否正常
     const { isOnline } = useNetwork()
@@ -112,7 +114,7 @@ export default defineComponent({
     /**
      * 登录
      */
-    const normalLogin = async () => {
+    const normalLogin = throttle(async () => {
       // 如果按钮处于禁用状态或正在加载中，不执行登录操作
       if (state.loading) return
 
@@ -159,7 +161,6 @@ export default defineComponent({
 
         // 登录成功后的处理
         console.log('登录成功', response)
-        window.$message.success('登录成功')
 
         // 如果记住密码，保存登录信息到历史记录
         if (state.info.remember) {
@@ -186,81 +187,26 @@ export default defineComponent({
         }, 1000)
       } catch (error: any) {
         console.error('登录失败:', error)
+        // 清除验证码
+        state.validCode = ''
         state.showLoginError = true
       } finally {
         // 无论成功失败，都关闭加载状态
         state.loading = false
       }
-    }
+    }, 500)
 
     /**
      * 忘记密码
      */
     const handleForget = () => {
-      window.$dialog.info({
-        title: '忘记密码',
-        content: '请输入您的邮箱，我们将发送重置密码的链接到您的邮箱',
-        positiveText: '发送',
-        negativeText: '取消',
-        onPositiveClick: async () => {
-          try {
-            if (!state.info.email) {
-              window.$message.warning('请先输入邮箱')
-              return
-            }
-
-            // 使用正则判断邮箱，修复了对qq邮箱的支持
-            const emailReg = /^[a-zA-Z0-9_.-]+@[a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)*\.[a-zA-Z0-9]{2,6}$/
-            if (!emailReg.test(state.info.email)) {
-              window.$message.warning('请输入有效的邮箱')
-              return
-            }
-
-            // 发送验证码
-            await api.verifyCode({
-              email: state.info.email,
-              type: 'forget'
-            })
-
-            window.$message.success('验证码已发送，请查收邮件')
-
-            // 弹出重置密码对话框
-            // window.$dialog.info({
-            //   title: '重置密码',
-            //   content: '请输入您收到的验证码',
-            //   positiveText: '确定',
-            //   negativeText: '取消',
-            //   onPositiveClick: async (e) => {
-            //     const code = e?.target?.value
-            //     if (!code || code.length !== 6) {
-            //       window.$message.warning('请输入6位验证码')
-            //       return false
-            //     }
-
-            //     try {
-            //       await api.forgetPassword({
-            //         email: state.info.email,
-            //         hash: '',
-            //         code
-            //       })
-            //       window.$message.success('密码重置链接已发送到您的邮箱')
-            //     } catch (error) {
-            //       window.$message.error('重置密码失败，请重试')
-            //       return false
-            //     }
-            //   }
-            // })
-          } catch (error) {
-            window.$message.error('发送验证码失败，请重试')
-          }
-        }
-      })
+      emit('switchMode', 'forget')
     }
 
     /**
      * 发送验证码
      */
-    const handleValidCode = async () => {
+    const handleValidCode = throttle(async () => {
       // 如果倒计时大于0，不允许再次发送
       if (state.countdown > 0) return
 
@@ -269,8 +215,19 @@ export default defineComponent({
 
       if (!reg.test(state.info.email)) {
         state.emailValid = true
+        window.$message.error('请填写正确的邮箱帐号')
         return
       }
+
+      // 开始倒计时
+      state.countdown = 60
+      state.countdownTimer = setInterval(() => {
+        state.countdown--
+        if (state.countdown <= 0) {
+          clearInterval(state.countdownTimer)
+          state.countdownTimer = null
+        }
+      }, 1000)
 
       try {
         // 发送验证码
@@ -278,22 +235,14 @@ export default defineComponent({
           email: state.info.email,
           type: 'login'
         })
-
-        window.$message.success('验证码已发送，请查收邮件')
-
-        // 开始倒计时
-        state.countdown = 60
-        state.countdownTimer = setInterval(() => {
-          state.countdown--
-          if (state.countdown <= 0) {
-            clearInterval(state.countdownTimer)
-            state.countdownTimer = null
-          }
-        }, 1000)
       } catch (error) {
-        window.$message.error('发送验证码失败，请重试')
+        // 发送失败时清除倒计时
+        clearInterval(state.countdownTimer)
+        state.countdownTimer = null
+        state.countdown = 0
+        console.error('发送验证码失败:', error)
       }
-    }
+    }, 500)
 
     // 自动登录
     const autoLogin = async () => {
@@ -485,7 +434,7 @@ export default defineComponent({
           </div>
         ) : null}
 
-        <NFlex justify={'space-between'} class={'mb-12px'}>
+        <NFlex justify={'space-between'} class={{ 'mb-12px': true, 'mt-12px': state.validCodeValid }}>
           {/* 记住密码 */}
           <NFlex justify={'left'} size={6}>
             <NCheckbox

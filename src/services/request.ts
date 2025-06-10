@@ -77,14 +77,18 @@ const responseInterceptor = async <T>(
     }
 
     // 检查接口返回是否成功
-    if (!serviceData.data.success) {
-      // 展示错误信息
-      return Promise.reject(
-        new AppException(serviceData.data.message, {
-          type: ErrorType.Server,
-          showError: true
-        })
-      )
+    // if (!serviceData.data.success) {
+    //   // 展示错误信息
+    //   return Promise.reject(
+    //     new AppException(serviceData.data.message, {
+    //       type: ErrorType.Server,
+    //       showError: true
+    //     })
+    //   )
+    // }
+
+    if (serviceData.data.message && !url.includes('/qrcode')) {
+      window.$message.success(serviceData.data.message)
     }
 
     return Promise.resolve(serviceData.data.content)

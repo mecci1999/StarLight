@@ -343,8 +343,8 @@ async function Http<T = any>(
       }
 
       // 如果fetch请求成功，但是服务器请求不成功并且返回了错误，那就抛出错误
-      if (responseData && responseData.status !== 200) {
-        throw new AppException(responseData.message || '服务端返回错误', {
+      if (responseData && (responseData.status !== 200 || !responseData?.data?.success)) {
+        throw new AppException(responseData?.data?.message || '服务端返回错误', {
           type: ErrorType.Server,
           code: responseData.status,
           details: responseData,

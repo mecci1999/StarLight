@@ -1,15 +1,14 @@
 /**
- * 注册页面
+ * 忘记密码页面
  */
 import { useNetwork } from '@vueuse/core'
 import { NButton, NFlex, NInput } from 'naive-ui'
 import api from '@/api'
-import { RegisterUserReq } from '@/types/login'
 import { encryptPassword } from '@/utils/Crypto'
 import { throttle } from 'lodash-es'
 
 export default defineComponent({
-  name: 'LoginWindowContentRegister',
+  name: 'LoginWindowContentForget',
   props: {
     protocol: {
       type: Boolean,
@@ -22,17 +21,17 @@ export default defineComponent({
     const { isOnline } = useNetwork()
 
     const state = reactive({
-      loading: false, // 注册按钮加载状态
-      // 注册信息
+      loading: false, // 重置密码按钮加载状态
+      // 重置密码信息
       info: {
         email: '',
         password: '',
         confirmPassword: ''
       },
       emailPH: '请输入邮箱',
-      passwordPH: '请输入密码',
-      confirmPasswordPH: '请确认密码',
-      registerDisabled: !isOnline.value, // 注册按钮禁用状态
+      passwordPH: '请输入新密码',
+      confirmPasswordPH: '请确认新密码',
+      resetDisabled: !isOnline.value, // 重置密码按钮禁用状态
       emailValid: false, // 邮箱输入框是否有效
       passwordValid: false, // 密码输入框是否有效
       confirmPasswordValid: false, // 确认密码输入框是否有效
@@ -45,17 +44,17 @@ export default defineComponent({
       countdownTimer: null as any // 倒计时定时器
     })
 
-    const registerText = computed(() => {
-      return isOnline.value ? '注册' : '网络异常'
+    const resetText = computed(() => {
+      return isOnline.value ? '重置密码' : '网络异常'
     })
 
     const validCodeText = computed(() => {
       return state.countdown > 0 ? `${state.countdown}秒后可重新发送` : '获取验证码'
     })
 
-    // 注册按钮的禁用状态
+    // 重置密码按钮的禁用状态
     watchEffect(() => {
-      state.registerDisabled = !(
+      state.resetDisabled = !(
         state.info.email &&
         state.info.password &&
         state.info.confirmPassword &&
@@ -67,14 +66,14 @@ export default defineComponent({
 
     // 监听网络连接状态
     watch(isOnline, (value) => {
-      state.registerDisabled = !value
+      state.resetDisabled = !value
     })
 
     /**
-     * 注册
+     * 重置密码
      */
-    const handleRegister = throttle(async () => {
-      // 如果按钮处于禁用状态或正在加载中，不执行注册操作
+    const handleResetPassword = throttle(async () => {
+      // 如果按钮处于禁用状态或正在加载中，不执行重置操作
       if (state.loading) return
 
       // 重置错误状态
@@ -84,7 +83,7 @@ export default defineComponent({
       state.validCodeValid = false
 
       // 验证邮箱格式
-      const emailReg = /^[a-zA-Z0-9_.-]+@[a-zA-Z0-9-]+(\.[-zA-Z0-9-]+)*\.[a-zA-Z0-9]{2,6}$/
+      const emailReg = /^[a-zA-Z0-9_.-]+@[a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)*\.[a-zA-Z0-9]{2,6}$/
       if (!emailReg.test(state.info.email)) {
         state.emailValid = true
         return
@@ -129,18 +128,18 @@ export default defineComponent({
         // 加密密码
         const hash = encryptPassword(state.info.password, secretKey)
 
-        // 调用注册API
-        const registerData: RegisterUserReq = {
+        // 调用重置密码API（这里假设有resetPassword接口）
+        const resetData = {
           email: state.info.email,
           hash: hash,
           code: state.validCode
         }
 
-        const response = await api.register(registerData)
+        // const response = await api.resetPassword(resetData)
+        console.log('重置密码请求数据:', resetData)
 
-        // 注册成功后的处理
-        console.log('注册成功', response)
-        window.$message.success('注册成功，跳转到登录页面')
+        // 重置成功后的处理
+        window.$message.success('密码重置成功，跳转到登录页面')
 
         // 清空表单
         state.info.email = ''
@@ -153,7 +152,7 @@ export default defineComponent({
           emit('switchMode', 'login')
         }, 1000)
       } catch (error: any) {
-        console.error('注册失败:', error)
+        console.error('重置密码失败:', error)
         state.validCode = ''
       } finally {
         // 无论成功失败，都关闭加载状态
@@ -190,7 +189,7 @@ export default defineComponent({
         // 发送验证码
         await api.verifyCode({
           email: state.info.email,
-          type: 'register'
+          type: 'forget' // 重置密码类型
         })
       } catch (error) {
         // 发送失败时清除倒计时
@@ -228,7 +227,6 @@ export default defineComponent({
           onBlur={() => {
             // 判断邮箱是否有效
             if (state.info.email.length > 0) {
-              // 使用正则判断邮箱，修复了对qq邮箱的支持
               const reg = /^[a-zA-Z0-9_.-]+@[a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)*\.[a-zA-Z0-9]{2,6}$/
               if (!reg.test(state.info.email)) {
                 state.emailValid = true
@@ -243,11 +241,11 @@ export default defineComponent({
         {/* 邮箱无效错误提示 */}
         {state.emailValid ? (
           <div class="text-12px text-left absolute top-46px">
-            <span class={'color-[--color-danger-6]'}>请输入有效的邮箱账号</span>
+            <span class="color-[--color-error-6]">请输入正确的邮箱地址</span>
           </div>
         ) : null}
 
-        {/* 密码 */}
+        {/* 新密码 */}
         <NInput
           class={'password-input mb-22px'}
           size={'large'}
@@ -257,17 +255,45 @@ export default defineComponent({
           onUpdateValue={(value) => {
             state.info.password = value
             state.passwordValid = false
+            // 如果确认密码已输入，重新验证确认密码
+            if (state.info.confirmPassword) {
+              state.confirmPasswordValid = false
+            }
           }}
-          showPasswordOn={'click'}
           type={'password'}
           placeholder={state.passwordPH}
           clearable={true}
+          showPasswordOn={'click'}
+          onBlur={() => {
+            // 验证密码
+            if (state.info.password.length > 0) {
+              if (state.info.password.length < 6 || state.info.password.length > 32) {
+                state.passwordValid = true
+                state.passwordErrorMsg = '密码长度应为6-32位'
+              } else {
+                // 验证密码强度（至少包含字母和数字）
+                const passwordReg = /^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d@$!%*#?&]{6,32}$/
+                if (!passwordReg.test(state.info.password)) {
+                  state.passwordValid = true
+                  state.passwordErrorMsg = '密码必须包含字母和数字'
+                } else {
+                  state.passwordValid = false
+                  // 如果确认密码已输入，重新验证确认密码
+                  if (state.info.confirmPassword && state.info.password !== state.info.confirmPassword) {
+                    state.confirmPasswordValid = true
+                    state.confirmPasswordErrorMsg = '两次输入的密码不一致'
+                  }
+                }
+              }
+            } else {
+              state.passwordValid = false
+            }
+          }}
         />
-
         {/* 密码错误提示 */}
         {state.passwordValid ? (
-          <div class="text-12px text-left absolute" style="top: 110px;">
-            <span class={'color-[--color-danger-6]'}>{state.passwordErrorMsg}</span>
+          <div class="text-12px text-left absolute top-92px">
+            <span class="color-[--color-error-6]">{state.passwordErrorMsg}</span>
           </div>
         ) : null}
 
@@ -287,11 +313,10 @@ export default defineComponent({
           placeholder={state.confirmPasswordPH}
           clearable={true}
         />
-
         {/* 确认密码错误提示 */}
         {state.confirmPasswordValid ? (
-          <div class="text-12px text-left absolute" style="top: 174px;">
-            <span class={'color-[--color-danger-6]'}>{state.confirmPasswordErrorMsg}</span>
+          <div class="text-12px text-left absolute top-138px">
+            <span class="color-[--color-error-6]">{state.confirmPasswordErrorMsg}</span>
           </div>
         ) : null}
 
@@ -321,22 +346,21 @@ export default defineComponent({
             )
           }}
         </NInput>
-
         {/* 验证码错误提示 */}
         {state.validCodeValid ? (
-          <div class="text-12px text-left absolute" style="top: 238px;">
-            <span class={'color-[--color-danger-6]'}>{state.validCodeErrorMsg}</span>
+          <div class="text-12px text-left absolute top-184px">
+            <span class="color-[--color-error-6]">{state.validCodeErrorMsg}</span>
           </div>
         ) : null}
 
-        {/* 按钮 */}
+        {/* 重置密码按钮 */}
         <NButton
-          loading={state.loading}
-          class="w-full h-40px mt-8px mb-24px"
-          onClick={handleRegister}
+          class={'reset-btn w-full h-40px mt-8px mb-24px'}
           type={'primary'}
-          disabled={state.registerDisabled}>
-          <span>{registerText.value}</span>
+          disabled={state.resetDisabled}
+          loading={state.loading}
+          onClick={handleResetPassword}>
+          {resetText.value}
         </NButton>
       </NFlex>
     )

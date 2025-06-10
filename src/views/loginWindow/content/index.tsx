@@ -5,6 +5,7 @@ import { NCheckbox, NFlex } from 'naive-ui'
 import LoginWindowContentEmail from './mode/email'
 import LoginWindowContentQRCode from './mode/qrcode'
 import LoginWindowContentRegister from './mode/register'
+import LoginWindowContentForget from './mode/forget'
 import './index.scss'
 
 export default defineComponent({
@@ -64,10 +65,15 @@ export default defineComponent({
         </div>
         {/* 内容 */}
         <div class="content">
-          {state.mode === 'login' ? <LoginWindowContentEmail protocol={state.protocol} /> : null}
+          {state.mode === 'login' ? (
+            <LoginWindowContentEmail protocol={state.protocol} onSwitchMode={handleSwitchMode} />
+          ) : null}
           {state.mode === 'scan' ? <LoginWindowContentQRCode protocol={state.protocol} /> : null}
           {state.mode === 'register' ? (
             <LoginWindowContentRegister protocol={state.protocol} onSwitchMode={handleSwitchMode} />
+          ) : null}
+          {state.mode === 'forget' ? (
+            <LoginWindowContentForget protocol={state.protocol} onSwitchMode={handleSwitchMode} />
           ) : null}
         </div>
         {/* 底部 */}
@@ -77,7 +83,9 @@ export default defineComponent({
             <div
               class="text-14px "
               onClick={() => {
-                if (state.mode !== 'register') {
+                if (state.mode === 'forget') {
+                  state.mode = 'login'
+                } else if (state.mode !== 'register') {
                   state.mode = 'register'
                 } else {
                   state.mode = 'login'
@@ -85,7 +93,7 @@ export default defineComponent({
               }}>
               <span class={'color-[--color-primary-6] hover:color-[--color-primary-5] cursor-pointer'}>
                 {' '}
-                {state.mode === 'register' ? '返回登录' : '注册账号'}
+                {state.mode === 'register' ? '返回登录' : state.mode === 'forget' ? '账号登录' : '注册账号'}
               </span>
             </div>
             <div class="w-1px bg-[--color-text-3]"></div>
