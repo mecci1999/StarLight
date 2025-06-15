@@ -263,12 +263,14 @@ export default defineComponent({
       }
     }
 
-    // 组件卸载时清除定时器
+    // 组件卸载时清除定时器和键盘事件监听
     onUnmounted(() => {
       if (state.countdownTimer) {
         clearInterval(state.countdownTimer)
         state.countdownTimer = null
       }
+      // 移除键盘事件监听
+      document.removeEventListener('keydown', handleKeyDown)
     })
 
     onMounted(async () => {
@@ -276,7 +278,16 @@ export default defineComponent({
       if (isAutoLogin.value) {
         autoLogin()
       }
+      // 绑定键盘事件监听
+      document.addEventListener('keydown', handleKeyDown)
     })
+
+    // 处理回车键事件
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Enter') {
+        normalLogin()
+      }
+    }
 
     return () => (
       <NFlex class="ma text-center h-full" size={0} vertical={true}>
@@ -294,6 +305,8 @@ export default defineComponent({
           type={'text'}
           placeholder={state.emailPH}
           clearable={true}
+          // 添加 IME 输入法模式为禁用
+          inputProps={{ inputmode: 'email' }}
           onBlur={() => {
             // 判断邮箱是否有效
             if (state.info.email.length > 0) {
@@ -339,14 +352,14 @@ export default defineComponent({
 
         {/* 账号选择框 */}
         {loginHistories.length > 0 && state.arrowStatus ? (
-          <div class="account-box absolute w-full min-h-60px  bg-white mt-45px z-99 rounded-4px p-12px box-border shadow-lg border border-solid border-[--color-border-2]">
+          <div class="account-box absolute w-full min-h-60px  bg-#fdfdfd mt-45px z-99 rounded-4px p-8px box-border shadow-lg border border-solid border-[--color-border-2]">
             <NScrollbar style={{ maxHeight: '176px' }} trigger={'hover'}>
               {loginHistories.map((item, index) => (
                 <NFlex
                   key={item.userId || index}
                   vertical
                   class={
-                    'p-8px cursor-pointer hover:bg-[--color-fill-2] rounded-8px transition-all duration-200 mb-4px last:mb-0'
+                    'login-history-item p-8px cursor-pointer hover:bg-[--color-bg-white] rounded-8px transition-all mb-4px last:mb-0'
                   }>
                   <div
                     class="account-item flex items-center w-full"
@@ -358,15 +371,15 @@ export default defineComponent({
                         class="size-32px bg-[--color-fill-3] rounded-50% mr-12px flex-shrink-0"
                         src={item.avatar}
                       />
-                      <div class="flex-1 min-w-0">
-                        <p class="text-14px color-[--color-text-1] font-medium truncate mb-2px">
+                      <div class="flex-1 min-w-0 text-left">
+                        <p class="text-14px color-[--color-neutral-2] font-medium truncate mb-2px">
                           {item.nickName || item.email}
                         </p>
                         <p class="text-12px color-[--color-text-3] truncate">{item.email}</p>
                       </div>
                     </div>
                     <svg
-                      class="w-14px h-14px color-[--color-text-3] hover:color-[--color-danger-6] transition-colors duration-200 flex-shrink-0 ml-8px"
+                      class="w-14px h-14px color-[--color-text-3] hover:color-[--color-danger-6] flex-shrink-0 ml-8px"
                       onClick={(e) => {
                         deleteAccount(item, e)
                       }}>

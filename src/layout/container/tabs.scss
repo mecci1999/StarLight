@@ -1,0 +1,210 @@
+// 页签组件样式 - 谷歌浏览器风格
+.container-tabs {
+  background: var(--color-bg-1);
+  border-bottom: 1px solid var(--color-border-2);
+  padding: 0 8px;
+  position: relative;
+  overflow: hidden;
+}
+
+// 页签样式 - 谷歌浏览器风格
+.n-tabs {
+  .n-tabs-nav {
+    position: relative;
+    background: transparent;
+    border: none;
+
+    .n-tabs-tab {
+      position: relative;
+      padding: 8px 20px 10px 20px;
+      min-width: 140px;
+      max-width: 240px;
+      margin: 0 -8px 0 0;
+      background: var(--color-fill-3);
+      color: var(--color-text-2);
+      border: 1px solid var(--color-border-2);
+      border-bottom: none;
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+      z-index: 1;
+
+      // 谷歌浏览器梯形形状
+      clip-path: polygon(12px 0%, calc(100% - 12px) 0%, 100% 100%, 0% 100%);
+
+      // 添加微妙的阴影
+      box-shadow:
+        0 1px 3px rgba(0, 0, 0, 0.05),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+
+      &:hover {
+        background: var(--color-bg-2);
+        color: var(--color-text-1);
+        z-index: 2;
+        transform: translateY(-1px);
+        box-shadow:
+          0 2px 8px rgba(0, 0, 0, 0.1),
+          inset 0 1px 0 rgba(255, 255, 255, 0.2);
+
+        .tab-label .n-icon {
+          transform: scale(1.05);
+          color: var(--color-primary-5);
+        }
+      }
+
+      &.n-tabs-tab--active {
+        background: var(--color-bg-1);
+        color: var(--color-text-1);
+        border-color: var(--color-border-2);
+        z-index: 3;
+        transform: translateY(-2px);
+
+        // 活跃状态的阴影更明显
+        box-shadow:
+          0 4px 12px rgba(0, 0, 0, 0.15),
+          inset 0 1px 0 rgba(255, 255, 255, 0.3),
+          0 -1px 0 var(--color-bg-1);
+
+        // 连接到内容区域
+        &::after {
+          content: '';
+          position: absolute;
+          bottom: -1px;
+          left: 12px;
+          right: 12px;
+          height: 2px;
+          background: var(--color-bg-1);
+          z-index: 4;
+        }
+
+        .tab-label {
+          color: var(--color-primary-6);
+          font-weight: 600;
+
+          .n-icon {
+            color: var(--color-primary-6);
+            transform: scale(1.1);
+          }
+        }
+      }
+
+      // 页签之间的分隔线
+      &:not(.n-tabs-tab--active):not(:hover) + .n-tabs-tab:not(.n-tabs-tab--active):not(:hover)::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 25%;
+        bottom: 25%;
+        width: 1px;
+        background: var(--color-border-2);
+        opacity: 0.5;
+      }
+    }
+
+    // 谷歌浏览器风格滚动条
+    .n-tabs-nav-scroll-wrapper {
+      &::-webkit-scrollbar {
+        height: 3px;
+      }
+
+      &::-webkit-scrollbar-track {
+        background: transparent;
+      }
+
+      &::-webkit-scrollbar-thumb {
+        background: var(--color-border-3);
+        border-radius: 3px;
+
+        &:hover {
+          background: var(--color-border-4);
+        }
+      }
+    }
+  }
+}
+
+// 页签标签内容样式 - 谷歌浏览器风格
+.tab-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  user-select: none;
+
+  .n-icon {
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    flex-shrink: 0;
+  }
+
+  span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+// 页签关闭按钮样式（为将来扩展准备）
+.tab-close-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--color-text-3);
+  transition: all 0.2s ease;
+  margin-left: 4px;
+  flex-shrink: 0;
+
+  &:hover {
+    background: var(--color-fill-4);
+    color: var(--color-text-1);
+  }
+}
+
+// 响应式设计 - 谷歌浏览器风格
+@media (max-width: 768px) {
+  .container-tabs {
+    padding: 0 4px;
+  }
+
+  .n-tabs .n-tabs-nav .n-tabs-tab {
+    padding: 6px 16px 8px 16px;
+    min-width: 120px;
+    max-width: 180px;
+
+    // 移动端简化梯形形状
+    clip-path: polygon(8px 0%, calc(100% - 8px) 0%, 100% 100%, 0% 100%);
+  }
+
+  .tab-label {
+    font-size: 12px;
+    gap: 6px;
+  }
+}
+
+// 深色模式适配
+@media (prefers-color-scheme: dark) {
+  .n-tabs .n-tabs-nav .n-tabs-tab {
+    box-shadow:
+      0 1px 3px rgba(0, 0, 0, 0.2),
+      inset 0 1px 0 rgba(255, 255, 255, 0.05);
+
+    &:hover {
+      box-shadow:
+        0 2px 8px rgba(0, 0, 0, 0.3),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    }
+
+    &.n-tabs-tab--active {
+      box-shadow:
+        0 4px 12px rgba(0, 0, 0, 0.4),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1),
+        0 -1px 0 var(--color-bg-1);
+    }
+  }
+}

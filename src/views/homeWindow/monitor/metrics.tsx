@@ -18,7 +18,7 @@ export default defineComponent({
     const TrendChart = () => (
       <div class="h-300px bg-[--color-bg-2] rounded-8px flex items-center justify-center">
         <div class="text-center">
-          <div class="text-16px text-[--color-text-2] mb-8px">📈 趋势图表</div>
+          <div class="text-16px text-[--color-text-2] mb-8px">趋势图表</div>
           <div class="text-14px text-[--color-text-3]">显示CPU、内存、QPS等指标的历史趋势</div>
         </div>
       </div>
@@ -27,7 +27,7 @@ export default defineComponent({
     const HeatmapChart = () => (
       <div class="h-300px bg-[--color-bg-2] rounded-8px flex items-center justify-center">
         <div class="text-center">
-          <div class="text-16px text-[--color-text-2] mb-8px">🔥 热力图</div>
+          <div class="text-16px text-[--color-text-2] mb-8px">热力图</div>
           <div class="text-14px text-[--color-text-3]">显示不同时间段的性能热力分布</div>
         </div>
       </div>
@@ -36,7 +36,7 @@ export default defineComponent({
     const ComparisonChart = () => (
       <div class="h-300px bg-[--color-bg-2] rounded-8px flex items-center justify-center">
         <div class="text-center">
-          <div class="text-16px text-[--color-text-2] mb-8px">📊 对比分析</div>
+          <div class="text-16px text-[--color-text-2] mb-8px">对比分析</div>
           <div class="text-14px text-[--color-text-3]">多服务性能指标对比分析</div>
         </div>
       </div>

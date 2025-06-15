@@ -2,6 +2,7 @@ import LoadingSpinner from '@/components/common/LoadingSpinner'
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
 import { isPermissionGranted, requestPermission } from '@tauri-apps/plugin-notification'
 import { Suspense, KeepAlive } from 'vue'
+import WindowActionBar from '@/components/WindowActionBar'
 
 export default defineComponent({
   name: 'Layout',
@@ -48,7 +49,7 @@ export default defineComponent({
     })
 
     return () => (
-      <div id="layout" class="bg-[--color-bg-1] rounded-8px select-none size-full">
+      <div id="layout" class="bg-[--color-bg-1] rounded-8px select-none size-full" data-tauri-drag-region>
         <Suspense>
           {{
             default: () => (

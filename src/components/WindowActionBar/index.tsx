@@ -20,9 +20,10 @@ export default defineComponent({
     shrink: { type: Boolean, default: false },
     shrinkStatus: { type: Boolean, default: false },
     topWinLable: { type: String },
-    currentLable: { type: String }
+    currentLable: { type: String },
+    showSlot: { type: Boolean, default: false }
   },
-  setup(props) {
+  setup(props, { slots }) {
     const appWindow = WebviewWindow.getCurrent()
     const { getWindowTop, setWindowTop } = useAlwaysOnTopStore()
     const { pushListeners } = useTauriListener()
@@ -95,9 +96,11 @@ export default defineComponent({
     const restoreWindow = async () => {
       if (state.windowMaxmized) {
         // 最小化
+        state.windowMaxmized = false
         await appWindow.unmaximize()
       } else {
         // 最大化
+        state.windowMaxmized = true
         await appWindow.maximize()
       }
     }
@@ -131,7 +134,7 @@ export default defineComponent({
      */
     const handleResize = () => {
       appWindow.isMaximizable().then((res) => {
-        state.windowMaxmized = res
+        // state.windowMaxmized = res
       })
     }
 
@@ -198,11 +201,13 @@ export default defineComponent({
     return () => (
       <div
         class={{
-          'action-bar': true,
+          'action-bar h-40px': true,
           'flex justify-end select-none': isCompatibility.value,
-          'h-24px select-none w-full': !isCompatibility.value
+          'select-none w-full flex': !isCompatibility.value
         }}
         data-tauri-drag-region>
+        {/* 插槽内容 */}
+        {props.showSlot && slots.default ? <div class="flex flex-1 items-center mr-auto">{slots.default()}</div> : null}
         {isCompatibility.value ? (
           <>
             {/* 固定在最顶层 */}
@@ -244,8 +249,8 @@ export default defineComponent({
 
             {/* 最小化 */}
             {props.minW ? (
-              <div class="hover-box" onClick={() => appWindow.minimize()}>
-                <svg class={'size-24px color-[--color-fill-5]  opacity-66  cursor-pointer'}>
+              <div class="window-control-btn minimize-btn" onClick={() => appWindow.minimize()}>
+                <svg class={'size-12px'}>
                   <use href="#maximize" />
                 </svg>
               </div>
@@ -253,13 +258,13 @@ export default defineComponent({
 
             {/* 最大化 */}
             {props.maxW ? (
-              <div class="hover-box" onClick={restoreWindow}>
+              <div class="window-control-btn maximize-btn" onClick={restoreWindow}>
                 {!state.windowMaxmized ? (
-                  <svg class={'size-18px color-[--color-fill-5]  cursor-pointer'}>
+                  <svg class={'size-12px'}>
                     <use href="#rectangle-small" />
                   </svg>
                 ) : (
-                  <svg class={'size-16px color-[--color-fill-5] cursor-pointer'}>
+                  <svg class={'size-12px'}>
                     <use href="#internal-reduction" />
                   </svg>
                 )}
@@ -267,8 +272,10 @@ export default defineComponent({
             ) : null}
             {/* 关闭 */}
             {props.closeW ? (
-              <div class={{ 'action-close': true, 'rounded-rt-8px': state.windowMaxmized }} onClick={handleCloseWin}>
-                <svg class={'size-14px color-[--color-fill-5] cursor-pointer'}>
+              <div
+                class={{ 'window-control-btn close-btn': true, 'rounded-rt-8px': state.windowMaxmized }}
+                onClick={handleCloseWin}>
+                <svg class={'size-12px'}>
                   <use href="#close" />
                 </svg>
               </div>

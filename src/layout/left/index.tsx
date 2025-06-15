@@ -1,24 +1,21 @@
-import { NMenu, NIcon, NScrollbar } from 'naive-ui'
+import { NIcon, NPopover, NButton } from 'naive-ui'
 import { useRouter, useRoute } from 'vue-router'
 import {
   ServerOutline,
   GitNetworkOutline,
-  ListOutline,
-  EyeOutline,
   StatsChartOutline,
-  SpeedometerOutline,
-  GridOutline,
   NotificationsOutline,
-  SettingsOutline,
   DocumentTextOutline,
   GitBranchOutline,
-  LinkOutline,
   CogOutline,
   PeopleOutline,
-  ShieldCheckmarkOutline,
+  SettingsOutline,
   ConstructOutline,
-  FlaskOutline
+  EllipsisHorizontalOutline
 } from '@vicons/ionicons5'
+import { VueDraggable } from 'vue-draggable-plus'
+import { markRaw } from 'vue'
+import './index.scss'
 
 export default defineComponent({
   name: 'HomeLeft',
@@ -26,335 +23,195 @@ export default defineComponent({
     const router = useRouter()
     const route = useRoute()
 
-    const activeKey = ref('service-overview')
+    const activeModule = ref('service-overview')
+    const maxVisibleItems = 8 // 最多显示8个主模块
 
     // 监听路由变化更新激活状态
     watch(
       () => route.path,
       (newPath) => {
-        const pathMap: Record<string, string> = {
+        const moduleMap: Record<string, string> = {
           '/home/service-overview': 'service-overview',
-          '/home/service-topology': 'service-topology',
-          '/home/service-list': 'service-list',
-          '/home/instance-monitor': 'instance-monitor',
-          '/home/real-time-monitor': 'real-time-monitor',
-          '/home/metrics-analysis': 'metrics-analysis',
-          '/home/custom-dashboard': 'custom-dashboard',
-          '/home/alert-list': 'alert-list',
-          '/home/alert-rules': 'alert-rules',
-          '/home/notification-history': 'notification-history',
-          '/home/service-logs': 'service-logs',
-          '/home/exception-analysis': 'exception-analysis',
+          '/home/service-topology': 'service-overview',
+          '/home/service-list': 'service-overview',
+          '/home/instance-monitor': 'service-overview',
+          '/home/real-time-monitor': 'performance',
+          '/home/metrics-analysis': 'performance',
+          '/home/custom-dashboard': 'performance',
+          '/home/alert-list': 'alert',
+          '/home/alert-rules': 'alert',
+          '/home/notification-history': 'alert',
+          '/home/service-logs': 'log',
+          '/home/exception-analysis': 'log',
           '/home/tracing': 'tracing',
-          '/home/slow-analysis': 'slow-analysis',
-          '/home/config-center': 'config-center',
-          '/home/config-list': 'config-list',
-          '/home/config-history': 'config-history',
-          '/home/registry-view': 'registry-view',
-          '/home/service-registry': 'service-registry',
-          '/home/user-management': 'user-management',
-          '/home/team-collaboration': 'team-collaboration',
-          '/home/role-management': 'role-management',
-          '/home/data-source': 'data-source',
-          '/home/plugin-management': 'plugin-management',
-          '/home/system-settings': 'system-settings',
-          '/home/audit-logs': 'audit-logs',
-          '/home/system-events': 'system-events',
-          '/home/api-testing': 'api-testing',
-          '/home/mock-service': 'mock-service',
-          '/home/debug-tools': 'debug-tools'
+          '/home/slow-analysis': 'tracing',
+          '/home/config-center': 'config',
+          '/home/config-list': 'config',
+          '/home/config-history': 'config',
+          '/home/registry-view': 'registry',
+          '/home/service-registry': 'registry',
+          '/home/user-management': 'user',
+          '/home/team-collaboration': 'user',
+          '/home/role-management': 'user',
+          '/home/data-source': 'system',
+          '/home/plugin-management': 'system',
+          '/home/system-settings': 'system',
+          '/home/audit-logs': 'audit',
+          '/home/system-events': 'audit',
+          '/home/api-testing': 'testing',
+          '/home/mock-service': 'testing',
+          '/home/debug-tools': 'testing'
         }
-        activeKey.value = pathMap[newPath] || 'service-overview'
+        activeModule.value = moduleMap[newPath] || 'service-overview'
       },
       { immediate: true }
     )
 
-    const menuOptions = [
+    // 主模块配置
+    const allModules = ref([
       {
-        label: '📋 服务总览',
-        key: 'service-overview-group',
-        type: 'group',
-        children: [
-          {
-            label: '服务拓扑图',
-            key: 'service-topology',
-            icon: () => h(NIcon, null, { default: () => h(GitNetworkOutline) })
-          },
-          {
-            label: '服务列表',
-            key: 'service-list',
-            icon: () => h(NIcon, null, { default: () => h(ListOutline) })
-          },
-          {
-            label: '实例监控',
-            key: 'instance-monitor',
-            icon: () => h(NIcon, null, { default: () => h(EyeOutline) })
-          }
-        ]
+        key: 'service-overview',
+        label: '服务总览',
+        icon: markRaw(ServerOutline),
+        route: '/home/service-overview'
       },
       {
-        label: '📊 性能监控',
-        key: 'performance-group',
-        type: 'group',
-        children: [
-          {
-            label: '实时监控',
-            key: 'real-time-monitor',
-            icon: () => h(NIcon, null, { default: () => h(StatsChartOutline) })
-          },
-          {
-            label: '指标分析',
-            key: 'metrics-analysis',
-            icon: () => h(NIcon, null, { default: () => h(SpeedometerOutline) })
-          },
-          {
-            label: '自定义看板',
-            key: 'custom-dashboard',
-            icon: () => h(NIcon, null, { default: () => h(GridOutline) })
-          }
-        ]
+        key: 'performance',
+        label: '性能监控',
+        icon: markRaw(StatsChartOutline),
+        route: '/home/real-time-monitor'
       },
       {
-        label: '🚨 告警管理',
-        key: 'alert-group',
-        type: 'group',
-        children: [
-          {
-            label: '告警列表',
-            key: 'alert-list',
-            icon: () => h(NIcon, null, { default: () => h(NotificationsOutline) })
-          },
-          {
-            label: '告警规则',
-            key: 'alert-rules',
-            icon: () => h(NIcon, null, { default: () => h(SettingsOutline) })
-          },
-          {
-            label: '通知历史',
-            key: 'notification-history',
-            icon: () => h(NIcon, null, { default: () => h(DocumentTextOutline) })
-          }
-        ]
+        key: 'alert',
+        label: '告警管理',
+        icon: markRaw(NotificationsOutline),
+        route: '/home/alert-list'
       },
       {
-        label: '📝 日志中心',
-        key: 'log-group',
-        type: 'group',
-        children: [
-          {
-            label: '服务日志',
-            key: 'service-logs',
-            icon: () => h(NIcon, null, { default: () => h(DocumentTextOutline) })
-          },
-          {
-            label: '异常分析',
-            key: 'exception-analysis',
-            icon: () => h(NIcon, null, { default: () => h(ShieldCheckmarkOutline) })
-          }
-        ]
+        key: 'log',
+        label: '日志中心',
+        icon: markRaw(DocumentTextOutline),
+        route: '/home/service-logs'
       },
       {
-        label: '🔁 调用链追踪',
-        key: 'tracing-group',
-        type: 'group',
-        children: [
-          {
-            label: '链路追踪',
-            key: 'tracing',
-            icon: () => h(NIcon, null, { default: () => h(GitBranchOutline) })
-          },
-          {
-            label: '慢调用分析',
-            key: 'slow-analysis',
-            icon: () => h(NIcon, null, { default: () => h(SpeedometerOutline) })
-          }
-        ]
+        key: 'tracing',
+        label: '调用链追踪',
+        icon: markRaw(GitBranchOutline),
+        route: '/home/tracing'
       },
       {
-        label: '⚙️ 配置管理',
-        key: 'config-group',
-        type: 'group',
-        children: [
-          {
-            label: '配置中心',
-            key: 'config-center',
-            icon: () => h(NIcon, null, { default: () => h(CogOutline) })
-          },
-          {
-            label: '配置列表',
-            key: 'config-list',
-            icon: () => h(NIcon, null, { default: () => h(ListOutline) })
-          },
-          {
-            label: '变更历史',
-            key: 'config-history',
-            icon: () => h(NIcon, null, { default: () => h(DocumentTextOutline) })
-          }
-        ]
+        key: 'config',
+        label: '配置管理',
+        icon: markRaw(SettingsOutline),
+        route: '/home/config-center'
       },
       {
-        label: '🧱 服务注册',
-        key: 'registry-group',
-        type: 'group',
-        children: [
-          {
-            label: '注册中心',
-            key: 'registry-view',
-            icon: () => h(NIcon, null, { default: () => h(ServerOutline) })
-          },
-          {
-            label: '服务注册',
-            key: 'service-registry',
-            icon: () => h(NIcon, null, { default: () => h(LinkOutline) })
-          }
-        ]
+        key: 'registry',
+        label: '服务注册',
+        icon: markRaw(GitNetworkOutline),
+        route: '/home/registry-view'
       },
       {
-        label: '👥 用户权限',
-        key: 'user-group',
-        type: 'group',
-        children: [
-          {
-            label: '用户管理',
-            key: 'user-management',
-            icon: () => h(NIcon, null, { default: () => h(PeopleOutline) })
-          },
-          {
-            label: '团队协作',
-            key: 'team-collaboration',
-            icon: () => h(NIcon, null, { default: () => h(PeopleOutline) })
-          },
-          {
-            label: '角色管理',
-            key: 'role-management',
-            icon: () => h(NIcon, null, { default: () => h(ShieldCheckmarkOutline) })
-          }
-        ]
+        key: 'user',
+        label: '用户权限',
+        icon: markRaw(PeopleOutline),
+        route: '/home/user-management'
       },
       {
-        label: '🔧 系统设置',
-        key: 'system-group',
-        type: 'group',
-        children: [
-          {
-            label: '数据源配置',
-            key: 'data-source',
-            icon: () => h(NIcon, null, { default: () => h(SettingsOutline) })
-          },
-          {
-            label: '插件管理',
-            key: 'plugin-management',
-            icon: () => h(NIcon, null, { default: () => h(ConstructOutline) })
-          },
-          {
-            label: '系统设置',
-            key: 'system-settings',
-            icon: () => h(NIcon, null, { default: () => h(CogOutline) })
-          }
-        ]
+        key: 'system',
+        label: '系统设置',
+        icon: markRaw(SettingsOutline),
+        route: '/home/data-source'
       },
       {
-        label: '📂 审计事件',
-        key: 'audit-group',
-        type: 'group',
-        children: [
-          {
-            label: '操作审计',
-            key: 'audit-logs',
-            icon: () => h(NIcon, null, { default: () => h(DocumentTextOutline) })
-          },
-          {
-            label: '系统事件',
-            key: 'system-events',
-            icon: () => h(NIcon, null, { default: () => h(NotificationsOutline) })
-          }
-        ]
+        key: 'audit',
+        label: '审计事件',
+        icon: markRaw(DocumentTextOutline),
+        route: '/home/audit-logs'
       },
       {
-        label: '🧪 测试调试',
-        key: 'testing-group',
-        type: 'group',
-        children: [
-          {
-            label: 'API测试',
-            key: 'api-testing',
-            icon: () => h(NIcon, null, { default: () => h(FlaskOutline) })
-          },
-          {
-            label: 'Mock服务',
-            key: 'mock-service',
-            icon: () => h(NIcon, null, { default: () => h(ServerOutline) })
-          },
-          {
-            label: '调试工具',
-            key: 'debug-tools',
-            icon: () => h(NIcon, null, { default: () => h(ConstructOutline) })
-          }
-        ]
+        key: 'testing',
+        label: '测试调试',
+        icon: markRaw(ConstructOutline),
+        route: '/home/api-testing'
       }
-    ]
+    ])
 
-    const handleMenuSelect = (key: string) => {
-      activeKey.value = key
-      const routeMap: Record<string, string> = {
-        'service-overview': '/home/service-overview',
-        'service-topology': '/home/service-topology',
-        'service-list': '/home/service-list',
-        'instance-monitor': '/home/instance-monitor',
-        'real-time-monitor': '/home/real-time-monitor',
-        'metrics-analysis': '/home/metrics-analysis',
-        'custom-dashboard': '/home/custom-dashboard',
-        'alert-list': '/home/alert-list',
-        'alert-rules': '/home/alert-rules',
-        'notification-history': '/home/notification-history',
-        'service-logs': '/home/service-logs',
-        'exception-analysis': '/home/exception-analysis',
-        tracing: '/home/tracing',
-        'slow-analysis': '/home/slow-analysis',
-        'config-center': '/home/config-center',
-        'config-list': '/home/config-list',
-        'config-history': '/home/config-history',
-        'registry-view': '/home/registry-view',
-        'service-registry': '/home/service-registry',
-        'user-management': '/home/user-management',
-        'team-collaboration': '/home/team-collaboration',
-        'role-management': '/home/role-management',
-        'data-source': '/home/data-source',
-        'plugin-management': '/home/plugin-management',
-        'system-settings': '/home/system-settings',
-        'audit-logs': '/home/audit-logs',
-        'system-events': '/home/system-events',
-        'api-testing': '/home/api-testing',
-        'mock-service': '/home/mock-service',
-        'debug-tools': '/home/debug-tools'
-      }
+    // 可见的模块和更多模块
+    const visibleModules = computed(() => allModules.value.slice(0, maxVisibleItems))
+    const moreModules = computed(() => allModules.value.slice(maxVisibleItems))
 
-      const targetRoute = routeMap[key]
-      if (targetRoute) {
-        router.push(targetRoute)
-      }
+    // 处理模块选择
+    const handleModuleSelect = (module: any) => {
+      activeModule.value = module.key
+      router.push(module.route)
+    }
+
+    // 拖拽排序处理
+    const onDragEnd = (evt: any) => {
+      // 这里可以保存用户的排序偏好到本地存储或服务器
+      console.log('模块排序已更新:', allModules.value)
+    }
+
+    // 渲染模块项
+    const renderModuleItem = (module: any, isInMore = false) => {
+      const isActive = activeModule.value === module.key
+      return (
+        <div
+          key={module.key}
+          class={[
+            'module-item',
+            'flex flex-col items-center justify-center',
+            'w-64px h-64px rounded-8px cursor-pointer transition-all duration-200',
+            'hover:bg-[--color-bg-5]  hover:text-[--color-primary-5]',
+            isActive ? 'bg-[--color-bg-5] text-[--color-primary-6]' : 'text-[--color-text-2]',
+            isInMore ? 'mb-8px' : ''
+          ]}
+          onClick={() => handleModuleSelect(module)}>
+          <NIcon size={20} class="mb-4px">
+            {h(module.icon)}
+          </NIcon>
+          <span class="text-10px font-medium leading-none">{module.label}</span>
+        </div>
+      )
     }
 
     return () => (
-      <div class="w-280px h-full bg-[--color-bg-2] border-r border-[--color-border]">
-        <div class="p-16px border-b border-[--color-border]">
-          <h2 class="text-16px font-600 text-[--color-text-1] m-0">微服务监控平台</h2>
+      <div class="app-home__left w-80px h-full bg-[--color-fill-2] flex flex-col">
+        {/* 主模块区域 */}
+        <div class="flex-1 p-8px pt-40px">
+          <VueDraggable
+            modelValue={allModules.value}
+            onEnd={onDragEnd}
+            animation={200}
+            ghostClass="ghost-item"
+            chosenClass="chosen-item">
+            <div class="grid grid-cols-1 gap-8px">{visibleModules.value.map((module) => renderModuleItem(module))}</div>
+          </VueDraggable>
         </div>
-        <NScrollbar class="h-[calc(100%-64px)]">
+
+        {/* 更多模块 */}
+        {moreModules.value.length > 0 && (
           <div class="p-8px">
-            <NMenu
-              value={activeKey.value}
-              options={menuOptions}
-              onUpdateValue={handleMenuSelect}
-              accordion={false}
-              collapsedWidth={64}
-              collapsedIconSize={20}
-              iconSize={18}
-              rootIndent={12}
-              indent={24}
-            />
+            <NPopover trigger="hover" placement="right">
+              {{
+                trigger: () => (
+                  <div class="flex flex-col items-center justify-center w-64px h-64px rounded-8px cursor-pointer transition-all duration-200 hover:bg-[--color-bg-5] text-[--color-text-2] hover:text-[--color-primary-5]">
+                    <NIcon size={20} class="mb-4px">
+                      {h(EllipsisHorizontalOutline)}
+                    </NIcon>
+                    <span class="text-10px font-medium leading-none">更多</span>
+                  </div>
+                ),
+                default: () => (
+                  <div class="p-8px min-w-80px">
+                    {moreModules.value.map((module) => renderModuleItem(module, true))}
+                  </div>
+                )
+              }}
+            </NPopover>
           </div>
-        </NScrollbar>
+        )}
       </div>
     )
   }

@@ -1,9 +1,67 @@
 .hover-box {
-  @apply w-28px h-24px flex-center hover:bg-[--color-fill-3];
+  @apply w-28px h-40px flex-center hover:bg-[--color-fill-3];
 }
 
 .action-close {
-  @apply w-28px h-24px flex-center cursor-pointer hover:bg-#c22b1c svg:hover:color-[#fff];
+  @apply w-28px h-40px flex-center cursor-pointer hover:bg-#c22b1c svg:hover:color-[#fff];
+}
+
+// 新的窗口控制按钮样式
+.window-control-btn {
+  @apply w-32px h-32px flex-center cursor-pointer transition-all duration-200;
+
+  svg {
+    @apply color-[--color-text-3] transition-colors duration-200;
+  }
+
+  &:hover {
+    @apply bg-[--color-fill-2];
+
+    svg {
+      @apply color-[--color-text-1];
+    }
+  }
+
+  &:active {
+    @apply bg-[--color-fill-4];
+  }
+}
+
+// 最小化按钮
+.minimize-btn {
+  &:hover {
+    @apply bg-[--color-fill-2];
+
+    svg {
+      @apply color-white;
+    }
+  }
+}
+
+// 最大化按钮
+.maximize-btn {
+  &:hover {
+    @apply bg-[--color-fill-2];
+
+    svg {
+      @apply color-white;
+    }
+  }
+}
+
+// 关闭按钮
+.close-btn {
+  &:hover {
+    @apply bg-#e81123;
+
+    svg {
+      @apply color-white;
+    }
+  }
+
+  &:active {
+    @apply bg-#c50e1f;
+  }
 }
 
 .n-modal {
