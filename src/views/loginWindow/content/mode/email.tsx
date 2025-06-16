@@ -372,7 +372,7 @@ export default defineComponent({
                         src={item.avatar}
                       />
                       <div class="flex-1 min-w-0 text-left">
-                        <p class="text-14px color-[--color-neutral-2] font-medium truncate mb-2px">
+                        <p class="text-14px color-[--color-neutral-8] font-medium truncate mb-2px">
                           {item.nickName || item.email}
                         </p>
                         <p class="text-12px color-[--color-text-3] truncate">{item.email}</p>

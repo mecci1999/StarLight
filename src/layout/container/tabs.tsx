@@ -341,7 +341,7 @@ export default defineComponent({
           <NTabs
             value={activeTab.value}
             onUpdateValue={handleTabChange}
-            type="line"
+            type="card"
             size="medium"
             paneWrapperStyle="display: none;"
             animated>

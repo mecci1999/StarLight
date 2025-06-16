@@ -1,8 +1,7 @@
 // 页签组件样式 - 谷歌浏览器风格
 .container-tabs {
-  background: var(--color-bg-1);
+  background: var(--color-fill-2);
   border-bottom: 1px solid var(--color-border-2);
-  padding: 0 8px;
   position: relative;
   overflow: hidden;
 }
@@ -16,63 +15,83 @@
 
     .n-tabs-tab {
       position: relative;
-      padding: 8px 20px 10px 20px;
-      min-width: 140px;
-      max-width: 240px;
-      margin: 0 -8px 0 0;
-      background: var(--color-fill-3);
-      color: var(--color-text-2);
-      border: 1px solid var(--color-border-2);
+      padding: 8px 16px;
+      margin: 0 2px;
+      // border: 1px solid var(--color-border-3);
       border-bottom: none;
-      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-      z-index: 1;
+      border-radius: 12px 12px 0 0;
+      background: var(--color-fill-2);
+      color: var(--color-text-4);
+      cursor: pointer;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      min-width: 120px;
+      text-align: center;
+      font-size: 13px;
+      font-weight: 400;
+      user-select: none;
+      overflow: hidden;
 
-      // 谷歌浏览器梯形形状
-      clip-path: polygon(12px 0%, calc(100% - 12px) 0%, 100% 100%, 0% 100%);
+      // 圆弧连接效果的伪元素
+      &::before,
+      &::after {
+        content: '';
+        position: absolute;
+        bottom: -1px;
+        width: 12px;
+        height: 12px;
+        background: transparent;
+        pointer-events: none;
+      }
 
-      // 添加微妙的阴影
-      box-shadow:
-        0 1px 3px rgba(0, 0, 0, 0.05),
-        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+      &::before {
+        left: -12px;
+        border-bottom-right-radius: 12px;
+      }
+
+      &::after {
+        right: -12px;
+        border-bottom-left-radius: 12px;
+      }
+
+      // 第一个tab特殊处理
+      &:first-child {
+        border-top-left-radius: 0;
+        margin-left: 0;
+
+        &::before {
+          display: none;
+        }
+      }
 
       &:hover {
         background: var(--color-bg-2);
         color: var(--color-text-1);
         z-index: 2;
-        transform: translateY(-1px);
-        box-shadow:
-          0 2px 8px rgba(0, 0, 0, 0.1),
-          inset 0 1px 0 rgba(255, 255, 255, 0.2);
 
         .tab-label .n-icon {
-          transform: scale(1.05);
           color: var(--color-primary-5);
         }
       }
 
       &.n-tabs-tab--active {
-        background: var(--color-bg-1);
+        background: var(--color-bg-1) !important;
         color: var(--color-text-1);
         border-color: var(--color-border-2);
         z-index: 3;
-        transform: translateY(-2px);
 
-        // 活跃状态的阴影更明显
-        box-shadow:
-          0 4px 12px rgba(0, 0, 0, 0.15),
-          inset 0 1px 0 rgba(255, 255, 255, 0.3),
-          0 -1px 0 var(--color-bg-1);
+        // 活跃状态下隐藏圆弧连接效果
+        &::before,
+        &::after {
+          box-shadow: none;
+        }
 
         // 连接到内容区域
+        &::before {
+          box-shadow: 3px 3px 0 var(--color-bg-1);
+        }
+
         &::after {
-          content: '';
-          position: absolute;
-          bottom: -1px;
-          left: 12px;
-          right: 12px;
-          height: 2px;
-          background: var(--color-bg-1);
-          z-index: 4;
+          box-shadow: -3px 3px 0 var(--color-bg-1);
         }
 
         .tab-label {
@@ -81,7 +100,6 @@
 
           .n-icon {
             color: var(--color-primary-6);
-            transform: scale(1.1);
           }
         }
       }
@@ -177,8 +195,33 @@
     min-width: 120px;
     max-width: 180px;
 
-    // 移动端简化梯形形状
-    clip-path: polygon(8px 0%, calc(100% - 8px) 0%, 100% 100%, 0% 100%);
+    // 移动端简化圆弧形状
+    border-radius: 8px 8px 0 0;
+
+    &::before,
+    &::after {
+      width: 8px;
+      height: 8px;
+    }
+
+    &::before {
+      left: -8px;
+      border-bottom-right-radius: 8px;
+    }
+
+    &::after {
+      right: -8px;
+      border-bottom-left-radius: 8px;
+    }
+
+    // 移动端第一个tab特殊样式
+    &:first-child {
+      border-radius: 0 8px 0 0;
+
+      &::before {
+        display: none;
+      }
+    }
   }
 
   .tab-label {

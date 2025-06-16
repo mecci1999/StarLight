@@ -203,11 +203,16 @@ export default defineComponent({
         class={{
           'action-bar h-40px': true,
           'flex justify-end select-none': isCompatibility.value,
-          'select-none w-full flex': !isCompatibility.value
+          'select-none w-full flex': !isCompatibility.value,
+          'bg-[--color-fill-2]': props.showSlot
         }}
         data-tauri-drag-region>
         {/* 插槽内容 */}
-        {props.showSlot && slots.default ? <div class="flex flex-1 items-center mr-auto">{slots.default()}</div> : null}
+        {props.showSlot && slots.default ? (
+          <div class="flex flex-1 items-center mr-auto" data-tauri-drag-region>
+            {slots.default()}
+          </div>
+        ) : null}
         {isCompatibility.value ? (
           <>
             {/* 固定在最顶层 */}
