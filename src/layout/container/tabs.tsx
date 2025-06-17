@@ -17,8 +17,8 @@ import {
   SpeedometerOutline,
   StatsChartOutline
 } from '@vicons/ionicons5'
-import { NIcon, NTabPane, NTabs } from 'naive-ui'
-import { computed, defineComponent, ref, watch } from 'vue'
+import { NIcon } from 'naive-ui'
+import { computed, defineComponent, nextTick, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import './tabs.scss'
 
@@ -29,6 +29,12 @@ export default defineComponent({
     const route = useRoute()
 
     const activeTab = ref('')
+    const tabsContainer = ref<HTMLElement>()
+    const draggedTab = ref<HTMLElement | null>(null)
+    const draggedIndex = ref(-1)
+    const dropIndex = ref(-1)
+    const isDragging = ref(false)
+    const tabOrder = ref<string[]>([])
 
     // 二级菜单配置
     const subMenuConfig = {
@@ -269,8 +275,24 @@ export default defineComponent({
 
     // 当前模块的子菜单
     const currentSubMenus = computed(() => {
-      return subMenuConfig[currentModule.value as keyof typeof subMenuConfig] || []
+      const menus = subMenuConfig[currentModule.value as keyof typeof subMenuConfig] || []
+      // 根据tabOrder排序菜单
+      if (tabOrder.value.length > 0) {
+        return tabOrder.value.map((key) => menus.find((menu) => menu.key === key)).filter(Boolean) as typeof menus
+      }
+      return menus
     })
+
+    // 初始化tab顺序
+    watch(
+      () => subMenuConfig[currentModule.value as keyof typeof subMenuConfig],
+      (newMenus) => {
+        if (newMenus && tabOrder.value.length === 0) {
+          tabOrder.value = newMenus.map((menu) => menu.key)
+        }
+      },
+      { immediate: true }
+    )
 
     // 监听路由变化更新激活的页签
     watch(
@@ -320,15 +342,114 @@ export default defineComponent({
       }
     }
 
-    // 渲染页签标签
-    const renderTabLabel = (menu: any) => {
-      return (
-        <div class="tab-label">
-          <NIcon size={14}>{h(menu.icon)}</NIcon>
-          <span>{menu.label}</span>
-        </div>
-      )
+    // 计算每个tab的宽度
+    const calculateTabWidth = () => {
+      if (!tabsContainer.value) return
+
+      const containerWidth = tabsContainer.value.offsetWidth - 20 // 减去padding
+      const tabCount = currentSubMenus.value.length
+      const minWidth = 80 // 最小宽度
+      const maxWidth = 200 // 最大宽度
+
+      let tabWidth = Math.floor(containerWidth / tabCount)
+      tabWidth = Math.max(minWidth, Math.min(maxWidth, tabWidth))
+
+      const tabs = tabsContainer.value.querySelectorAll('.custom-tab')
+      tabs.forEach((tab: Element) => {
+        ;(tab as HTMLElement).style.width = `${tabWidth}px`
+      })
     }
+
+    // 拖拽相关方法
+    const handleDragStart = (e: DragEvent, index: number) => {
+      if (!e.dataTransfer) return
+
+      draggedTab.value = e.target as HTMLElement
+      draggedIndex.value = index
+      isDragging.value = true
+
+      e.dataTransfer.effectAllowed = 'move'
+      e.dataTransfer.setData('text/html', '')
+
+      // 添加拖拽样式
+      draggedTab.value.classList.add('dragging')
+    }
+
+    const handleDragOver = (e: DragEvent, index: number) => {
+      e.preventDefault()
+      if (!e.dataTransfer) return
+
+      e.dataTransfer.dropEffect = 'move'
+      dropIndex.value = index
+
+      // 添加拖拽悬停效果
+      const tabs = tabsContainer.value?.querySelectorAll('.custom-tab')
+      tabs?.forEach((tab, i) => {
+        if (i === index && i !== draggedIndex.value) {
+          tab.classList.add('drag-over')
+        } else {
+          tab.classList.remove('drag-over')
+        }
+      })
+    }
+
+    const handleDragLeave = (e: DragEvent) => {
+      const target = e.target as HTMLElement
+      target.classList.remove('drag-over')
+    }
+
+    const handleDrop = (e: DragEvent, index: number) => {
+      e.preventDefault()
+
+      if (draggedIndex.value === -1 || draggedIndex.value === index) return
+
+      // 重新排列tab顺序
+      const newOrder = [...tabOrder.value]
+      const draggedKey = newOrder[draggedIndex.value]
+      newOrder.splice(draggedIndex.value, 1)
+      newOrder.splice(index, 0, draggedKey)
+
+      tabOrder.value = newOrder
+
+      // 清理拖拽状态
+      cleanupDrag()
+    }
+
+    const handleDragEnd = () => {
+      cleanupDrag()
+    }
+
+    const cleanupDrag = () => {
+      isDragging.value = false
+      draggedTab.value = null
+      draggedIndex.value = -1
+      dropIndex.value = -1
+
+      // 清理所有拖拽样式
+      const tabs = tabsContainer.value?.querySelectorAll('.custom-tab')
+      tabs?.forEach((tab) => {
+        tab.classList.remove('dragging', 'drag-over')
+      })
+    }
+
+    // 监听窗口大小变化
+    onMounted(() => {
+      nextTick(() => {
+        calculateTabWidth()
+      })
+
+      window.addEventListener('resize', calculateTabWidth)
+    })
+
+    // 监听子菜单变化重新计算宽度
+    watch(
+      () => currentSubMenus.value.length,
+      () => {
+        nextTick(() => {
+          calculateTabWidth()
+        })
+      }
+    )
 
     return () => {
       // 如果当前模块没有子菜单，则不显示页签
@@ -338,17 +459,31 @@ export default defineComponent({
 
       return (
         <div class="container-tabs">
-          <NTabs
-            value={activeTab.value}
-            onUpdateValue={handleTabChange}
-            type="card"
-            size="medium"
-            paneWrapperStyle="display: none;"
-            animated>
-            {currentSubMenus.value.map((menu) => (
-              <NTabPane key={menu.key} name={menu.key} tab={() => renderTabLabel(menu)} />
+          <div class="custom-tabs" ref={tabsContainer}>
+            {currentSubMenus.value.map((menu, index) => (
+              <div
+                key={menu.key}
+                class={[
+                  'custom-tab',
+                  { active: activeTab.value === menu.key },
+                  { dragging: isDragging.value && draggedIndex.value === index }
+                ]}
+                draggable="true"
+                onDragstart={(e: DragEvent) => handleDragStart(e, index)}
+                onDragover={(e: DragEvent) => handleDragOver(e, index)}
+                onDragleave={handleDragLeave}
+                onDrop={(e: DragEvent) => handleDrop(e, index)}
+                onDragend={handleDragEnd}
+                onClick={() => handleTabChange(menu.key)}>
+                <div class="tab-content">
+                  <div class="tab-icon">
+                    <NIcon size={14}>{h(menu.icon)}</NIcon>
+                  </div>
+                  <span class="tab-label">{menu.label}</span>
+                </div>
+              </div>
             ))}
-          </NTabs>
+          </div>
         </div>
       )
     }

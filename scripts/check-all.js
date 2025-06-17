@@ -12,12 +12,12 @@ const __dirname = dirname(__filename)
  * @param {string} description 脚本描述
  */
 async function runScript(scriptPath, description) {
-  const startTime = pereformacne.now()
+  const startTime = performance.now()
   console.log(chalk.blue(`\n[StarLight ${new Date().toLocaleTimeString()}] 开始${description}...\n`))
 
   try {
     execSync(`node ${scriptPath}`, { stdio: 'inherit' })
-    const duration = ((pereformacne.now() - startTime) / 1000).toFixed(2)
+    const duration = ((performance.now() - startTime) / 1000).toFixed(2)
     console.log(chalk.green(`\n✓ ${description}完成 (${duration}s)\n`))
     return true
   } catch (error) {

@@ -1,18 +1,18 @@
 .container-header {
-  width: 100%;
+  // width: 100%;
   display: flex;
   align-items: center;
   justify-content: flex-end;
   height: 100%;
   padding: 0 24px;
   background: var(--n-color);
-  border-bottom: 1px solid var(--n-border-color);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  // border-bottom: 1px solid var(--n-border-color);
+  // box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 
   .search-section {
     flex: 1;
-    max-width: 400px;
-    margin-right: 48px;
+    max-width: 240px;
+    margin-right: 24px;
 
     .search-input {
       width: 100%;

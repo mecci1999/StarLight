@@ -201,7 +201,7 @@ export default defineComponent({
     return () => (
       <div
         class={{
-          'action-bar h-40px': true,
+          'action-bar h-44px': true,
           'flex justify-end select-none': isCompatibility.value,
           'select-none w-full flex': !isCompatibility.value,
           'bg-[--color-fill-2]': props.showSlot
