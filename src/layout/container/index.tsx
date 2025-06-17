@@ -15,7 +15,7 @@ export default defineComponent({
           {{
             default: () => {
               return (
-                <div class="flex-1 flex h-full items-center">
+                <div class="flex-1 flex h-full items-center" data-tauri-drag-region>
                   {/* 二级菜单页签 */}
                   <ContainerTabs />
                   {/* 顶部操作栏 包括搜索框 消息通知 头像等 */}

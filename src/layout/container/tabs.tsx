@@ -458,8 +458,8 @@ export default defineComponent({
       }
 
       return (
-        <div class="container-tabs">
-          <div class="custom-tabs" ref={tabsContainer}>
+        <div class="container-tabs select-none" data-tauri-drag-region>
+          <div class="custom-tabs select-none" data-tauri-drag-region ref={tabsContainer}>
             {currentSubMenus.value.map((menu, index) => (
               <div
                 key={menu.key}

@@ -11,7 +11,6 @@
 // 自定义页签容器
 .custom-tabs {
   display: flex;
-  margin-left: 10px;
   height: 100%;
   position: relative;
 }
@@ -30,12 +29,22 @@
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   min-width: 80px;
-  max-width: 200px;
+  max-width: 150px;
   font-size: 13px;
   font-weight: 400;
   user-select: none;
   // overflow: hidden;
   flex-shrink: 1;
+
+  &:first-child {
+    &.active {
+      border-left: 0.5px solid var(--color-border-2);
+    }
+    // border-left: 0.5px solid var(--color-border-2);
+    &:before {
+      display: none;
+    }
+  }
 
   .tab-content {
     display: flex;
@@ -62,6 +71,7 @@
   // 悬停效果
   &:hover {
     background: var(--color-fill-3);
+    color: var(--color-primary-5);
     z-index: 2;
 
     .tab-icon .n-icon {
@@ -113,10 +123,10 @@
 
   // 拖拽状态
   &.dragging {
-    opacity: 0.5;
-    transform: rotate(5deg) scale(1.05);
-    z-index: 1000;
-    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+    // opacity: 0.5;
+    // transform: rotate(5deg) scale(1.05);
+    // z-index: 1000;
+    // box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
   }
 
   // 拖拽悬停状态
@@ -149,7 +159,7 @@
     top: 25%;
     bottom: 25%;
     width: 1px;
-    background: var(--color-border-2);
+    background: var(--color-border-4);
     opacity: 0.3;
     z-index: 1;
   }
