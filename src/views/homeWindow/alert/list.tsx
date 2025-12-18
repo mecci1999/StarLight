@@ -1,5 +1,23 @@
-import { NCard, NDataTable, NTag, NSpace, NButton, NInput, NSelect, NDatePicker } from 'naive-ui'
+import {
+  NCard,
+  NDataTable,
+  NTag,
+  NSpace,
+  NButton,
+  NInput,
+  NSelect,
+  NDatePicker,
+  NSpin,
+  NProgress,
+  NTooltip,
+  NTimeline,
+  NTimelineItem
+} from 'naive-ui'
 import { ref, h } from 'vue'
+import { fetchAlerts } from '@/mock/api'
+import type { AlertItem } from '@/types/monitor'
+import SectionHeader from '@/components/common/SectionHeader'
+import { AlertCircleOutline, CheckmarkCircleOutline, WarningOutline, CloseCircleOutline } from '@vicons/ionicons5'
 
 export default defineComponent({
   name: 'AlertList',
@@ -10,209 +28,242 @@ export default defineComponent({
     const dateRange = ref<[number, number] | null>(null)
 
     const serviceOptions = [
-      { label: '全部服务', value: '' },
+      { label: 'All Services', value: '' },
       { label: 'user-service', value: 'user-service' },
       { label: 'order-service', value: 'order-service' },
       { label: 'payment-service', value: 'payment-service' }
     ]
 
     const levelOptions = [
-      { label: '全部等级', value: '' },
-      { label: '严重', value: 'critical' },
-      { label: '警告', value: 'warning' },
-      { label: '信息', value: 'info' }
+      { label: 'All Levels', value: '' },
+      { label: 'Critical', value: 'critical' },
+      { label: 'Warning', value: 'warning' },
+      { label: 'Info', value: 'info' }
     ]
 
     const columns = [
       {
-        title: '告警时间',
+        title: 'Time',
         key: 'time',
-        width: 180
+        width: 180,
+        render(row: any) {
+          return <div class="text-13px font-mono">{row.time}</div>
+        }
       },
       {
-        title: '服务名称',
-        key: 'service',
-        width: 150
+        title: 'Status',
+        key: 'status',
+        width: 120,
+        render(row: any) {
+          const statusMap = {
+            active: { type: 'error', text: 'Active', icon: AlertCircleOutline },
+            resolved: { type: 'success', text: 'Resolved', icon: CheckmarkCircleOutline },
+            suppressed: { type: 'default', text: 'Suppressed', icon: CloseCircleOutline }
+          }
+          const config = statusMap[row.status as keyof typeof statusMap]
+          return (
+            <NTag type={config.type as any} size="small" round bordered={false}>
+              {{
+                icon: () => h(config.icon),
+                default: () => config.text
+              }}
+            </NTag>
+          )
+        }
       },
       {
-        title: '告警等级',
+        title: 'Severity',
         key: 'level',
         width: 100,
         render(row: any) {
           const levelMap = {
-            critical: { type: 'error', text: '严重' },
-            warning: { type: 'warning', text: '警告' },
-            info: { type: 'info', text: '信息' }
+            critical: { color: '#d03050', text: 'CRITICAL' },
+            warning: { color: '#f0a020', text: 'WARNING' },
+            info: { color: '#2080f0', text: 'INFO' }
           }
           const config = levelMap[row.level as keyof typeof levelMap]
-          return h(NTag, { type: config.type as any }, { default: () => config.text })
+          return (
+            <div class="flex items-center gap-6px">
+              <div class="w-8px h-8px rounded-full" style={{ backgroundColor: config.color }}></div>
+              <span class="font-bold text-12px" style={{ color: config.color }}>
+                {config.text}
+              </span>
+            </div>
+          )
         }
       },
       {
-        title: '告警内容',
+        title: 'Alert Message',
         key: 'message',
-        ellipsis: {
-          tooltip: true
-        }
-      },
-      {
-        title: '状态',
-        key: 'status',
-        width: 100,
         render(row: any) {
-          const statusMap = {
-            active: { type: 'error', text: '活跃' },
-            resolved: { type: 'success', text: '已解决' },
-            suppressed: { type: 'default', text: '已抑制' }
-          }
-          const config = statusMap[row.status as keyof typeof statusMap]
-          return h(NTag, { type: config.type as any }, { default: () => config.text })
+          return (
+            <div>
+              <div class="font-medium text-[--color-text-1]">{row.message}</div>
+              <div class="text-12px text-[--color-text-3] mt-2px">Service: {row.service}</div>
+            </div>
+          )
         }
       },
       {
-        title: '持续时间',
+        title: 'Duration',
         key: 'duration',
-        width: 120
+        width: 120,
+        render(row: any) {
+          return <span class="font-mono text-13px">{row.duration}</span>
+        }
       },
       {
-        title: '操作',
+        title: 'Actions',
         key: 'actions',
-        width: 200,
+        width: 150,
         render(row: any) {
-          return h(NSpace, null, {
-            default: () =>
-              [
-                h(NButton, { size: 'small', type: 'primary' }, { default: () => '详情' }),
-                row.status === 'active'
-                  ? h(NButton, { size: 'small', type: 'warning' }, { default: () => '确认' })
-                  : null,
-                h(NButton, { size: 'small', type: 'error' }, { default: () => '抑制' })
-              ].filter(Boolean)
-          })
+          const handleAck = () => {
+            row.status = 'resolved'
+            window.$message.success('Alert resolved')
+          }
+          const handleSuppress = () => {
+            row.status = 'suppressed'
+            window.$message.info('Alert suppressed')
+          }
+          return (
+            <div class="flex gap-8px">
+              {row.status === 'active' && (
+                <NButton size="tiny" type="success" secondary onClick={handleAck}>
+                  Resolve
+                </NButton>
+              )}
+              <NButton size="tiny" secondary onClick={handleSuppress}>
+                Mute
+              </NButton>
+            </div>
+          )
         }
       }
     ]
 
-    const alertData = ref([
-      {
-        key: '1',
-        time: '2024-01-15 14:30:25',
-        service: 'user-service',
-        level: 'critical',
-        message: 'CPU使用率超过90%，当前值：95%',
-        status: 'active',
-        duration: '15分钟'
-      },
-      {
-        key: '2',
-        time: '2024-01-15 14:25:10',
-        service: 'order-service',
-        level: 'warning',
-        message: '内存使用率超过80%，当前值：85%',
-        status: 'active',
-        duration: '20分钟'
-      },
-      {
-        key: '3',
-        time: '2024-01-15 14:20:45',
-        service: 'payment-service',
-        level: 'critical',
-        message: '响应时间超过5秒，当前值：8.5秒',
-        status: 'resolved',
-        duration: '10分钟'
-      },
-      {
-        key: '4',
-        time: '2024-01-15 14:15:30',
-        service: 'user-service',
-        level: 'warning',
-        message: 'QPS异常下降，当前值：50/s，正常值：1000/s',
-        status: 'suppressed',
-        duration: '5分钟'
-      },
-      {
-        key: '5',
-        time: '2024-01-15 14:10:15',
-        service: 'order-service',
-        level: 'info',
-        message: '服务重启完成',
-        status: 'resolved',
-        duration: '1分钟'
-      }
-    ])
+    const loading = ref(false)
+    const alertData = ref<AlertItem[]>([])
+
+    const handleQuery = async () => {
+      loading.value = true
+      const list = await fetchAlerts({ level: selectedLevel.value as any })
+      alertData.value = list.filter((i) => (searchText.value ? i.message.includes(searchText.value) : true))
+      loading.value = false
+    }
+
+    const handleReset = async () => {
+      searchText.value = ''
+      selectedService.value = ''
+      selectedLevel.value = ''
+      await handleQuery()
+    }
+
+    handleQuery()
 
     return () => (
-      <div class="p-24px h-full">
-        <div class="mb-16px">
-          <h1 class="text-20px font-600 text-[--color-text-1] m-0">告警列表</h1>
-          <p class="text-14px text-[--color-text-3] mt-8px mb-0">展示所有触发的告警，支持按时间、服务、等级等筛选</p>
-        </div>
+      <div class="p-24px h-full flex flex-col">
+        <SectionHeader
+          title="Alert History"
+          subtitle="Comprehensive view of all system alerts and incidents."
+          icon={AlertCircleOutline}
+        />
 
-        {/* 筛选面板 */}
-        <NCard class="mb-16px">
-          <NSpace>
-            <NInput v-model:value={searchText.value} placeholder="搜索告警内容" style={{ width: '200px' }} />
-            <NSelect
-              v-model:value={selectedService.value}
-              options={serviceOptions}
-              placeholder="选择服务"
-              style={{ width: '150px' }}
-            />
-            <NSelect
-              v-model:value={selectedLevel.value}
-              options={levelOptions}
-              placeholder="选择等级"
-              style={{ width: '120px' }}
-            />
-            <NDatePicker v-model:value={dateRange.value} type="datetimerange" clearable style={{ width: '300px' }} />
-            <NButton type="primary">查询</NButton>
-            <NButton>重置</NButton>
-            <NButton type="error">批量确认</NButton>
-          </NSpace>
+        {/* Filters */}
+        <NCard class="mb-16px" contentStyle={{ padding: '16px' }}>
+          <div class="flex justify-between items-center">
+            <NSpace>
+              <NInput v-model:value={searchText.value} placeholder="Search alerts..." style={{ width: '240px' }} />
+              <NSelect
+                v-model:value={selectedService.value}
+                options={serviceOptions}
+                placeholder="Service"
+                style={{ width: '160px' }}
+              />
+              <NSelect
+                v-model:value={selectedLevel.value}
+                options={levelOptions}
+                placeholder="Severity"
+                style={{ width: '140px' }}
+              />
+              <NDatePicker v-model:value={dateRange.value} type="datetimerange" clearable style={{ width: '300px' }} />
+            </NSpace>
+            <NSpace>
+              <NButton type="primary" onClick={handleQuery}>
+                Search
+              </NButton>
+              <NButton onClick={handleReset}>Reset</NButton>
+            </NSpace>
+          </div>
         </NCard>
 
-        {/* 告警统计 */}
+        {/* Alert Stats */}
         <div class="grid grid-cols-4 gap-16px mb-16px">
-          <NCard>
-            <div class="text-center">
-              <div class="text-24px font-600 text-[--color-error]">7</div>
-              <div class="text-14px text-[--color-text-3]">活跃告警</div>
+          <NCard contentStyle={{ padding: '16px' }}>
+            <div class="flex items-center justify-between">
+              <div>
+                <div class="text-12px text-[--color-text-3] uppercase font-bold">Active Alerts</div>
+                <div class="text-28px font-700 text-[--color-error] mt-4px">7</div>
+              </div>
+              <AlertCircleOutline class="text-32px text-[--color-error] opacity-20" />
             </div>
+            <NProgress type="line" percentage={30} showIndicator={false} color="#d03050" height={4} class="mt-12px" />
           </NCard>
-          <NCard>
-            <div class="text-center">
-              <div class="text-24px font-600 text-[--color-error]">2</div>
-              <div class="text-14px text-[--color-text-3]">严重告警</div>
+          <NCard contentStyle={{ padding: '16px' }}>
+            <div class="flex items-center justify-between">
+              <div>
+                <div class="text-12px text-[--color-text-3] uppercase font-bold">Critical</div>
+                <div class="text-28px font-700 text-[--color-error] mt-4px">2</div>
+              </div>
+              <WarningOutline class="text-32px text-[--color-error] opacity-20" />
             </div>
+            <div class="text-12px text-[--color-text-3] mt-12px">Avg Resolution: 15m</div>
           </NCard>
-          <NCard>
-            <div class="text-center">
-              <div class="text-24px font-600 text-[--color-warning]">3</div>
-              <div class="text-14px text-[--color-text-3]">警告告警</div>
+          <NCard contentStyle={{ padding: '16px' }}>
+            <div class="flex items-center justify-between">
+              <div>
+                <div class="text-12px text-[--color-text-3] uppercase font-bold">Warning</div>
+                <div class="text-28px font-700 text-[--color-warning] mt-4px">3</div>
+              </div>
+              <WarningOutline class="text-32px text-[--color-warning] opacity-20" />
             </div>
+            <div class="text-12px text-[--color-text-3] mt-12px">Avg Resolution: 45m</div>
           </NCard>
-          <NCard>
-            <div class="text-center">
-              <div class="text-24px font-600 text-[--color-success]">15</div>
-              <div class="text-14px text-[--color-text-3]">今日已解决</div>
+          <NCard contentStyle={{ padding: '16px' }}>
+            <div class="flex items-center justify-between">
+              <div>
+                <div class="text-12px text-[--color-text-3] uppercase font-bold">Resolved Today</div>
+                <div class="text-28px font-700 text-[--color-success] mt-4px">15</div>
+              </div>
+              <CheckmarkCircleOutline class="text-32px text-[--color-success] opacity-20" />
+            </div>
+            <div class="text-12px text-[--color-text-3] mt-12px">
+              Efficiency: <span class="text-green-500">+12%</span>
             </div>
           </NCard>
         </div>
 
-        {/* 告警列表 */}
-        <NCard>
-          <NDataTable
-            columns={columns}
-            data={alertData.value}
-            pagination={{
-              pageSize: 10,
-              showSizePicker: true,
-              pageSizes: [10, 20, 50]
-            }}
-            bordered={false}
-            singleLine={false}
-            rowKey={(row: any) => row.key}
-          />
+        {/* Alert List */}
+        <NCard class="flex-1" contentStyle={{ padding: 0 }}>
+          {loading.value ? (
+            <div class="py-40px flex items-center justify-center">
+              <NSpin size="large" />
+            </div>
+          ) : (
+            <NDataTable
+              columns={columns}
+              data={alertData.value}
+              pagination={{
+                pageSize: 10,
+                showSizePicker: true,
+                pageSizes: [10, 20, 50]
+              }}
+              bordered={false}
+              singleLine={false}
+              rowKey={(row: any) => row.id}
+              class="h-full"
+              flex-height
+            />
+          )}
         </NCard>
       </div>
     )

@@ -1,290 +1,232 @@
-import { NCard, NDataTable, NTag, NSpace, NButton, NInput, NSelect, NDatePicker, NModal, NCode } from 'naive-ui'
-import { ref, h } from 'vue'
+import {
+  NCard,
+  NLayout,
+  NLayoutSider,
+  NLayoutContent,
+  NInput,
+  NButton,
+  NTag,
+  NList,
+  NListItem,
+  NCheckbox,
+  NCheckboxGroup,
+  NSpace,
+  NSpin,
+  NCode,
+  NCollapse,
+  NCollapseItem,
+  NScrollbar
+} from 'naive-ui'
+import { defineComponent, ref, onMounted, computed } from 'vue'
+import { fetchLogs } from '@/mock/api'
+import type { LogItem, LogVolume } from '@/types/monitor'
+import BarChart from '@/components/charts/BarChart'
+import {
+  SearchOutline,
+  RefreshOutline,
+  DownloadOutline,
+  PauseCircleOutline,
+  PlayCircleOutline
+} from '@vicons/ionicons5'
 
 export default defineComponent({
-  name: 'ServiceLogs',
+  name: 'LogExplorer',
   setup() {
+    const loading = ref(false)
+    const logs = ref<LogItem[]>([])
+    const volumeData = ref<LogVolume[]>([])
     const searchText = ref('')
-    const selectedService = ref('')
-    const selectedLevel = ref('')
-    const dateRange = ref<[number, number] | null>(null)
-    const showDetailModal = ref(false)
-    const selectedLog = ref<any>(null)
+    const isLive = ref(false)
+    let liveTimer: any = null
+
+    // Facets
+    const selectedServices = ref<string[]>([])
+    const selectedLevels = ref<string[]>([])
 
     const serviceOptions = [
-      { label: '全部服务', value: '' },
+      { label: 'api-gateway', value: 'gateway' },
       { label: 'user-service', value: 'user-service' },
       { label: 'order-service', value: 'order-service' },
       { label: 'payment-service', value: 'payment-service' },
-      { label: 'gateway-service', value: 'gateway-service' }
+      { label: 'auth-service', value: 'auth-service' }
     ]
 
     const levelOptions = [
-      { label: '全部级别', value: '' },
       { label: 'ERROR', value: 'error' },
       { label: 'WARN', value: 'warn' },
       { label: 'INFO', value: 'info' },
       { label: 'DEBUG', value: 'debug' }
     ]
 
-    const columns = [
-      {
-        title: '时间',
-        key: 'timestamp',
-        width: 180
-      },
-      {
-        title: '服务',
-        key: 'service',
-        width: 150
-      },
-      {
-        title: '级别',
-        key: 'level',
-        width: 80,
-        render(row: any) {
-          const levelMap = {
-            error: { type: 'error', text: 'ERROR' },
-            warn: { type: 'warning', text: 'WARN' },
-            info: { type: 'info', text: 'INFO' },
-            debug: { type: 'default', text: 'DEBUG' }
-          }
-          const config = levelMap[row.level as keyof typeof levelMap]
-          return h(NTag, { type: config.type as any, size: 'small' }, { default: () => config.text })
-        }
-      },
-      {
-        title: '消息',
-        key: 'message',
-        ellipsis: {
-          tooltip: true
-        }
-      },
-      {
-        title: '线程',
-        key: 'thread',
-        width: 120
-      },
-      {
-        title: '操作',
-        key: 'actions',
-        width: 100,
-        render(row: any) {
-          return h(
-            NButton,
-            {
-              size: 'small',
-              type: 'primary',
-              onClick: () => handleViewDetail(row)
-            },
-            { default: () => '详情' }
-          )
-        }
-      }
-    ]
-
-    const logData = ref([
-      {
-        key: '1',
-        timestamp: '2024-01-15 14:30:25.123',
-        service: 'user-service',
-        level: 'error',
-        message: 'Failed to connect to database: Connection timeout',
-        thread: 'http-nio-8080-exec-1',
-        logger: 'com.example.user.service.UserService',
-        stackTrace: `java.sql.SQLException: Connection timeout\n\tat com.mysql.cj.jdbc.ConnectionImpl.connectOneTryOnly(ConnectionImpl.java:956)\n\tat com.mysql.cj.jdbc.ConnectionImpl.createNewIO(ConnectionImpl.java:826)\n\tat com.mysql.cj.jdbc.ConnectionImpl.<init>(ConnectionImpl.java:456)\n\tat com.mysql.cj.jdbc.ConnectionImpl.getInstance(ConnectionImpl.java:246)\n\tat com.mysql.cj.jdbc.NonRegisteringDriver.connect(NonRegisteringDriver.java:197)`
-      },
-      {
-        key: '2',
-        timestamp: '2024-01-15 14:29:45.456',
-        service: 'order-service',
-        level: 'warn',
-        message: 'High memory usage detected: 85% of heap space used',
-        thread: 'scheduler-1',
-        logger: 'com.example.order.monitor.MemoryMonitor',
-        stackTrace: ''
-      },
-      {
-        key: '3',
-        timestamp: '2024-01-15 14:29:12.789',
-        service: 'payment-service',
-        level: 'info',
-        message: 'Payment processed successfully for order #12345',
-        thread: 'http-nio-8081-exec-3',
-        logger: 'com.example.payment.service.PaymentService',
-        stackTrace: ''
-      },
-      {
-        key: '4',
-        timestamp: '2024-01-15 14:28:58.012',
-        service: 'gateway-service',
-        level: 'debug',
-        message: 'Routing request to user-service: GET /api/users/123',
-        thread: 'reactor-http-nio-2',
-        logger: 'com.example.gateway.filter.LoggingFilter',
-        stackTrace: ''
-      },
-      {
-        key: '5',
-        timestamp: '2024-01-15 14:28:30.345',
-        service: 'user-service',
-        level: 'error',
-        message: 'Validation failed: Invalid email format',
-        thread: 'http-nio-8080-exec-2',
-        logger: 'com.example.user.controller.UserController',
-        stackTrace: ''
-      }
-    ])
-
-    const handleViewDetail = (log: any) => {
-      selectedLog.value = log
-      showDetailModal.value = true
+    const loadLogs = async () => {
+      loading.value = true
+      const res = await fetchLogs({
+        search: searchText.value,
+        service: selectedServices.value.join(','),
+        level: selectedLevels.value.join(',')
+      })
+      logs.value = res.logs
+      volumeData.value = res.volume
+      loading.value = false
     }
 
-    const handleDownload = () => {
-      // 模拟下载日志
-      console.log('下载日志文件')
+    const toggleLive = () => {
+      isLive.value = !isLive.value
+      if (isLive.value) {
+        liveTimer = setInterval(async () => {
+          const res = await fetchLogs({})
+          logs.value = [res.logs[0], ...logs.value].slice(0, 100) // Simulate stream
+        }, 2000)
+      } else {
+        clearInterval(liveTimer)
+      }
     }
 
-    const handleRefresh = () => {
-      // 模拟刷新日志
-      console.log('刷新日志数据')
+    onMounted(loadLogs)
+
+    const chartData = computed(() => {
+      return volumeData.value.map((v) => ({
+        name: new Date(v.timestamp).getHours() + ':00',
+        value: v.count
+      }))
+    })
+
+    const LogItemRow = (props: { log: LogItem }) => {
+      const expanded = ref(false)
+      return (
+        <div class="border-b border-[--color-border-1] hover:bg-[--color-fill-2] transition-colors">
+          <div
+            class="flex items-start p-8px gap-12px cursor-pointer text-13px font-mono"
+            onClick={() => (expanded.value = !expanded.value)}>
+            <div class="w-140px text-[--color-text-3] shrink-0">{props.log.timestamp.split(' ')[1]}</div>
+            <div class="w-60px shrink-0">
+              <NTag
+                size="small"
+                type={props.log.level === 'error' ? 'error' : props.log.level === 'warn' ? 'warning' : 'info'}
+                class="w-full justify-center font-bold">
+                {props.log.level.toUpperCase()}
+              </NTag>
+            </div>
+            <div class="w-120px text-[--color-primary-6] shrink-0 truncate" title={props.log.service}>
+              {props.log.service}
+            </div>
+            <div class="flex-1 text-[--color-text-1] break-all">{props.log.message}</div>
+          </div>
+          {expanded.value && (
+            <div class="p-16px bg-[--color-bg-2] ml-40px mr-16px mb-8px rounded-4px border border-[--color-border-2]">
+              <div class="grid grid-cols-2 gap-16px mb-16px text-12px">
+                <div>
+                  <span class="text-[--color-text-3]">Thread:</span>{' '}
+                  <span class="text-[--color-text-1] font-mono">{props.log.thread}</span>
+                </div>
+                <div>
+                  <span class="text-[--color-text-3]">Logger:</span>{' '}
+                  <span class="text-[--color-text-1] font-mono">{props.log.logger}</span>
+                </div>
+                <div>
+                  <span class="text-[--color-text-3]">Trace ID:</span>{' '}
+                  <span class="text-[--color-primary-6] cursor-pointer hover:underline">trace-{props.log.key}</span>
+                </div>
+              </div>
+              {props.log.stackTrace && <NCode code={props.log.stackTrace} language="java" wordWrap class="text-12px" />}
+            </div>
+          )}
+        </div>
+      )
     }
 
     return () => (
-      <div class="p-24px h-full">
-        <div class="mb-16px">
-          <h1 class="text-20px font-600 text-[--color-text-1] m-0">服务日志</h1>
-          <p class="text-14px text-[--color-text-3] mt-8px mb-0">按服务查看日志，支持搜索、过滤、分页、下载</p>
-        </div>
-
-        {/* 筛选面板 */}
-        <NCard class="mb-16px">
+      <div class="h-full flex flex-col bg-[--color-bg-1]">
+        {/* Header */}
+        <div class="h-60px px-24px flex items-center justify-between border-b border-[--color-border-1]">
+          <div class="flex items-center gap-16px flex-1">
+            <h2 class="text-18px font-600 m-0">Log Explorer</h2>
+            <NInput
+              v-model:value={searchText.value}
+              placeholder='Search logs (e.g. "error" AND "service:api")'
+              class="w-400px"
+              onKeyup={(e) => e.key === 'Enter' && loadLogs()}>
+              {{ prefix: () => <SearchOutline class="w-16px" /> }}
+            </NInput>
+            <NButton type="primary" onClick={loadLogs}>
+              Search
+            </NButton>
+          </div>
           <NSpace>
-            <NInput v-model:value={searchText.value} placeholder="搜索日志内容" style={{ width: '200px' }} />
-            <NSelect
-              v-model:value={selectedService.value}
-              options={serviceOptions}
-              placeholder="选择服务"
-              style={{ width: '150px' }}
-            />
-            <NSelect
-              v-model:value={selectedLevel.value}
-              options={levelOptions}
-              placeholder="选择级别"
-              style={{ width: '120px' }}
-            />
-            <NDatePicker v-model:value={dateRange.value} type="datetimerange" clearable style={{ width: '300px' }} />
-            <NButton type="primary">查询</NButton>
-            <NButton onClick={handleRefresh}>刷新</NButton>
-            <NButton onClick={handleDownload}>下载</NButton>
+            <NButton onClick={toggleLive} type={isLive.value ? 'error' : 'default'} secondary>
+              {{
+                icon: () => (isLive.value ? <PauseCircleOutline /> : <PlayCircleOutline />),
+                default: () => (isLive.value ? 'Pause Live' : 'Live Tail')
+              }}
+            </NButton>
+            <NButton onClick={loadLogs}>
+              <RefreshOutline class="mr-4px" /> Refresh
+            </NButton>
+            <NButton>
+              <DownloadOutline class="mr-4px" /> Export
+            </NButton>
           </NSpace>
-        </NCard>
-
-        {/* 统计面板 */}
-        <div class="grid grid-cols-4 gap-16px mb-16px">
-          <NCard>
-            <div class="text-center">
-              <div class="text-24px font-600 text-[--color-error]">23</div>
-              <div class="text-14px text-[--color-text-3]">错误日志</div>
-            </div>
-          </NCard>
-          <NCard>
-            <div class="text-center">
-              <div class="text-24px font-600 text-[--color-warning]">156</div>
-              <div class="text-14px text-[--color-text-3]">警告日志</div>
-            </div>
-          </NCard>
-          <NCard>
-            <div class="text-center">
-              <div class="text-24px font-600 text-[--color-info]">2,345</div>
-              <div class="text-14px text-[--color-text-3]">信息日志</div>
-            </div>
-          </NCard>
-          <NCard>
-            <div class="text-center">
-              <div class="text-24px font-600 text-[--color-success]">8,912</div>
-              <div class="text-14px text-[--color-text-3]">调试日志</div>
-            </div>
-          </NCard>
         </div>
 
-        {/* 日志列表 */}
-        <NCard>
-          <NDataTable
-            columns={columns}
-            data={logData.value}
-            pagination={{
-              pageSize: 20,
-              showSizePicker: true,
-              pageSizes: [20, 50, 100]
-            }}
-            bordered={false}
-            singleLine={false}
-            rowKey={(row: any) => row.key}
-            maxHeight={600}
-            virtualScroll
-          />
-        </NCard>
+        {/* Content */}
+        <div class="flex-1 flex overflow-hidden">
+          {/* Sidebar Facets */}
+          <div class="w-260px border-r border-[--color-border-1] p-16px bg-[--color-bg-2] flex flex-col gap-24px overflow-y-auto">
+            <div>
+              <div class="text-12px font-bold text-[--color-text-3] mb-8px uppercase">Time Range</div>
+              <NButton block secondary>
+                Last 1 Hour
+              </NButton>
+            </div>
 
-        {/* 日志详情模态框 */}
-        <NModal v-model:show={showDetailModal.value} preset="dialog" title="日志详情" style={{ width: '800px' }}>
-          {selectedLog.value && (
-            <div class="space-y-16px">
-              <div class="grid grid-cols-2 gap-16px">
-                <div>
-                  <div class="text-14px text-[--color-text-3] mb-4px">时间</div>
-                  <div class="text-14px">{selectedLog.value.timestamp}</div>
+            <div>
+              <div class="text-12px font-bold text-[--color-text-3] mb-8px uppercase">Log Level</div>
+              <NCheckboxGroup v-model:value={selectedLevels.value} onUpdateValue={loadLogs}>
+                <div class="flex flex-col gap-8px">
+                  {levelOptions.map((opt) => (
+                    <NCheckbox value={opt.value} label={opt.label} />
+                  ))}
                 </div>
-                <div>
-                  <div class="text-14px text-[--color-text-3] mb-4px">服务</div>
-                  <div class="text-14px">{selectedLog.value.service}</div>
-                </div>
-                <div>
-                  <div class="text-14px text-[--color-text-3] mb-4px">级别</div>
-                  <NTag
-                    type={
-                      selectedLog.value.level === 'error'
-                        ? 'error'
-                        : selectedLog.value.level === 'warn'
-                          ? 'warning'
-                          : selectedLog.value.level === 'info'
-                            ? 'info'
-                            : 'default'
-                    }
-                    size="small">
-                    {selectedLog.value.level.toUpperCase()}
-                  </NTag>
-                </div>
-                <div>
-                  <div class="text-14px text-[--color-text-3] mb-4px">线程</div>
-                  <div class="text-14px">{selectedLog.value.thread}</div>
-                </div>
-              </div>
+              </NCheckboxGroup>
+            </div>
 
-              <div>
-                <div class="text-14px text-[--color-text-3] mb-4px">Logger</div>
-                <div class="text-14px font-mono">{selectedLog.value.logger}</div>
-              </div>
+            <div>
+              <div class="text-12px font-bold text-[--color-text-3] mb-8px uppercase">Service</div>
+              <NCheckboxGroup v-model:value={selectedServices.value} onUpdateValue={loadLogs}>
+                <div class="flex flex-col gap-8px">
+                  {serviceOptions.map((opt) => (
+                    <NCheckbox value={opt.value} label={opt.label} />
+                  ))}
+                </div>
+              </NCheckboxGroup>
+            </div>
+          </div>
 
-              <div>
-                <div class="text-14px text-[--color-text-3] mb-4px">消息</div>
-                <div class="bg-[--color-bg-2] p-12px rounded-4px text-14px">{selectedLog.value.message}</div>
-              </div>
+          {/* Main Log View */}
+          <div class="flex-1 flex flex-col min-w-0">
+            {/* Volume Chart */}
+            <div class="h-120px p-16px border-b border-[--color-border-1]">
+              <BarChart data={chartData.value} height="100%" color="#165dff" />
+            </div>
 
-              {selectedLog.value.stackTrace && (
-                <div>
-                  <div class="text-14px text-[--color-text-3] mb-4px">堆栈跟踪</div>
-                  <NCode code={selectedLog.value.stackTrace} language="java" wordWrap />
+            {/* Log List */}
+            <div class="flex-1 overflow-y-auto relative">
+              {loading.value && !isLive.value && (
+                <div class="absolute inset-0 bg-[--color-bg-1] opacity-50 z-10 flex items-center justify-center">
+                  <NSpin size="large" />
                 </div>
               )}
+              <div class="flex flex-col">
+                {logs.value.map((log) => (
+                  <LogItemRow key={log.key} log={log} />
+                ))}
+              </div>
+              {logs.value.length === 0 && !loading.value && (
+                <div class="p-40px text-center text-[--color-text-3]">No logs found matching your criteria.</div>
+              )}
             </div>
-          )}
-          <div class="flex justify-end gap-8px mt-16px">
-            <NButton onClick={() => (showDetailModal.value = false)}>关闭</NButton>
-            <NButton type="primary">复制</NButton>
           </div>
-        </NModal>
+        </div>
       </div>
     )
   }

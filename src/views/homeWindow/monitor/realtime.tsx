@@ -1,20 +1,24 @@
-import { NCard, NGrid, NGridItem, NStatistic, NProgress, NSpace, NButton, NSelect } from 'naive-ui'
+import { NCard, NGrid, NGridItem, NStatistic, NProgress, NSpace, NButton, NSelect, NSpin } from 'naive-ui'
 import { ref, onMounted, onUnmounted } from 'vue'
+import { fetchRealtimeMetrics } from '@/mock/api'
+import SectionHeader from '@/components/common/SectionHeader'
+import { SpeedometerOutline } from '@vicons/ionicons5'
 
 export default defineComponent({
   name: 'RealtimeMonitor',
   setup() {
     const selectedService = ref('all')
     const refreshInterval = ref<NodeJS.Timeout | null>(null)
+    const loading = ref(false)
 
     // 模拟实时数据
     const realtimeData = ref({
-      cpu: 45,
-      memory: 62,
-      qps: 1250,
-      responseTime: 85,
-      errorRate: 0.5,
-      activeConnections: 342
+      cpu: 0,
+      memory: 0,
+      qps: 0,
+      responseTime: 0,
+      errorRate: 0,
+      activeConnections: 0
     })
 
     const serviceOptions = [
@@ -25,19 +29,16 @@ export default defineComponent({
     ]
 
     // 模拟实时数据更新
-    const updateRealtimeData = () => {
-      realtimeData.value = {
-        cpu: Math.floor(Math.random() * 100),
-        memory: Math.floor(Math.random() * 100),
-        qps: Math.floor(Math.random() * 2000) + 500,
-        responseTime: Math.floor(Math.random() * 200) + 50,
-        errorRate: Math.random() * 2,
-        activeConnections: Math.floor(Math.random() * 500) + 200
-      }
+    const updateRealtimeData = async () => {
+      loading.value = true
+      const data = await fetchRealtimeMetrics(selectedService.value === 'all' ? undefined : selectedService.value)
+      realtimeData.value = data
+      loading.value = false
     }
 
     onMounted(() => {
       // 每5秒更新一次数据
+      updateRealtimeData()
       refreshInterval.value = setInterval(updateRealtimeData, 5000)
     })
 
@@ -67,21 +68,24 @@ export default defineComponent({
 
     return () => (
       <div class="p-24px h-full">
-        <div class="mb-16px">
-          <h1 class="text-20px font-600 text-[--color-text-1] m-0">实时监控</h1>
-          <p class="text-14px text-[--color-text-3] mt-8px mb-0">实时查看系统性能指标和运行状态</p>
-        </div>
+        <SectionHeader title="实时监控" subtitle="实时查看系统性能指标和运行状态" icon={SpeedometerOutline} />
 
         {/* 控制面板 */}
         <NCard class="mb-16px">
           <NSpace>
             <NSelect v-model:value={selectedService.value} options={serviceOptions} style={{ width: '200px' }} />
-            <NButton type="primary">刷新数据</NButton>
+            <NButton type="primary" onClick={updateRealtimeData}>
+              刷新数据
+            </NButton>
             <NButton>导出报告</NButton>
           </NSpace>
         </NCard>
 
-        {/* 核心指标 */}
+        {loading.value ? (
+          <div class="py-40px flex items-center justify-center">
+            <NSpin size="large" />
+          </div>
+        ) : null}
         <NGrid cols={3} xGap={16} class="mb-16px">
           <NGridItem>
             <NCard>

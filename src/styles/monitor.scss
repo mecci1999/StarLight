@@ -1,0 +1,37 @@
+:root {
+  --header-title-size: 20px;
+  --header-subtitle-size: 14px;
+}
+
+.section-header {
+  margin-bottom: 16px;
+}
+.section-header-main {
+  display: flex;
+  align-items: center;
+}
+.section-title {
+  font-size: var(--header-title-size);
+  font-weight: 600;
+  color: var(--color-text-1);
+  margin: 0;
+}
+.section-subtitle {
+  font-size: var(--header-subtitle-size);
+  color: var(--color-text-3);
+  margin: 8px 0 0 0;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  margin-right: 8px;
+}
+
+.card-tools {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}

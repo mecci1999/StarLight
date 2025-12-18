@@ -10,9 +10,12 @@ import {
   NInput,
   NSelect,
   NInputNumber,
-  NSwitch
+  NSwitch,
+  NSpin
 } from 'naive-ui'
-import { ref, h } from 'vue'
+import { ref, h, onMounted } from 'vue'
+import { fetchAlertRules, saveAlertRule, updateAlertRule, deleteAlertRule } from '@/mock/api'
+import type { AlertRuleItem } from '@/types/monitor'
 
 export default defineComponent({
   name: 'AlertRules',
@@ -31,7 +34,7 @@ export default defineComponent({
       duration: 5,
       level: 'warning',
       enabled: true,
-      notificationChannels: []
+      notificationChannels: [] as string[]
     })
 
     const serviceOptions = [
@@ -181,60 +184,15 @@ export default defineComponent({
       }
     ]
 
-    const rulesData = ref([
-      {
-        key: '1',
-        name: 'CPU使用率过高',
-        service: 'user-service',
-        metric: 'CPU使用率',
-        operator: '>',
-        threshold: 80,
-        unit: '%',
-        duration: 5,
-        level: 'warning',
-        enabled: true,
-        channels: ['邮件', 'Slack']
-      },
-      {
-        key: '2',
-        name: '内存使用率严重告警',
-        service: 'order-service',
-        metric: '内存使用率',
-        operator: '>',
-        threshold: 90,
-        unit: '%',
-        duration: 3,
-        level: 'critical',
-        enabled: true,
-        channels: ['邮件', 'Webhook', '短信']
-      },
-      {
-        key: '3',
-        name: '响应时间过长',
-        service: 'payment-service',
-        metric: '响应时间',
-        operator: '>',
-        threshold: 2000,
-        unit: 'ms',
-        duration: 2,
-        level: 'warning',
-        enabled: false,
-        channels: ['邮件']
-      },
-      {
-        key: '4',
-        name: 'QPS异常下降',
-        service: 'all',
-        metric: 'QPS',
-        operator: '<',
-        threshold: 100,
-        unit: '/s',
-        duration: 10,
-        level: 'info',
-        enabled: true,
-        channels: ['Slack']
-      }
-    ])
+    const loading = ref(false)
+    const rulesData = ref<AlertRuleItem[]>([])
+
+    const loadRules = async () => {
+      loading.value = true
+      rulesData.value = await fetchAlertRules()
+      loading.value = false
+    }
+    onMounted(loadRules)
 
     const handleAdd = () => {
       formData.value = {
@@ -257,26 +215,38 @@ export default defineComponent({
       showEditModal.value = true
     }
 
-    const handleToggle = (rule: any) => {
+    const handleToggle = async (rule: AlertRuleItem) => {
       rule.enabled = !rule.enabled
+      await updateAlertRule(rule)
     }
 
-    const handleDelete = (rule: any) => {
-      const index = rulesData.value.findIndex((r) => r.key === rule.key)
-      if (index > -1) {
-        rulesData.value.splice(index, 1)
-      }
+    const handleDelete = async (rule: AlertRuleItem) => {
+      await deleteAlertRule(rule.id)
+      const index = rulesData.value.findIndex((r) => r.id === rule.id)
+      if (index > -1) rulesData.value.splice(index, 1)
     }
 
-    const handleSave = () => {
+    const handleSave = async () => {
       if (editingRule.value) {
-        Object.assign(editingRule.value, formData.value)
+        const ruleToUpdate: AlertRuleItem = {
+          ...editingRule.value,
+          ...formData.value,
+          operator: formData.value.operator as any,
+          level: formData.value.level as any,
+          channels: formData.value.notificationChannels
+        }
+        const updated = await updateAlertRule(ruleToUpdate)
+        Object.assign(editingRule.value, updated)
         showEditModal.value = false
       } else {
-        rulesData.value.push({
+        const ruleToSave: Omit<AlertRuleItem, 'id'> = {
           ...formData.value,
-          key: Date.now().toString()
-        } as any)
+          operator: formData.value.operator as any,
+          level: formData.value.level as any,
+          channels: formData.value.notificationChannels
+        }
+        const saved = await saveAlertRule(ruleToSave)
+        rulesData.value.push(saved)
         showAddModal.value = false
       }
       editingRule.value = null
@@ -304,18 +274,24 @@ export default defineComponent({
 
         {/* 规则列表 */}
         <NCard>
-          <NDataTable
-            columns={columns}
-            data={rulesData.value}
-            pagination={{
-              pageSize: 10,
-              showSizePicker: true,
-              pageSizes: [10, 20, 50]
-            }}
-            bordered={false}
-            singleLine={false}
-            rowKey={(row: any) => row.key}
-          />
+          {loading.value ? (
+            <div class="py-40px flex items-center justify-center">
+              <NSpin size="large" />
+            </div>
+          ) : (
+            <NDataTable
+              columns={columns}
+              data={rulesData.value}
+              pagination={{
+                pageSize: 10,
+                showSizePicker: true,
+                pageSizes: [10, 20, 50]
+              }}
+              bordered={false}
+              singleLine={false}
+              rowKey={(row: any) => row.id}
+            />
+          )}
         </NCard>
 
         {/* 添加规则模态框 */}

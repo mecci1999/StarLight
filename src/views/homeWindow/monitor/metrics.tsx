@@ -1,5 +1,11 @@
-import { NCard, NGrid, NGridItem, NSelect, NDatePicker, NSpace, NButton, NTabs, NTabPane } from 'naive-ui'
-import { ref } from 'vue'
+import { NCard, NGrid, NGridItem, NSelect, NDatePicker, NSpace, NButton, NTabs, NTabPane, NSpin } from 'naive-ui'
+import { ref, onMounted } from 'vue'
+import { fetchMetrics } from '@/mock/api'
+import type { MetricsBundle } from '@/types/monitor'
+import SectionHeader from '@/components/common/SectionHeader'
+import { StatsChartOutline } from '@vicons/ionicons5'
+import LineChart from '@/components/charts/LineChart'
+import BarChart from '@/components/charts/BarChart'
 
 export default defineComponent({
   name: 'MetricsAnalysis',
@@ -7,6 +13,8 @@ export default defineComponent({
     const selectedService = ref('user-service')
     const dateRange = ref<[number, number] | null>(null)
     const activeTab = ref('trend')
+    const loading = ref(false)
+    const metrics = ref<MetricsBundle | null>(null)
 
     const serviceOptions = [
       { label: 'user-service', value: 'user-service' },
@@ -14,109 +22,90 @@ export default defineComponent({
       { label: 'payment-service', value: 'payment-service' }
     ]
 
-    // 模拟图表组件
-    const TrendChart = () => (
-      <div class="h-300px bg-[--color-bg-2] rounded-8px flex items-center justify-center">
-        <div class="text-center">
-          <div class="text-16px text-[--color-text-2] mb-8px">趋势图表</div>
-          <div class="text-14px text-[--color-text-3]">显示CPU、内存、QPS等指标的历史趋势</div>
-        </div>
-      </div>
-    )
-
-    const HeatmapChart = () => (
-      <div class="h-300px bg-[--color-bg-2] rounded-8px flex items-center justify-center">
-        <div class="text-center">
-          <div class="text-16px text-[--color-text-2] mb-8px">热力图</div>
-          <div class="text-14px text-[--color-text-3]">显示不同时间段的性能热力分布</div>
-        </div>
-      </div>
-    )
-
-    const ComparisonChart = () => (
-      <div class="h-300px bg-[--color-bg-2] rounded-8px flex items-center justify-center">
-        <div class="text-center">
-          <div class="text-16px text-[--color-text-2] mb-8px">对比分析</div>
-          <div class="text-14px text-[--color-text-3]">多服务性能指标对比分析</div>
-        </div>
-      </div>
-    )
+    const loadMetrics = async () => {
+      loading.value = true
+      metrics.value = await fetchMetrics({ serviceId: selectedService.value })
+      loading.value = false
+    }
+    onMounted(loadMetrics)
 
     return () => (
-      <div class="p-24px h-full">
-        <div class="mb-16px">
-          <h1 class="text-20px font-600 text-[--color-text-1] m-0">指标分析</h1>
-          <p class="text-14px text-[--color-text-3] mt-8px mb-0">历史趋势图、热力图等可视化分析</p>
-        </div>
+      <div class="p-24px h-full overflow-auto">
+        <SectionHeader
+          title="Metrics Analysis"
+          subtitle="Historical trends, heatmaps, and comparative analysis"
+          icon={StatsChartOutline}
+        />
 
-        {/* 控制面板 */}
+        {/* Control Panel */}
         <NCard class="mb-16px">
           <NSpace>
             <NSelect
               v-model:value={selectedService.value}
               options={serviceOptions}
               style={{ width: '200px' }}
-              placeholder="选择服务"
+              placeholder="Select Service"
             />
             <NDatePicker v-model:value={dateRange.value} type="datetimerange" clearable style={{ width: '300px' }} />
-            <NButton type="primary">查询</NButton>
-            <NButton>导出数据</NButton>
+            <NButton type="primary" onClick={loadMetrics}>
+              Query
+            </NButton>
+            <NButton>Export</NButton>
           </NSpace>
         </NCard>
 
-        {/* 图表区域 */}
+        {/* Charts Area */}
         <NCard>
+          {loading.value ? (
+            <div class="py-40px flex items-center justify-center">
+              <NSpin size="large" />
+            </div>
+          ) : null}
           <NTabs v-model:value={activeTab.value} type="line">
-            <NTabPane name="trend" tab="趋势分析">
+            <NTabPane name="trend" tab="Trend Analysis">
               <NGrid cols={1} yGap={16}>
                 <NGridItem>
-                  <NCard title="CPU & 内存使用趋势">
-                    <TrendChart />
+                  <NCard title="CPU Usage Trend" contentStyle={{ padding: 0 }}>
+                    {metrics.value ? (
+                      <LineChart data={metrics.value.cpu} title="" color="#18a058" height="300px" area />
+                    ) : null}
                   </NCard>
                 </NGridItem>
                 <NGridItem>
-                  <NCard title="QPS & 响应时间趋势">
-                    <TrendChart />
+                  <NCard title="Response Time Trend" contentStyle={{ padding: 0 }}>
+                    {metrics.value ? (
+                      <LineChart data={metrics.value.responseTime} title="" color="#2080f0" height="300px" />
+                    ) : null}
+                  </NCard>
+                </NGridItem>
+                <NGridItem>
+                  <NCard title="QPS Trend" contentStyle={{ padding: 0 }}>
+                    {metrics.value ? (
+                      <LineChart data={metrics.value.qps} title="" color="#f0a020" height="300px" area />
+                    ) : null}
                   </NCard>
                 </NGridItem>
               </NGrid>
             </NTabPane>
 
-            <NTabPane name="heatmap" tab="热力图">
-              <NGrid cols={2} xGap={16} yGap={16}>
-                <NGridItem>
-                  <NCard title="CPU使用率热力图">
-                    <HeatmapChart />
-                  </NCard>
-                </NGridItem>
-                <NGridItem>
-                  <NCard title="响应时间热力图">
-                    <HeatmapChart />
-                  </NCard>
-                </NGridItem>
-                <NGridItem>
-                  <NCard title="QPS热力图">
-                    <HeatmapChart />
-                  </NCard>
-                </NGridItem>
-                <NGridItem>
-                  <NCard title="错误率热力图">
-                    <HeatmapChart />
-                  </NCard>
-                </NGridItem>
-              </NGrid>
+            <NTabPane name="heatmap" tab="Heatmap">
+              <div class="p-16px text-center text-gray-500">
+                Heatmap visualization is under development (Requires specialized ECharts heatmap configuration)
+              </div>
             </NTabPane>
 
-            <NTabPane name="comparison" tab="对比分析">
+            <NTabPane name="comparison" tab="Comparison">
               <NGrid cols={1} yGap={16}>
                 <NGridItem>
-                  <NCard title="多服务性能对比">
-                    <ComparisonChart />
-                  </NCard>
-                </NGridItem>
-                <NGridItem>
-                  <NCard title="历史同期对比">
-                    <ComparisonChart />
+                  <NCard title="Service Comparison" contentStyle={{ padding: 0 }}>
+                    {metrics.value ? (
+                      <BarChart
+                        data={metrics.value.comparison || []}
+                        title="Average Resource Usage"
+                        color="#18a058"
+                        height="400px"
+                      />
+                    ) : null}
                   </NCard>
                 </NGridItem>
               </NGrid>

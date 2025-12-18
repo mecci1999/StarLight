@@ -73,6 +73,7 @@
     "@vicons/ionicons5": "^0.13.0",
     "crypto-js": "^4.2.0",
     "dayjs": "^1.11.13",
+    "echarts": "^6.0.0",
     "lodash-es": "^4.17.21",
     "mitt": "^3.0.1",
     "naive-ui": "^2.41.0",
@@ -81,6 +82,7 @@
     "pinia-shared-state": "^1.0.1",
     "vue": "^3.5.13",
     "vue-draggable-plus": "^0.6.0",
+    "vue-echarts": "^8.0.1",
     "vue-router": "^4.5.0"
   },
   "devDependencies": {

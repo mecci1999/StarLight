@@ -7,6 +7,7 @@ import router from '@/router'
 import { createApp } from 'vue'
 import App from './App'
 import { AppException } from '@/common/exception'
+import '@/styles/monitor.scss'
 
 const app = createApp(App)
 app.use(router).use(pinia).directive('resize', vResize).directive('slide', vSlide).mount('#app')

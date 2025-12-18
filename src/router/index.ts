@@ -52,11 +52,11 @@ const routes: Array<RouteRecordRaw> = [
         name: 'metrics-analysis',
         component: () => import('@/views/homeWindow/monitor/metrics')
       },
-      // {
-      //   path: 'custom-dashboard',
-      //   name: 'custom-dashboard',
-      //   component: () => import('@/views/homeWindow/monitor/dashboard')
-      // },
+      {
+        path: 'custom-dashboard',
+        name: 'custom-dashboard',
+        component: () => import('@/views/homeWindow/monitor/dashboard')
+      },
       // 🚨 告警管理模块
       {
         path: 'alert-list',
@@ -67,29 +67,29 @@ const routes: Array<RouteRecordRaw> = [
         path: 'alert-rules',
         name: 'alert-rules',
         component: () => import('@/views/homeWindow/alert/rules')
-      }
+      },
       // {
       //   path: 'notification-history',
       //   name: 'notification-history',
       //   component: () => import('@/views/homeWindow/alert/history')
       // },
       // 📝 日志中心模块
-      // {
-      //   path: 'service-logs',
-      //   name: 'service-logs',
-      //   component: () => import('@/views/homeWindow/logs/service')
-      // },
-      // {
-      //   path: 'exception-analysis',
-      //   name: 'exception-analysis',
-      //   component: () => import('@/views/homeWindow/logs/exception')
-      // },
-      // // 🔁 调用链追踪模块
-      // {
-      //   path: 'tracing',
-      //   name: 'tracing',
-      //   component: () => import('@/views/homeWindow/tracing/index')
-      // },
+      {
+        path: 'service-logs',
+        name: 'service-logs',
+        component: () => import('@/views/homeWindow/log/service')
+      },
+      {
+        path: 'exception-analysis',
+        name: 'exception-analysis',
+        component: () => import('@/views/homeWindow/log/exception')
+      },
+      // 🔁 调用链追踪模块
+      {
+        path: 'trace-explorer',
+        name: 'trace-explorer',
+        component: () => import('@/views/homeWindow/monitor/trace')
+      }
       // {
       //   path: 'slow-analysis',
       //   name: 'slow-analysis',
