@@ -1,391 +1,528 @@
+/**
+ * 异常分析页面
+ */
+import { defineComponent, ref, reactive, onMounted, computed } from 'vue'
 import {
   NCard,
-  NDataTable,
-  NTag,
   NSpace,
   NButton,
   NInput,
   NSelect,
   NDatePicker,
+  NDataTable,
+  NPagination,
+  NTag,
   NModal,
   NCode,
-  NTabs,
-  NTabPane
+  NScrollbar,
+  NEmpty,
+  NSpin,
+  NTooltip,
+  NIcon,
+  NGrid,
+  NGridItem,
+  NStatistic,
+  NProgress,
+  NCollapse,
+  NCollapseItem,
+  useMessage
 } from 'naive-ui'
-import { ref, h } from 'vue'
+import {
+  SearchOutline,
+  RefreshOutline,
+  BugOutline,
+  TrendingUpOutline,
+  AlertCircleOutline,
+  TimeOutline
+} from '@vicons/ionicons5'
+import { LogLevelEnum } from '@/types/logs'
+import type { ExceptionAnalysisParams, ExceptionAnalysisResponse, ExceptionGroup, ExceptionTrend } from '@/types/logs'
+import api from '@/api'
+import dayjs from 'dayjs'
 
 export default defineComponent({
   name: 'ExceptionAnalysis',
   setup() {
-    const searchText = ref('')
-    const selectedService = ref('')
-    const selectedType = ref('')
-    const dateRange = ref<[number, number] | null>(null)
-    const showDetailModal = ref(false)
-    const selectedException = ref<any>(null)
-    const activeTab = ref('list')
+    const message = useMessage()
 
-    const serviceOptions = [
-      { label: '全部服务', value: '' },
-      { label: 'user-service', value: 'user-service' },
-      { label: 'order-service', value: 'order-service' },
-      { label: 'payment-service', value: 'payment-service' }
+    // 响应式数据
+    const loading = ref(false)
+    const analysisData = ref<ExceptionAnalysisResponse | null>(null)
+    const selectedException = ref<ExceptionGroup | null>(null)
+    const showExceptionDetail = ref(false)
+
+    // 搜索参数
+    const searchParams = reactive<ExceptionAnalysisParams>({
+      service: '',
+      startTime: dayjs().subtract(24, 'hour').format('YYYY-MM-DD HH:mm:ss'),
+      endTime: dayjs().format('YYYY-MM-DD HH:mm:ss'),
+      minOccurrences: 1,
+      groupBy: 'message',
+      sortBy: 'count',
+      sortOrder: 'desc'
+    })
+
+    // 分页信息
+    const pagination = reactive({
+      page: 1,
+      pageSize: 20,
+      total: 0,
+      showSizePicker: true,
+      pageSizes: [10, 20, 50, 100]
+    })
+
+    // 分组选项
+    const groupByOptions = [
+      { label: '错误消息', value: 'message' },
+      { label: '异常类型', value: 'type' },
+      { label: '服务名称', value: 'service' },
+      { label: '堆栈位置', value: 'location' }
     ]
 
-    const typeOptions = [
-      { label: '全部类型', value: '' },
-      { label: 'SQLException', value: 'SQLException' },
-      { label: 'NullPointerException', value: 'NullPointerException' },
-      { label: 'TimeoutException', value: 'TimeoutException' },
-      { label: 'ValidationException', value: 'ValidationException' }
+    // 排序选项
+    const sortByOptions = [
+      { label: '发生次数', value: 'count' },
+      { label: '最近发生时间', value: 'lastOccurrence' },
+      { label: '首次发生时间', value: 'firstOccurrence' },
+      { label: '影响用户数', value: 'affectedUsers' }
     ]
 
+    // 排序方向选项
+    const sortOrderOptions = [
+      { label: '降序', value: 'desc' },
+      { label: '升序', value: 'asc' }
+    ]
+
+    // 表格列定义
     const columns = [
       {
-        title: '首次出现',
-        key: 'firstOccurrence',
-        width: 180
-      },
-      {
-        title: '最后出现',
-        key: 'lastOccurrence',
-        width: 180
-      },
-      {
-        title: '服务',
-        key: 'service',
-        width: 150
-      },
-      {
-        title: '异常类型',
-        key: 'exceptionType',
-        width: 180,
-        render(row: any) {
-          return h(NTag, { type: 'error', size: 'small' }, { default: () => row.exceptionType })
-        }
-      },
-      {
-        title: '异常消息',
+        title: '异常信息',
         key: 'message',
         ellipsis: {
           tooltip: true
-        }
-      },
-      {
-        title: '出现次数',
-        key: 'count',
-        width: 100,
-        render(row: any) {
+        },
+        render: (row: ExceptionGroup) => {
           return h(
-            'span',
+            'div',
             {
-              class: row.count > 10 ? 'text-[--color-error] font-600' : 'text-[--color-text-1]'
+              style: { cursor: 'pointer' },
+              onClick: () => showExceptionDetails(row)
             },
-            row.count
+            [
+              h('div', { class: 'font-medium' }, row.message),
+              h('div', { class: 'text-xs text-gray-500 mt-1' }, row.type)
+            ]
           )
         }
       },
       {
-        title: '状态',
-        key: 'status',
+        title: '服务',
+        key: 'service',
+        width: 120,
+        render: (row: ExceptionGroup) => {
+          return h(NTag, { size: 'small', type: 'info' }, () => row.service)
+        }
+      },
+      {
+        title: '发生次数',
+        key: 'count',
         width: 100,
-        render(row: any) {
-          const statusMap = {
-            active: { type: 'error', text: '活跃' },
-            resolved: { type: 'success', text: '已解决' },
-            investigating: { type: 'warning', text: '调查中' }
-          }
-          const config = statusMap[row.status as keyof typeof statusMap]
-          return h(NTag, { type: config.type as any, size: 'small' }, { default: () => config.text })
+        sorter: true,
+        render: (row: ExceptionGroup) => {
+          return h('div', { class: 'text-center font-medium' }, row.count.toLocaleString())
+        }
+      },
+      {
+        title: '影响用户',
+        key: 'affectedUsers',
+        width: 100,
+        render: (row: ExceptionGroup) => {
+          return h('div', { class: 'text-center' }, row.affectedUsers?.toLocaleString() || '-')
+        }
+      },
+      {
+        title: '趋势',
+        key: 'trend',
+        width: 120,
+        render: (row: ExceptionGroup) => {
+          const trend = row.trend
+          if (!trend) return '-'
+
+          const isIncreasing = trend > 0
+          return h(NSpace, { size: 'small', align: 'center' }, () => [
+            h(NIcon, {
+              component: TrendingUpOutline,
+              color: isIncreasing ? '#f56565' : '#48bb78',
+              style: { transform: isIncreasing ? 'none' : 'rotate(180deg)' }
+            }),
+            h(
+              'span',
+              {
+                style: { color: isIncreasing ? '#f56565' : '#48bb78' }
+              },
+              `${isIncreasing ? '+' : ''}${trend.toFixed(1)}%`
+            )
+          ])
+        }
+      },
+      {
+        title: '首次发生',
+        key: 'firstOccurrence',
+        width: 150,
+        render: (row: ExceptionGroup) => {
+          return dayjs(row.firstOccurrence).format('MM-DD HH:mm')
+        }
+      },
+      {
+        title: '最近发生',
+        key: 'lastOccurrence',
+        width: 150,
+        render: (row: ExceptionGroup) => {
+          return dayjs(row.lastOccurrence).format('MM-DD HH:mm')
         }
       },
       {
         title: '操作',
         key: 'actions',
-        width: 150,
-        render(row: any) {
-          return h(NSpace, null, {
-            default: () => [
-              h(
-                NButton,
-                {
-                  size: 'small',
-                  type: 'primary',
-                  onClick: () => handleViewDetail(row)
-                },
-                { default: () => '详情' }
-              ),
-              h(
-                NButton,
-                {
-                  size: 'small',
-                  type: 'warning'
-                },
-                { default: () => '标记' }
-              )
-            ]
-          })
-        }
-      }
-    ]
-
-    const exceptionData = ref([
-      {
-        key: '1',
-        firstOccurrence: '2024-01-15 10:30:25',
-        lastOccurrence: '2024-01-15 14:30:25',
-        service: 'user-service',
-        exceptionType: 'SQLException',
-        message: 'Connection timeout after 30 seconds',
-        count: 23,
-        status: 'active',
-        stackTrace: `java.sql.SQLException: Connection timeout after 30 seconds\n\tat com.mysql.cj.jdbc.ConnectionImpl.connectOneTryOnly(ConnectionImpl.java:956)\n\tat com.mysql.cj.jdbc.ConnectionImpl.createNewIO(ConnectionImpl.java:826)\n\tat com.mysql.cj.jdbc.ConnectionImpl.<init>(ConnectionImpl.java:456)\n\tat com.mysql.cj.jdbc.ConnectionImpl.getInstance(ConnectionImpl.java:246)\n\tat com.mysql.cj.jdbc.NonRegisteringDriver.connect(NonRegisteringDriver.java:197)\n\tat java.sql.DriverManager.getConnection(DriverManager.java:664)\n\tat com.example.user.dao.UserDao.getConnection(UserDao.java:45)\n\tat com.example.user.service.UserService.findById(UserService.java:78)`,
-        relatedAlerts: ['CPU使用率过高', '数据库连接池告警']
-      },
-      {
-        key: '2',
-        firstOccurrence: '2024-01-15 12:15:10',
-        lastOccurrence: '2024-01-15 14:25:10',
-        service: 'order-service',
-        exceptionType: 'NullPointerException',
-        message: 'Cannot invoke method on null object',
-        count: 8,
-        status: 'investigating',
-        stackTrace: `java.lang.NullPointerException: Cannot invoke "com.example.order.model.Order.getId()" because "order" is null\n\tat com.example.order.service.OrderService.processOrder(OrderService.java:123)\n\tat com.example.order.controller.OrderController.createOrder(OrderController.java:67)\n\tat java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)\n\tat java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:77)`,
-        relatedAlerts: ['订单处理异常']
-      },
-      {
-        key: '3',
-        firstOccurrence: '2024-01-15 09:45:30',
-        lastOccurrence: '2024-01-15 11:20:45',
-        service: 'payment-service',
-        exceptionType: 'TimeoutException',
-        message: 'Payment gateway timeout',
-        count: 5,
-        status: 'resolved',
-        stackTrace: `java.util.concurrent.TimeoutException: Payment gateway timeout\n\tat com.example.payment.gateway.PaymentGateway.processPayment(PaymentGateway.java:89)\n\tat com.example.payment.service.PaymentService.pay(PaymentService.java:156)\n\tat com.example.payment.controller.PaymentController.processPayment(PaymentController.java:45)`,
-        relatedAlerts: ['支付网关响应超时']
-      }
-    ])
-
-    // 聚类分析数据
-    const clusterData = ref([
-      {
-        key: '1',
-        cluster: 'Database Connection Issues',
-        count: 45,
-        services: ['user-service', 'order-service'],
-        commonPattern: 'Connection timeout, Pool exhausted',
-        severity: 'high'
-      },
-      {
-        key: '2',
-        cluster: 'Null Pointer Exceptions',
-        count: 23,
-        services: ['order-service', 'payment-service'],
-        commonPattern: 'Null object reference in business logic',
-        severity: 'medium'
-      },
-      {
-        key: '3',
-        cluster: 'Validation Errors',
-        count: 12,
-        services: ['user-service'],
-        commonPattern: 'Invalid input format, Missing required fields',
-        severity: 'low'
-      }
-    ])
-
-    const clusterColumns = [
-      {
-        title: '异常聚类',
-        key: 'cluster',
-        width: 200
-      },
-      {
-        title: '出现次数',
-        key: 'count',
-        width: 100
-      },
-      {
-        title: '涉及服务',
-        key: 'services',
-        width: 200,
-        render(row: any) {
-          return row.services.map((service: string) =>
-            h(NTag, { size: 'small', style: { marginRight: '4px' } }, { default: () => service })
-          )
-        }
-      },
-      {
-        title: '共同模式',
-        key: 'commonPattern',
-        ellipsis: {
-          tooltip: true
-        }
-      },
-      {
-        title: '严重程度',
-        key: 'severity',
         width: 100,
-        render(row: any) {
-          const severityMap = {
-            high: { type: 'error', text: '高' },
-            medium: { type: 'warning', text: '中' },
-            low: { type: 'info', text: '低' }
-          }
-          const config = severityMap[row.severity as keyof typeof severityMap]
-          return h(NTag, { type: config.type as any, size: 'small' }, { default: () => config.text })
+        render: (row: ExceptionGroup) => {
+          return h(NSpace, { size: 'small' }, () => [
+            h(
+              NTooltip,
+              { trigger: 'hover' },
+              {
+                trigger: () =>
+                  h(
+                    NButton,
+                    {
+                      size: 'small',
+                      type: 'primary',
+                      ghost: true,
+                      onClick: () => showExceptionDetails(row)
+                    },
+                    () => '详情'
+                  ),
+                default: () => '查看异常详情'
+              }
+            )
+          ])
         }
       }
     ]
 
-    const handleViewDetail = (exception: any) => {
-      selectedException.value = exception
-      showDetailModal.value = true
+    // 计算属性
+    const totalExceptions = computed(() => {
+      return analysisData.value?.exceptions.reduce((sum, item) => sum + item.count, 0) || 0
+    })
+
+    const criticalExceptions = computed(() => {
+      return analysisData.value?.exceptions.filter((item) => item.count >= 100).length || 0
+    })
+
+    const affectedServices = computed(() => {
+      const services = new Set(analysisData.value?.exceptions.map((item) => item.service) || [])
+      return services.size
+    })
+
+    // 异常分析
+    const analyzeExceptions = async (resetPage = true) => {
+      if (resetPage) {
+        pagination.page = 1
+      }
+
+      loading.value = true
+      try {
+        const response = await api.logs.analyzeExceptions({
+          ...searchParams,
+          page: pagination.page,
+          pageSize: pagination.pageSize
+        })
+
+        analysisData.value = response
+        pagination.total = response.total
+      } catch (error) {
+        message.error('异常分析失败')
+        console.error('Analyze exceptions error:', error)
+      } finally {
+        loading.value = false
+      }
     }
 
-    return () => (
-      <div class="p-24px h-full">
-        <div class="mb-16px">
-          <h1 class="text-20px font-600 text-[--color-text-1] m-0">异常分析</h1>
-          <p class="text-14px text-[--color-text-3] mt-8px mb-0">聚类展示异常日志、堆栈分析、关联告警</p>
-        </div>
+    // 显示异常详情
+    const showExceptionDetails = (exception: ExceptionGroup) => {
+      selectedException.value = exception
+      showExceptionDetail.value = true
+    }
 
-        {/* 筛选面板 */}
-        <NCard class="mb-16px">
-          <NSpace>
-            <NInput v-model:value={searchText.value} placeholder="搜索异常信息" style={{ width: '200px' }} />
-            <NSelect
-              v-model:value={selectedService.value}
-              options={serviceOptions}
-              placeholder="选择服务"
-              style={{ width: '150px' }}
-            />
-            <NSelect
-              v-model:value={selectedType.value}
-              options={typeOptions}
-              placeholder="选择类型"
-              style={{ width: '180px' }}
-            />
-            <NDatePicker v-model:value={dateRange.value} type="datetimerange" clearable style={{ width: '300px' }} />
-            <NButton type="primary">查询</NButton>
-            <NButton>重置</NButton>
+    // 分页变化处理
+    const handlePageChange = (page: number) => {
+      pagination.page = page
+      analyzeExceptions(false)
+    }
+
+    const handlePageSizeChange = (pageSize: number) => {
+      pagination.pageSize = pageSize
+      pagination.page = 1
+      analyzeExceptions(false)
+    }
+
+    // 生命周期
+    onMounted(() => {
+      analyzeExceptions()
+    })
+
+    return () => (
+      <div class="exception-analysis-container">
+        {/* 统计概览 */}
+        {analysisData.value && (
+          <NCard class="mb-4">
+            <NGrid cols={4} xGap={16}>
+              <NGridItem>
+                <NStatistic label="异常总数" value={totalExceptions.value}>
+                  {{
+                    prefix: () => h(NIcon, { component: BugOutline, color: '#f56565' })
+                  }}
+                </NStatistic>
+              </NGridItem>
+              <NGridItem>
+                <NStatistic label="严重异常" value={criticalExceptions.value}>
+                  {{
+                    prefix: () => h(NIcon, { component: AlertCircleOutline, color: '#ed8936' })
+                  }}
+                </NStatistic>
+              </NGridItem>
+              <NGridItem>
+                <NStatistic label="受影响服务" value={affectedServices.value} />
+              </NGridItem>
+              <NGridItem>
+                <NStatistic label="异常类型" value={analysisData.value.exceptions.length} />
+              </NGridItem>
+            </NGrid>
+          </NCard>
+        )}
+
+        {/* 搜索和过滤 */}
+        <NCard class="mb-4">
+          <NSpace vertical size="medium">
+            <NSpace size="medium" wrap={false}>
+              <NInput
+                v-model:value={searchParams.service}
+                placeholder="服务名称"
+                clearable
+                style={{ width: '150px' }}
+              />
+              <NSelect
+                v-model:value={searchParams.groupBy}
+                placeholder="分组方式"
+                style={{ width: '120px' }}
+                options={groupByOptions}
+              />
+              <NSelect
+                v-model:value={searchParams.sortBy}
+                placeholder="排序字段"
+                style={{ width: '120px' }}
+                options={sortByOptions}
+              />
+              <NSelect
+                v-model:value={searchParams.sortOrder}
+                placeholder="排序方向"
+                style={{ width: '100px' }}
+                options={sortOrderOptions}
+              />
+              <NInput v-model:value={searchParams.minOccurrences} placeholder="最小次数" style={{ width: '120px' }} />
+            </NSpace>
+
+            <NSpace size="medium" wrap={false}>
+              <NDatePicker
+                v-model:value={searchParams.startTime}
+                type="datetime"
+                placeholder="开始时间"
+                format="yyyy-MM-dd HH:mm:ss"
+                style={{ width: '180px' }}
+              />
+              <NDatePicker
+                v-model:value={searchParams.endTime}
+                type="datetime"
+                placeholder="结束时间"
+                format="yyyy-MM-dd HH:mm:ss"
+                style={{ width: '180px' }}
+              />
+            </NSpace>
+
+            <NSpace size="medium">
+              <NButton type="primary" onClick={() => analyzeExceptions()} loading={loading.value}>
+                <NIcon component={SearchOutline} class="mr-1" />
+                分析
+              </NButton>
+
+              <NButton onClick={() => analyzeExceptions(false)}>
+                <NIcon component={RefreshOutline} class="mr-1" />
+                刷新
+              </NButton>
+            </NSpace>
           </NSpace>
         </NCard>
 
-        {/* 统计面板 */}
-        <div class="grid grid-cols-4 gap-16px mb-16px">
-          <NCard>
-            <div class="text-center">
-              <div class="text-24px font-600 text-[--color-error]">36</div>
-              <div class="text-14px text-[--color-text-3]">活跃异常</div>
-            </div>
-          </NCard>
-          <NCard>
-            <div class="text-center">
-              <div class="text-24px font-600 text-[--color-warning]">15</div>
-              <div class="text-14px text-[--color-text-3]">调查中</div>
-            </div>
-          </NCard>
-          <NCard>
-            <div class="text-center">
-              <div class="text-24px font-600 text-[--color-success]">89</div>
-              <div class="text-14px text-[--color-text-3]">已解决</div>
-            </div>
-          </NCard>
-          <NCard>
-            <div class="text-center">
-              <div class="text-24px font-600 text-[--color-info]">3</div>
-              <div class="text-14px text-[--color-text-3]">异常聚类</div>
-            </div>
-          </NCard>
-        </div>
-
-        {/* 主要内容 */}
+        {/* 异常列表 */}
         <NCard>
-          <NTabs v-model:value={activeTab.value} type="line">
-            <NTabPane name="list" tab="异常列表">
-              <NDataTable
-                columns={columns}
-                data={exceptionData.value}
-                pagination={{
-                  pageSize: 10,
-                  showSizePicker: true,
-                  pageSizes: [10, 20, 50]
-                }}
-                bordered={false}
-                singleLine={false}
-                rowKey={(row: any) => row.key}
-              />
-            </NTabPane>
+          <NSpin show={loading.value}>
+            {analysisData.value?.exceptions && analysisData.value.exceptions.length > 0 ? (
+              <>
+                <NDataTable
+                  columns={columns}
+                  data={analysisData.value.exceptions}
+                  bordered={false}
+                  striped
+                  size="small"
+                  scrollX={1200}
+                  maxHeight={600}
+                />
 
-            <NTabPane name="cluster" tab="聚类分析">
-              <NDataTable
-                columns={clusterColumns}
-                data={clusterData.value}
-                pagination={false}
-                bordered={false}
-                singleLine={false}
-                rowKey={(row: any) => row.key}
-              />
-            </NTabPane>
-          </NTabs>
+                <div class="mt-4 flex justify-end">
+                  <NPagination
+                    page={pagination.page}
+                    pageSize={pagination.pageSize}
+                    itemCount={pagination.total}
+                    showSizePicker
+                    pageSizes={pagination.pageSizes}
+                    onUpdatePage={handlePageChange}
+                    onUpdatePageSize={handlePageSizeChange}
+                  />
+                </div>
+              </>
+            ) : (
+              <NEmpty description="暂无异常数据" />
+            )}
+          </NSpin>
         </NCard>
 
-        {/* 异常详情模态框 */}
-        <NModal v-model:show={showDetailModal.value} preset="dialog" title="异常详情" style={{ width: '900px' }}>
+        {/* 异常详情弹窗 */}
+        <NModal
+          v-model:show={showExceptionDetail.value}
+          preset="card"
+          title="异常详情"
+          style={{ width: '90%', maxWidth: '1200px' }}>
           {selectedException.value && (
-            <div class="space-y-16px">
-              <div class="grid grid-cols-2 gap-16px">
-                <div>
-                  <div class="text-14px text-[--color-text-3] mb-4px">首次出现</div>
-                  <div class="text-14px">{selectedException.value.firstOccurrence}</div>
-                </div>
-                <div>
-                  <div class="text-14px text-[--color-text-3] mb-4px">最后出现</div>
-                  <div class="text-14px">{selectedException.value.lastOccurrence}</div>
-                </div>
-                <div>
-                  <div class="text-14px text-[--color-text-3] mb-4px">服务</div>
-                  <div class="text-14px">{selectedException.value.service}</div>
-                </div>
-                <div>
-                  <div class="text-14px text-[--color-text-3] mb-4px">出现次数</div>
-                  <div class="text-14px font-600">{selectedException.value.count}</div>
-                </div>
+            <NSpace vertical size="large">
+              {/* 基本信息 */}
+              <div>
+                <h3>基本信息</h3>
+                <NGrid cols={2} xGap={16} yGap={8}>
+                  <NGridItem>
+                    <div class="text-sm text-gray-500">异常类型</div>
+                    <div class="font-medium">{selectedException.value.type}</div>
+                  </NGridItem>
+                  <NGridItem>
+                    <div class="text-sm text-gray-500">服务名称</div>
+                    <NTag type="info">{selectedException.value.service}</NTag>
+                  </NGridItem>
+                  <NGridItem>
+                    <div class="text-sm text-gray-500">发生次数</div>
+                    <div class="font-medium text-red-500">{selectedException.value.count.toLocaleString()}</div>
+                  </NGridItem>
+                  <NGridItem>
+                    <div class="text-sm text-gray-500">影响用户</div>
+                    <div class="font-medium">{selectedException.value.affectedUsers?.toLocaleString() || '-'}</div>
+                  </NGridItem>
+                  <NGridItem>
+                    <div class="text-sm text-gray-500">首次发生</div>
+                    <div>{dayjs(selectedException.value.firstOccurrence).format('YYYY-MM-DD HH:mm:ss')}</div>
+                  </NGridItem>
+                  <NGridItem>
+                    <div class="text-sm text-gray-500">最近发生</div>
+                    <div>{dayjs(selectedException.value.lastOccurrence).format('YYYY-MM-DD HH:mm:ss')}</div>
+                  </NGridItem>
+                </NGrid>
               </div>
 
+              {/* 异常消息 */}
               <div>
-                <div class="text-14px text-[--color-text-3] mb-4px">异常类型</div>
-                <NTag type="error">{selectedException.value.exceptionType}</NTag>
+                <h3>异常消息</h3>
+                <NCode code={selectedException.value.message} language="text" />
               </div>
 
-              <div>
-                <div class="text-14px text-[--color-text-3] mb-4px">异常消息</div>
-                <div class="bg-[--color-bg-2] p-12px rounded-4px text-14px">{selectedException.value.message}</div>
-              </div>
+              {/* 堆栈跟踪 */}
+              {selectedException.value.stackTrace && (
+                <div>
+                  <h3>堆栈跟踪</h3>
+                  <NScrollbar style={{ maxHeight: '400px' }}>
+                    <NCode code={selectedException.value.stackTrace} language="text" />
+                  </NScrollbar>
+                </div>
+              )}
 
-              <div>
-                <div class="text-14px text-[--color-text-3] mb-4px">堆栈跟踪</div>
-                <NCode code={selectedException.value.stackTrace} language="java" wordWrap />
-              </div>
+              {/* 示例日志 */}
+              {selectedException.value.sampleLogs && selectedException.value.sampleLogs.length > 0 && (
+                <div>
+                  <h3>示例日志</h3>
+                  <NCollapse>
+                    {selectedException.value.sampleLogs.map((log, index) => (
+                      <NCollapseItem
+                        key={index}
+                        title={`示例 ${index + 1} - ${dayjs(log.timestamp).format('MM-DD HH:mm:ss')}`}>
+                        <NSpace vertical size="small">
+                          <div>
+                            <span class="text-sm text-gray-500">时间: </span>
+                            <span>{dayjs(log.timestamp).format('YYYY-MM-DD HH:mm:ss.SSS')}</span>
+                          </div>
+                          <div>
+                            <span class="text-sm text-gray-500">主机: </span>
+                            <span>{log.hostname}</span>
+                          </div>
+                          {log.containerId && (
+                            <div>
+                              <span class="text-sm text-gray-500">容器: </span>
+                              <span>{log.containerId}</span>
+                            </div>
+                          )}
+                          <div>
+                            <span class="text-sm text-gray-500">消息: </span>
+                            <NCode code={log.message} language="text" />
+                          </div>
+                          {log.stack && (
+                            <div>
+                              <span class="text-sm text-gray-500">堆栈: </span>
+                              <NScrollbar style={{ maxHeight: '200px' }}>
+                                <NCode code={log.stack} language="text" />
+                              </NScrollbar>
+                            </div>
+                          )}
+                        </NSpace>
+                      </NCollapseItem>
+                    ))}
+                  </NCollapse>
+                </div>
+              )}
 
-              <div>
-                <div class="text-14px text-[--color-text-3] mb-4px">关联告警</div>
-                <NSpace>
-                  {selectedException.value.relatedAlerts.map((alert: string) =>
-                    h(NTag, { type: 'warning', size: 'small' }, { default: () => alert })
-                  )}
-                </NSpace>
-              </div>
-            </div>
+              {/* 趋势分析 */}
+              {selectedException.value.hourlyTrend && selectedException.value.hourlyTrend.length > 0 && (
+                <div>
+                  <h3>24小时趋势</h3>
+                  <div class="grid grid-cols-12 gap-2">
+                    {selectedException.value.hourlyTrend.map((trend, index) => {
+                      const maxCount = Math.max(...selectedException.value!.hourlyTrend!.map((t) => t.count))
+                      const height = maxCount > 0 ? (trend.count / maxCount) * 100 : 0
+
+                      return (
+                        <div key={index} class="text-center">
+                          <div class="text-xs text-gray-500 mb-1">{dayjs(trend.hour).format('HH:mm')}</div>
+                          <div
+                            class="bg-blue-500 rounded-sm mx-auto"
+                            style={{
+                              width: '20px',
+                              height: `${Math.max(height, 2)}px`,
+                              minHeight: '2px'
+                            }}
+                          />
+                          <div class="text-xs mt-1">{trend.count}</div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+            </NSpace>
           )}
-          <div class="flex justify-end gap-8px mt-16px">
-            <NButton onClick={() => (showDetailModal.value = false)}>关闭</NButton>
-            <NButton type="warning">标记为已解决</NButton>
-            <NButton type="primary">创建告警规则</NButton>
-          </div>
         </NModal>
       </div>
     )

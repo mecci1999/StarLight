@@ -41,6 +41,7 @@ export default defineComponent({
           '/home/alert-list': 'alert',
           '/home/alert-rules': 'alert',
           '/home/notification-history': 'alert',
+          '/home/log-center': 'log',
           '/home/service-logs': 'log',
           '/home/exception-analysis': 'log',
           '/home/tracing': 'tracing',
@@ -91,7 +92,7 @@ export default defineComponent({
         key: 'log',
         label: '日志中心',
         icon: markRaw(DocumentTextOutline),
-        route: '/home/service-logs'
+        route: '/home/log-center'
       },
       {
         key: 'tracing',

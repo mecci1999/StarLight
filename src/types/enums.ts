@@ -129,7 +129,8 @@ export enum ShowModeEnum {
 export enum URLEnum {
   USER = '/user', // 用户模块
   AUTH = '/auth', // 认证模块
-  CONFIG = '/config' // 配置模块
+  CONFIG = '/config', // 配置模块
+  LOGS = '/logs' // 日志模块
 }
 
 /**

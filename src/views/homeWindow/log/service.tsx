@@ -1,232 +1,642 @@
+/**
+ * 服务日志页面
+ */
+import { defineComponent, ref, reactive, onMounted, onUnmounted, computed } from 'vue'
 import {
   NCard,
-  NLayout,
-  NLayoutSider,
-  NLayoutContent,
-  NInput,
-  NButton,
-  NTag,
-  NList,
-  NListItem,
-  NCheckbox,
-  NCheckboxGroup,
   NSpace,
-  NSpin,
+  NButton,
+  NInput,
+  NSelect,
+  NDatePicker,
+  NDataTable,
+  NPagination,
+  NTag,
+  NModal,
   NCode,
-  NCollapse,
-  NCollapseItem,
-  NScrollbar
+  NScrollbar,
+  NEmpty,
+  NSpin,
+  NTooltip,
+  NIcon,
+  NPopover,
+  NGrid,
+  NGridItem,
+  NStatistic,
+  useMessage,
+  useDialog
 } from 'naive-ui'
-import { defineComponent, ref, onMounted, computed } from 'vue'
-import { fetchLogs } from '@/mock/api'
-import type { LogItem, LogVolume } from '@/types/monitor'
-import BarChart from '@/components/charts/BarChart'
 import {
   SearchOutline,
   RefreshOutline,
   DownloadOutline,
-  PauseCircleOutline,
-  PlayCircleOutline
+  PlayOutline,
+  StopOutline,
+  FilterOutline,
+  TimeOutline
 } from '@vicons/ionicons5'
+import { LogLevelEnum, LogSourceEnum, LogExportFormatEnum } from '@/types/logs'
+import type {
+  LogEntry,
+  LogSearchParams,
+  LogSearchResponse,
+  LogStatsResponse,
+  LogStreamParams,
+  LogStreamEvent
+} from '@/types/logs'
+import api from '@/api'
+import dayjs from 'dayjs'
 
 export default defineComponent({
-  name: 'LogExplorer',
+  name: 'ServiceLogs',
   setup() {
+    const message = useMessage()
+    const dialog = useDialog()
+
+    // 响应式数据
     const loading = ref(false)
-    const logs = ref<LogItem[]>([])
-    const volumeData = ref<LogVolume[]>([])
-    const searchText = ref('')
-    const isLive = ref(false)
-    let liveTimer: any = null
+    const statsLoading = ref(false)
+    const streamConnected = ref(false)
+    const logs = ref<LogEntry[]>([])
+    const stats = ref<NonNullable<LogStatsResponse['data']> | null>(null)
+    const selectedLog = ref<LogEntry | null>(null)
+    const showLogDetail = ref(false)
+    const autoRefresh = ref(false)
+    const refreshInterval = ref<NodeJS.Timeout | null>(null)
+    const wsConnection = ref<WebSocket | null>(null)
 
-    // Facets
-    const selectedServices = ref<string[]>([])
-    const selectedLevels = ref<string[]>([])
+    // 搜索参数
+    const searchParams = reactive<LogSearchParams>({
+      service: '',
+      level: undefined,
+      keyword: '',
+      startTime: dayjs().subtract(1, 'hour').format('YYYY-MM-DD HH:mm:ss'),
+      endTime: dayjs().format('YYYY-MM-DD HH:mm:ss'),
+      page: 1,
+      pageSize: 50,
+      source: undefined,
+      hostname: '',
+      containerId: ''
+    })
 
-    const serviceOptions = [
-      { label: 'api-gateway', value: 'gateway' },
-      { label: 'user-service', value: 'user-service' },
-      { label: 'order-service', value: 'order-service' },
-      { label: 'payment-service', value: 'payment-service' },
-      { label: 'auth-service', value: 'auth-service' }
+    // 分页信息
+    const pagination = reactive({
+      page: 1,
+      pageSize: 50,
+      total: 0,
+      showSizePicker: true,
+      pageSizes: [20, 50, 100, 200]
+    })
+
+    // 日志级别选项
+    const levelOptions = Object.values(LogLevelEnum).map((level) => ({
+      label: level.toUpperCase(),
+      value: level
+    }))
+
+    // 日志来源选项
+    const sourceOptions = Object.values(LogSourceEnum).map((source) => ({
+      label: source.charAt(0).toUpperCase() + source.slice(1),
+      value: source
+    }))
+
+    // 导出格式选项
+    const exportFormatOptions = Object.values(LogExportFormatEnum).map((format) => ({
+      label: format.toUpperCase(),
+      value: format
+    }))
+
+    // 表格列定义
+    const columns = [
+      {
+        title: '时间',
+        key: 'timestamp',
+        width: 180,
+        render: (row: LogEntry) => dayjs(row.timestamp).format('MM-DD HH:mm:ss.SSS')
+      },
+      {
+        title: '级别',
+        key: 'level',
+        width: 80,
+        render: (row: LogEntry) => {
+          const colorMap = {
+            [LogLevelEnum.ERROR]: 'error',
+            [LogLevelEnum.WARN]: 'warning',
+            [LogLevelEnum.INFO]: 'info',
+            [LogLevelEnum.DEBUG]: 'default',
+            [LogLevelEnum.TRACE]: 'default',
+            [LogLevelEnum.FATAL]: 'error'
+          }
+          return h(
+            NTag,
+            {
+              type: colorMap[row.level] as any,
+              size: 'small'
+            },
+            () => row.level.toUpperCase()
+          )
+        }
+      },
+      {
+        title: '服务',
+        key: 'service',
+        width: 120,
+        ellipsis: {
+          tooltip: true
+        }
+      },
+      {
+        title: '消息',
+        key: 'message',
+        ellipsis: {
+          tooltip: true
+        },
+        render: (row: LogEntry) => {
+          return h(
+            'span',
+            {
+              style: { cursor: 'pointer' },
+              onClick: () => showLogDetails(row)
+            },
+            row.message
+          )
+        }
+      },
+      {
+        title: '主机',
+        key: 'hostname',
+        width: 120,
+        ellipsis: {
+          tooltip: true
+        }
+      },
+      {
+        title: '操作',
+        key: 'actions',
+        width: 100,
+        render: (row: LogEntry) => {
+          return h(NSpace, { size: 'small' }, () => [
+            h(
+              NTooltip,
+              { trigger: 'hover' },
+              {
+                trigger: () =>
+                  h(
+                    NButton,
+                    {
+                      size: 'small',
+                      type: 'primary',
+                      ghost: true,
+                      onClick: () => showLogDetails(row)
+                    },
+                    () => '详情'
+                  ),
+                default: () => '查看日志详情'
+              }
+            )
+          ])
+        }
+      }
     ]
 
-    const levelOptions = [
-      { label: 'ERROR', value: 'error' },
-      { label: 'WARN', value: 'warn' },
-      { label: 'INFO', value: 'info' },
-      { label: 'DEBUG', value: 'debug' }
-    ]
+    // 计算属性
+    const hasFilters = computed(() => {
+      return (
+        searchParams.service ||
+        searchParams.level ||
+        searchParams.keyword ||
+        searchParams.source ||
+        searchParams.hostname ||
+        searchParams.containerId
+      )
+    })
 
-    const loadLogs = async () => {
+    // 搜索日志
+    const searchLogs = async (resetPage = true) => {
+      if (resetPage) {
+        searchParams.page = 1
+        pagination.page = 1
+      }
+
       loading.value = true
-      const res = await fetchLogs({
-        search: searchText.value,
-        service: selectedServices.value.join(','),
-        level: selectedLevels.value.join(',')
-      })
-      logs.value = res.logs
-      volumeData.value = res.volume
-      loading.value = false
-    }
+      try {
+        const response = await api.logs.searchLogs({
+          ...searchParams,
+          page: pagination.page,
+          pageSize: pagination.pageSize
+        })
 
-    const toggleLive = () => {
-      isLive.value = !isLive.value
-      if (isLive.value) {
-        liveTimer = setInterval(async () => {
-          const res = await fetchLogs({})
-          logs.value = [res.logs[0], ...logs.value].slice(0, 100) // Simulate stream
-        }, 2000)
-      } else {
-        clearInterval(liveTimer)
+        if (response.success && response.data) {
+          logs.value = response.data.logs
+          pagination.total = response.data.total
+          pagination.page = response.data.page
+          pagination.pageSize = response.data.pageSize
+        } else {
+          message.error('搜索日志失败: 无数据')
+        }
+      } catch (error) {
+        message.error('搜索日志失败')
+        console.error('Search logs error:', error)
+      } finally {
+        loading.value = false
       }
     }
 
-    onMounted(loadLogs)
+    // 获取日志统计
+    const getLogStats = async () => {
+      if (!searchParams.startTime || !searchParams.endTime) return
 
-    const chartData = computed(() => {
-      return volumeData.value.map((v) => ({
-        name: new Date(v.timestamp).getHours() + ':00',
-        value: v.count
-      }))
-    })
-
-    const LogItemRow = (props: { log: LogItem }) => {
-      const expanded = ref(false)
-      return (
-        <div class="border-b border-[--color-border-1] hover:bg-[--color-fill-2] transition-colors">
-          <div
-            class="flex items-start p-8px gap-12px cursor-pointer text-13px font-mono"
-            onClick={() => (expanded.value = !expanded.value)}>
-            <div class="w-140px text-[--color-text-3] shrink-0">{props.log.timestamp.split(' ')[1]}</div>
-            <div class="w-60px shrink-0">
-              <NTag
-                size="small"
-                type={props.log.level === 'error' ? 'error' : props.log.level === 'warn' ? 'warning' : 'info'}
-                class="w-full justify-center font-bold">
-                {props.log.level.toUpperCase()}
-              </NTag>
-            </div>
-            <div class="w-120px text-[--color-primary-6] shrink-0 truncate" title={props.log.service}>
-              {props.log.service}
-            </div>
-            <div class="flex-1 text-[--color-text-1] break-all">{props.log.message}</div>
-          </div>
-          {expanded.value && (
-            <div class="p-16px bg-[--color-bg-2] ml-40px mr-16px mb-8px rounded-4px border border-[--color-border-2]">
-              <div class="grid grid-cols-2 gap-16px mb-16px text-12px">
-                <div>
-                  <span class="text-[--color-text-3]">Thread:</span>{' '}
-                  <span class="text-[--color-text-1] font-mono">{props.log.thread}</span>
-                </div>
-                <div>
-                  <span class="text-[--color-text-3]">Logger:</span>{' '}
-                  <span class="text-[--color-text-1] font-mono">{props.log.logger}</span>
-                </div>
-                <div>
-                  <span class="text-[--color-text-3]">Trace ID:</span>{' '}
-                  <span class="text-[--color-primary-6] cursor-pointer hover:underline">trace-{props.log.key}</span>
-                </div>
-              </div>
-              {props.log.stackTrace && <NCode code={props.log.stackTrace} language="java" wordWrap class="text-12px" />}
-            </div>
-          )}
-        </div>
-      )
+      statsLoading.value = true
+      try {
+        const response = await api.logs.getLogStats({
+          service: searchParams.service,
+          startTime: searchParams.startTime,
+          endTime: searchParams.endTime,
+          interval: '1h'
+        })
+        if (response.success && response.data) {
+          stats.value = response.data
+        }
+      } catch (error) {
+        message.error('获取统计数据失败')
+        console.error('Get stats error:', error)
+      } finally {
+        statsLoading.value = false
+      }
     }
 
+    // 显示日志详情
+    const showLogDetails = (log: LogEntry) => {
+      selectedLog.value = log
+      showLogDetail.value = true
+    }
+
+    // 导出日志
+    const exportLogs = async (format: LogExportFormatEnum) => {
+      try {
+        const response = await api.logs.exportLogs({
+          searchParams: { ...searchParams },
+          format,
+          filename: `logs_${dayjs().format('YYYY-MM-DD_HH-mm-ss')}.${format}`
+        })
+
+        // 创建下载链接
+        const link = document.createElement('a')
+        link.href = response.downloadUrl
+        link.download = response.filename
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+
+        message.success('日志导出成功')
+      } catch (error) {
+        message.error('导出日志失败')
+        console.error('Export logs error:', error)
+      }
+    }
+
+    // 开始实时日志流
+    const startLogStream = async () => {
+      try {
+        const streamParams: LogStreamParams = {
+          service: searchParams.service,
+          level: searchParams.level,
+          keywords: searchParams.keyword
+        }
+
+        const response = await api.logs.createLogStream(streamParams)
+
+        // 创建WebSocket连接
+        wsConnection.value = new WebSocket(response.wsUrl)
+
+        wsConnection.value.onopen = () => {
+          streamConnected.value = true
+          message.success('实时日志流已连接')
+        }
+
+        wsConnection.value.onmessage = (event) => {
+          const streamEvent: LogStreamEvent = JSON.parse(event.data)
+
+          if (streamEvent.type === 'log' && streamEvent.data) {
+            // 将新日志添加到列表顶部
+            logs.value.unshift(streamEvent.data)
+            // 限制显示的日志数量
+            if (logs.value.length > 1000) {
+              logs.value = logs.value.slice(0, 1000)
+            }
+          }
+        }
+
+        wsConnection.value.onclose = () => {
+          streamConnected.value = false
+          message.info('实时日志流已断开')
+        }
+
+        wsConnection.value.onerror = (error) => {
+          streamConnected.value = false
+          message.error('实时日志流连接错误')
+          console.error('WebSocket error:', error)
+        }
+      } catch (error) {
+        message.error('启动实时日志流失败')
+        console.error('Start log stream error:', error)
+      }
+    }
+
+    // 停止实时日志流
+    const stopLogStream = () => {
+      if (wsConnection.value) {
+        wsConnection.value.close()
+        wsConnection.value = null
+      }
+      streamConnected.value = false
+    }
+
+    // 切换自动刷新
+    const toggleAutoRefresh = () => {
+      autoRefresh.value = !autoRefresh.value
+
+      if (autoRefresh.value) {
+        refreshInterval.value = setInterval(() => {
+          searchLogs(false)
+        }, 30000) // 30秒刷新一次
+        message.success('已开启自动刷新')
+      } else {
+        if (refreshInterval.value) {
+          clearInterval(refreshInterval.value)
+          refreshInterval.value = null
+        }
+        message.info('已关闭自动刷新')
+      }
+    }
+
+    // 清空过滤条件
+    const clearFilters = () => {
+      searchParams.service = ''
+      searchParams.level = undefined
+      searchParams.keyword = ''
+      searchParams.source = undefined
+      searchParams.hostname = ''
+      searchParams.containerId = ''
+      searchLogs()
+    }
+
+    // 分页变化处理
+    const handlePageChange = (page: number) => {
+      pagination.page = page
+      searchParams.page = page
+      searchLogs(false)
+    }
+
+    const handlePageSizeChange = (pageSize: number) => {
+      pagination.pageSize = pageSize
+      pagination.page = 1
+      searchParams.page = 1
+      searchParams.pageSize = pageSize
+      searchLogs(false)
+    }
+
+    // 生命周期
+    onMounted(() => {
+      searchLogs()
+      getLogStats()
+    })
+
+    onUnmounted(() => {
+      if (refreshInterval.value) {
+        clearInterval(refreshInterval.value)
+      }
+      if (wsConnection.value) {
+        wsConnection.value.close()
+      }
+    })
+
     return () => (
-      <div class="h-full flex flex-col bg-[--color-bg-1]">
-        {/* Header */}
-        <div class="h-60px px-24px flex items-center justify-between border-b border-[--color-border-1]">
-          <div class="flex items-center gap-16px flex-1">
-            <h2 class="text-18px font-600 m-0">Log Explorer</h2>
-            <NInput
-              v-model:value={searchText.value}
-              placeholder='Search logs (e.g. "error" AND "service:api")'
-              class="w-400px"
-              onKeyup={(e) => e.key === 'Enter' && loadLogs()}>
-              {{ prefix: () => <SearchOutline class="w-16px" /> }}
-            </NInput>
-            <NButton type="primary" onClick={loadLogs}>
-              Search
-            </NButton>
-          </div>
-          <NSpace>
-            <NButton onClick={toggleLive} type={isLive.value ? 'error' : 'default'} secondary>
-              {{
-                icon: () => (isLive.value ? <PauseCircleOutline /> : <PlayCircleOutline />),
-                default: () => (isLive.value ? 'Pause Live' : 'Live Tail')
-              }}
-            </NButton>
-            <NButton onClick={loadLogs}>
-              <RefreshOutline class="mr-4px" /> Refresh
-            </NButton>
-            <NButton>
-              <DownloadOutline class="mr-4px" /> Export
-            </NButton>
-          </NSpace>
-        </div>
+      <div class="service-logs-container">
+        {/* 统计卡片 */}
+        {stats.value && (
+          <NCard class="mb-4">
+            <NGrid cols={4} xGap={16}>
+              <NGridItem>
+                <NStatistic label="总日志数" value={stats.value.totalLogs} />
+              </NGridItem>
+              <NGridItem>
+                <NStatistic label="错误日志" value={stats.value.errorLogs} />
+              </NGridItem>
+              <NGridItem>
+                <NStatistic label="警告日志" value={stats.value.warnLogs} />
+              </NGridItem>
+              <NGridItem>
+                <NStatistic
+                  label="错误率"
+                  value={
+                    stats.value.totalLogs > 0
+                      ? ((stats.value.errorLogs / stats.value.totalLogs) * 100).toFixed(2) + '%'
+                      : '0%'
+                  }
+                />
+              </NGridItem>
+            </NGrid>
+          </NCard>
+        )}
 
-        {/* Content */}
-        <div class="flex-1 flex overflow-hidden">
-          {/* Sidebar Facets */}
-          <div class="w-260px border-r border-[--color-border-1] p-16px bg-[--color-bg-2] flex flex-col gap-24px overflow-y-auto">
-            <div>
-              <div class="text-12px font-bold text-[--color-text-3] mb-8px uppercase">Time Range</div>
-              <NButton block secondary>
-                Last 1 Hour
+        {/* 搜索和过滤 */}
+        <NCard class="mb-4">
+          <NSpace vertical size="medium">
+            <NSpace size="medium" wrap={false}>
+              <NInput
+                v-model:value={searchParams.keyword}
+                placeholder="搜索关键词"
+                clearable
+                style={{ width: '200px' }}
+              />
+              <NSelect
+                v-model:value={searchParams.service}
+                placeholder="选择服务"
+                clearable
+                filterable
+                tag
+                style={{ width: '150px' }}
+                options={[]}
+              />
+              <NSelect
+                v-model:value={searchParams.level}
+                placeholder="日志级别"
+                clearable
+                style={{ width: '120px' }}
+                options={levelOptions}
+              />
+              <NSelect
+                v-model:value={searchParams.source}
+                placeholder="日志来源"
+                clearable
+                style={{ width: '120px' }}
+                options={sourceOptions}
+              />
+            </NSpace>
+
+            <NSpace size="medium" wrap={false}>
+              <NDatePicker
+                v-model:value={searchParams.startTime}
+                type="datetime"
+                placeholder="开始时间"
+                format="yyyy-MM-dd HH:mm:ss"
+                style={{ width: '180px' }}
+              />
+              <NDatePicker
+                v-model:value={searchParams.endTime}
+                type="datetime"
+                placeholder="结束时间"
+                format="yyyy-MM-dd HH:mm:ss"
+                style={{ width: '180px' }}
+              />
+              <NInput v-model:value={searchParams.hostname} placeholder="主机名" clearable style={{ width: '150px' }} />
+              <NInput
+                v-model:value={searchParams.containerId}
+                placeholder="容器ID"
+                clearable
+                style={{ width: '150px' }}
+              />
+            </NSpace>
+
+            <NSpace size="medium">
+              <NButton type="primary" onClick={() => searchLogs()} loading={loading.value}>
+                <NIcon component={SearchOutline} class="mr-1" />
+                搜索
               </NButton>
-            </div>
 
-            <div>
-              <div class="text-12px font-bold text-[--color-text-3] mb-8px uppercase">Log Level</div>
-              <NCheckboxGroup v-model:value={selectedLevels.value} onUpdateValue={loadLogs}>
-                <div class="flex flex-col gap-8px">
-                  {levelOptions.map((opt) => (
-                    <NCheckbox value={opt.value} label={opt.label} />
-                  ))}
-                </div>
-              </NCheckboxGroup>
-            </div>
+              <NButton onClick={() => searchLogs(false)}>
+                <NIcon component={RefreshOutline} class="mr-1" />
+                刷新
+              </NButton>
 
-            <div>
-              <div class="text-12px font-bold text-[--color-text-3] mb-8px uppercase">Service</div>
-              <NCheckboxGroup v-model:value={selectedServices.value} onUpdateValue={loadLogs}>
-                <div class="flex flex-col gap-8px">
-                  {serviceOptions.map((opt) => (
-                    <NCheckbox value={opt.value} label={opt.label} />
-                  ))}
-                </div>
-              </NCheckboxGroup>
-            </div>
-          </div>
-
-          {/* Main Log View */}
-          <div class="flex-1 flex flex-col min-w-0">
-            {/* Volume Chart */}
-            <div class="h-120px p-16px border-b border-[--color-border-1]">
-              <BarChart data={chartData.value} height="100%" color="#165dff" />
-            </div>
-
-            {/* Log List */}
-            <div class="flex-1 overflow-y-auto relative">
-              {loading.value && !isLive.value && (
-                <div class="absolute inset-0 bg-[--color-bg-1] opacity-50 z-10 flex items-center justify-center">
-                  <NSpin size="large" />
-                </div>
+              {hasFilters.value && (
+                <NButton onClick={clearFilters}>
+                  <NIcon component={FilterOutline} class="mr-1" />
+                  清空过滤
+                </NButton>
               )}
-              <div class="flex flex-col">
-                {logs.value.map((log) => (
-                  <LogItemRow key={log.key} log={log} />
-                ))}
+
+              <NButton type={autoRefresh.value ? 'warning' : 'default'} onClick={toggleAutoRefresh}>
+                <NIcon component={TimeOutline} class="mr-1" />
+                {autoRefresh.value ? '停止自动刷新' : '自动刷新'}
+              </NButton>
+
+              <NButton
+                type={streamConnected.value ? 'error' : 'success'}
+                onClick={streamConnected.value ? stopLogStream : startLogStream}>
+                <NIcon component={streamConnected.value ? StopOutline : PlayOutline} class="mr-1" />
+                {streamConnected.value ? '停止实时' : '实时日志'}
+              </NButton>
+
+              <NPopover trigger="click">
+                {{
+                  trigger: () => (
+                    <NButton>
+                      <NIcon component={DownloadOutline} class="mr-1" />
+                      导出
+                    </NButton>
+                  ),
+                  default: () => (
+                    <NSpace vertical size="small">
+                      {exportFormatOptions.map((option) => (
+                        <NButton key={option.value} text onClick={() => exportLogs(option.value)}>
+                          导出为 {option.label}
+                        </NButton>
+                      ))}
+                    </NSpace>
+                  )
+                }}
+              </NPopover>
+            </NSpace>
+          </NSpace>
+        </NCard>
+
+        {/* 日志表格 */}
+        <NCard>
+          <NSpin show={loading.value}>
+            {logs.value.length > 0 ? (
+              <>
+                <NDataTable
+                  columns={columns}
+                  data={logs.value}
+                  bordered={false}
+                  striped
+                  size="small"
+                  scrollX={1200}
+                  maxHeight={600}
+                />
+
+                <div class="mt-4 flex justify-end">
+                  <NPagination
+                    page={pagination.page}
+                    pageSize={pagination.pageSize}
+                    itemCount={pagination.total}
+                    showSizePicker
+                    pageSizes={pagination.pageSizes}
+                    onUpdatePage={handlePageChange}
+                    onUpdatePageSize={handlePageSizeChange}
+                  />
+                </div>
+              </>
+            ) : (
+              <NEmpty description="暂无日志数据" />
+            )}
+          </NSpin>
+        </NCard>
+
+        {/* 日志详情弹窗 */}
+        <NModal
+          v-model:show={showLogDetail.value}
+          preset="card"
+          title="日志详情"
+          style={{ width: '80%', maxWidth: '1000px' }}>
+          {selectedLog.value && (
+            <NSpace vertical size="medium">
+              <NSpace size="medium">
+                <NTag type={selectedLog.value.level === LogLevelEnum.ERROR ? 'error' : 'info'}>
+                  {selectedLog.value.level.toUpperCase()}
+                </NTag>
+                <span>服务: {selectedLog.value.service}</span>
+                <span>时间: {dayjs(selectedLog.value.timestamp).format('YYYY-MM-DD HH:mm:ss.SSS')}</span>
+              </NSpace>
+
+              <div>
+                <h4>消息内容:</h4>
+                <NCode code={selectedLog.value.message} language="text" />
               </div>
-              {logs.value.length === 0 && !loading.value && (
-                <div class="p-40px text-center text-[--color-text-3]">No logs found matching your criteria.</div>
+
+              {selectedLog.value.stack && (
+                <div>
+                  <h4>堆栈信息:</h4>
+                  <NScrollbar style={{ maxHeight: '300px' }}>
+                    <NCode code={selectedLog.value.stack} language="text" />
+                  </NScrollbar>
+                </div>
               )}
-            </div>
-          </div>
-        </div>
+
+              {selectedLog.value.fields && Object.keys(selectedLog.value.fields).length > 0 && (
+                <div>
+                  <h4>额外字段:</h4>
+                  <NCode code={JSON.stringify(selectedLog.value.fields, null, 2)} language="json" />
+                </div>
+              )}
+
+              {selectedLog.value.tags && Object.keys(selectedLog.value.tags).length > 0 && (
+                <div>
+                  <h4>标签:</h4>
+                  <NSpace size="small">
+                    {Object.entries(selectedLog.value.tags).map(([key, value]) => (
+                      <NTag key={key} size="small">
+                        {key}: {String(value)}
+                      </NTag>
+                    ))}
+                  </NSpace>
+                </div>
+              )}
+            </NSpace>
+          )}
+        </NModal>
       </div>
     )
   }

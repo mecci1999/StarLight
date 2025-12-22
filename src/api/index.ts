@@ -6,6 +6,7 @@ import urls from './url'
 import { LoginUserReq, QrCodeResponseItem, RegisterUserReq } from '@/types/login'
 import { QrCodeStatus } from '@/types/enums'
 import { UserInfoType } from '../types/userInfo'
+import logsApi from './logs'
 
 const GET = <T>(url: string, params?: any, abort?: AbortController) => request.get<T>(url, params, abort)
 const POST = <T>(url: string, params?: any, abort?: AbortController) => request.post<T>(url, params, abort)
@@ -47,6 +48,9 @@ export default {
   generateRsaKey: () => GET<{ publicKey: string; privateKey: string }>(urls.saveRSAKey),
   /** 获取rsa密钥 */
   getRsaKey: () => GET<{ publicKey: string; privateKey: string }>(urls.getRSAKey),
+
+  /** 日志相关API */
+  logs: logsApi,
 
   /** 获取用户详细信息 */
   getUserInfo: (userId: string, abort?: AbortController) => POST<UserInfoType>(urls.getUserInfo, { userId }, abort)

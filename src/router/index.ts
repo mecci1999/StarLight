@@ -75,6 +75,11 @@ const routes: Array<RouteRecordRaw> = [
       // },
       // 📝 日志中心模块
       {
+        path: 'log-center',
+        name: 'log-center',
+        component: () => import('@/views/homeWindow/log/index')
+      },
+      {
         path: 'service-logs',
         name: 'service-logs',
         component: () => import('@/views/homeWindow/log/service')

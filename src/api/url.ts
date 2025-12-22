@@ -27,5 +27,14 @@ export default {
   cancelQRcode: `${prefix + URLEnum.AUTH}/${VersionEnum.V1}/qrcode/cancel`, // 移动端取消登录
 
   // 用户模块
-  getUserInfo: `${prefix + URLEnum.USER}/${VersionEnum.V1}/getUserInfo` // 获取用户信息
+  getUserInfo: `${prefix + URLEnum.USER}/${VersionEnum.V1}/getUserInfo`, // 获取用户信息
+
+  // 日志模块
+  logSearch: `${prefix + URLEnum.LOGS}/${VersionEnum.V1}/search`, // 日志搜索
+  logStats: `${prefix + URLEnum.LOGS}/${VersionEnum.V1}/stats`, // 日志统计
+  logExport: `${prefix + URLEnum.LOGS}/${VersionEnum.V1}/export`, // 日志导出
+  logStream: `${prefix + URLEnum.LOGS}/${VersionEnum.V1}/stream`, // 日志流
+  logIngest: `${prefix + URLEnum.LOGS}/${VersionEnum.V1}/ingest`, // 日志摄取
+  logBatchIngest: `${prefix + URLEnum.LOGS}/${VersionEnum.V1}/batch-ingest`, // 批量日志摄取
+  exceptionAnalysis: `${prefix + URLEnum.LOGS}/${VersionEnum.V1}/exception-analysis` // 异常分析
 }

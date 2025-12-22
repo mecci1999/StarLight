@@ -78,9 +78,18 @@ export default defineComponent({
     })
 
     // 监听网络连接状态
-    watch(isOnline, (value) => {
-      state.loginDisabled = !value
-    })
+    watch(
+      isOnline,
+      (value) => {
+        state.loginDisabled = !value
+        if (!value) {
+          window.$message.error('网络连接异常，请检查网络设置后重试')
+        }
+      },
+      {
+        immediate: true
+      }
+    )
 
     /**
      * 选择账号
@@ -479,8 +488,7 @@ export default defineComponent({
           class="w-full h-40px mt-8px mb-24px"
           onClick={normalLogin}
           type={'primary'}
-          // disabled={state.loginDisabled}
-        >
+          disabled={state.loginDisabled}>
           <span>{loginText.value}</span>
         </NButton>
       </NFlex>
