@@ -312,6 +312,8 @@ export interface LogIngestParams {
   hostname?: string
   /** 容器ID */
   containerId?: string
+  /** 日志来源 */
+  source: LogSourceEnum
   /** 元数据 */
   metadata?: Record<string, any>
 }

@@ -414,24 +414,24 @@ export default defineComponent({
     return () => (
       <div class="service-logs-container">
         {/* 统计卡片 */}
-        {stats.value && (
+        {stats.value && stats.value.data && (
           <NCard class="mb-4">
             <NGrid cols={4} xGap={16}>
               <NGridItem>
-                <NStatistic label="总日志数" value={stats.value.totalLogs} />
+                <NStatistic label="总日志数" value={stats.value.data.totalLogs} />
               </NGridItem>
               <NGridItem>
-                <NStatistic label="错误日志" value={stats.value.errorLogs} />
+                <NStatistic label="错误日志" value={stats.value.data.errorLogs} />
               </NGridItem>
               <NGridItem>
-                <NStatistic label="警告日志" value={stats.value.warnLogs} />
+                <NStatistic label="警告日志" value={stats.value.data.warnLogs} />
               </NGridItem>
               <NGridItem>
                 <NStatistic
                   label="错误率"
                   value={
-                    stats.value.totalLogs > 0
-                      ? ((stats.value.errorLogs / stats.value.totalLogs) * 100).toFixed(2) + '%'
+                    stats.value.data.totalLogs > 0
+                      ? ((stats.value.data.errorLogs / stats.value.data.totalLogs) * 100).toFixed(2) + '%'
                       : '0%'
                   }
                 />

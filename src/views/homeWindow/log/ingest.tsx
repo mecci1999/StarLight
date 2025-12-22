@@ -42,7 +42,7 @@ import {
   TimeOutline,
   RefreshOutline
 } from '@vicons/ionicons5'
-import { LogLevelEnum } from '@/types/logs'
+import { LogLevelEnum, LogSourceEnum } from '@/types/logs'
 import type { LogIngestParams, LogBatchIngestParams, LogEntry } from '@/types/logs'
 import api from '@/api'
 import dayjs from 'dayjs'
@@ -67,6 +67,7 @@ export default defineComponent({
       message: '',
       hostname: '',
       containerId: '',
+      source: LogSourceEnum.APPLICATION,
       metadata: {}
     })
 
@@ -266,7 +267,7 @@ export default defineComponent({
           timeout: 30000
         }
 
-        await api.logs.batchIngestLogs(params)
+        await api.logs.batchIngestLogs(params.logs)
 
         const duration = Date.now() - startTime
 
