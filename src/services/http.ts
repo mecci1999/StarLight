@@ -87,7 +87,7 @@ const shouldBlockRequest = async (url: string) => {
     )
       return false
 
-    // 检查是否已登录成功(有双token)
+    // 检查是否已登录成功(有双token)，仅依赖 Cookie
     const hasToken = getCookie('ACCESS_TOKEN')
     const hasRefreshToken = getCookie('REFRESH_TOKEN')
     const isLoggedIn = hasToken && hasRefreshToken
@@ -118,6 +118,7 @@ async function refreshTokenAndRetry(): Promise<string> {
 
   try {
     const refreshToken = getCookie('REFRESH_TOKEN')
+
     if (!refreshToken) {
       console.error('❌ 无刷新令牌')
       throw new AppException('无刷新令牌')
@@ -141,11 +142,10 @@ async function refreshTokenAndRetry(): Promise<string> {
       throw new Error('刷新令牌失败')
     }
 
-    // 获取新的token和refreshToken
+    // 获取新的token和refreshToken（由服务端设置 Cookie）
     const token = getCookie('ACCESS_TOKEN')
-    const newRefreshToken = getCookie('REFRESH_TOKEN')
 
-    console.log('🔑 Token刷新成功', `token: ${token}, refresh_token: ${newRefreshToken}`)
+    console.log('🔑 Token刷新成功', `token: ${token}`)
 
     if (token) {
       await requestQueue.processQueue(token)

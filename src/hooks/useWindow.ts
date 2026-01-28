@@ -4,7 +4,13 @@ import { LogicalSize } from '@tauri-apps/api/dpi'
 import { type } from '@tauri-apps/plugin-os'
 
 /** 判断是兼容的系统 */
-const isCompatibility = computed(() => type() === 'windows' || type() === 'linux')
+const isCompatibility = computed(() => {
+  try {
+    return type() === 'windows' || type() === 'linux'
+  } catch (error) {
+    return false
+  }
+})
 
 export const useWindow = () => {
   /**

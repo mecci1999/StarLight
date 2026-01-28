@@ -9,7 +9,7 @@ export const useUserStore = defineStore(StoresEnum.USER, () => {
   const isSign = ref(false)
 
   const getUserDetailAction = (userId: string) => {
-    apis
+    apis.user
       .getUserInfo(userId)
       .then((res) => {
         userInfo.value = { ...userInfo.value, ...res }

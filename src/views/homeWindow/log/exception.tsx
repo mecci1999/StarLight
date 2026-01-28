@@ -39,6 +39,7 @@ import { LogLevelEnum } from '@/types/logs'
 import type { ExceptionAnalysisParams, ExceptionAnalysisResponse, ExceptionGroup, ExceptionTrend } from '@/types/logs'
 import api from '@/api'
 import dayjs from 'dayjs'
+import SectionHeader from '@/components/common/SectionHeader'
 
 export default defineComponent({
   name: 'ExceptionAnalysis',
@@ -272,164 +273,191 @@ export default defineComponent({
     })
 
     return () => (
-      <div class="exception-analysis-container">
-        {/* 统计概览 */}
-        {analysisData.value && (
-          <NCard class="mb-4">
-            <NGrid cols={4} xGap={16}>
-              <NGridItem>
-                <NStatistic label="异常总数" value={totalExceptions.value}>
-                  {{
-                    prefix: () => h(NIcon, { component: BugOutline, color: '#f56565' })
-                  }}
-                </NStatistic>
-              </NGridItem>
-              <NGridItem>
-                <NStatistic label="严重异常" value={criticalExceptions.value}>
-                  {{
-                    prefix: () => h(NIcon, { component: AlertCircleOutline, color: '#ed8936' })
-                  }}
-                </NStatistic>
-              </NGridItem>
-              <NGridItem>
-                <NStatistic label="受影响服务" value={affectedServices.value} />
-              </NGridItem>
-              <NGridItem>
-                <NStatistic label="异常类型" value={analysisData.value.exceptions.length} />
-              </NGridItem>
-            </NGrid>
-          </NCard>
-        )}
+      <div class="p-24px h-full bg-gray-50/50 flex flex-col overflow-hidden">
+        <SectionHeader title="异常分析" subtitle="分析系统异常和错误堆栈" icon={BugOutline} />
 
-        {/* 搜索和过滤 */}
-        <NCard class="mb-4">
-          <NSpace vertical size="medium">
-            <NSpace size="medium" wrap={false}>
-              <NInput
-                v-model:value={searchParams.service}
-                placeholder="服务名称"
-                clearable
-                style={{ width: '150px' }}
-              />
-              <NSelect
-                v-model:value={searchParams.groupBy}
-                placeholder="分组方式"
-                style={{ width: '120px' }}
-                options={groupByOptions}
-              />
-              <NSelect
-                v-model:value={searchParams.sortBy}
-                placeholder="排序字段"
-                style={{ width: '120px' }}
-                options={sortByOptions}
-              />
-              <NSelect
-                v-model:value={searchParams.sortOrder}
-                placeholder="排序方向"
-                style={{ width: '100px' }}
-                options={sortOrderOptions}
-              />
-              <NInput v-model:value={searchParams.minOccurrences} placeholder="最小次数" style={{ width: '120px' }} />
-            </NSpace>
+        <NScrollbar>
+          <div class="pr-4">
+            {/* 统计概览 */}
+            {analysisData.value && (
+              <NCard bordered={false} class="mb-4 shadow-sm rounded-lg">
+                <NGrid cols={4} xGap={16}>
+                  <NGridItem>
+                    <NStatistic label="异常总数" value={totalExceptions.value}>
+                      {{
+                        prefix: () => h(NIcon, { component: BugOutline, color: '#f56565' }),
+                        default: () => <div class="text-24px font-bold">{totalExceptions.value}</div>
+                      }}
+                    </NStatistic>
+                  </NGridItem>
+                  <NGridItem>
+                    <NStatistic label="严重异常" value={criticalExceptions.value}>
+                      {{
+                        prefix: () => h(NIcon, { component: AlertCircleOutline, color: '#ed8936' }),
+                        default: () => <div class="text-24px font-bold text-orange-500">{criticalExceptions.value}</div>
+                      }}
+                    </NStatistic>
+                  </NGridItem>
+                  <NGridItem>
+                    <NStatistic label="受影响服务" value={affectedServices.value}>
+                      {{ default: () => <div class="text-24px font-bold">{affectedServices.value}</div> }}
+                    </NStatistic>
+                  </NGridItem>
+                  <NGridItem>
+                    <NStatistic label="异常类型" value={analysisData.value.exceptions.length}>
+                      {{
+                        default: () => <div class="text-24px font-bold">{analysisData.value?.exceptions.length}</div>
+                      }}
+                    </NStatistic>
+                  </NGridItem>
+                </NGrid>
+              </NCard>
+            )}
 
-            <NSpace size="medium" wrap={false}>
-              <NDatePicker
-                v-model:value={searchParams.startTime}
-                type="datetime"
-                placeholder="开始时间"
-                format="yyyy-MM-dd HH:mm:ss"
-                style={{ width: '180px' }}
-              />
-              <NDatePicker
-                v-model:value={searchParams.endTime}
-                type="datetime"
-                placeholder="结束时间"
-                format="yyyy-MM-dd HH:mm:ss"
-                style={{ width: '180px' }}
-              />
-            </NSpace>
-
-            <NSpace size="medium">
-              <NButton type="primary" onClick={() => analyzeExceptions()} loading={loading.value}>
-                <NIcon component={SearchOutline} class="mr-1" />
-                分析
-              </NButton>
-
-              <NButton onClick={() => analyzeExceptions(false)}>
-                <NIcon component={RefreshOutline} class="mr-1" />
-                刷新
-              </NButton>
-            </NSpace>
-          </NSpace>
-        </NCard>
-
-        {/* 异常列表 */}
-        <NCard>
-          <NSpin show={loading.value}>
-            {analysisData.value?.exceptions && analysisData.value.exceptions.length > 0 ? (
-              <>
-                <NDataTable
-                  columns={columns}
-                  data={analysisData.value.exceptions}
-                  bordered={false}
-                  striped
-                  size="small"
-                  scrollX={1200}
-                  maxHeight={600}
-                />
-
-                <div class="mt-4 flex justify-end">
-                  <NPagination
-                    page={pagination.page}
-                    pageSize={pagination.pageSize}
-                    itemCount={pagination.total}
-                    showSizePicker
-                    pageSizes={pagination.pageSizes}
-                    onUpdatePage={handlePageChange}
-                    onUpdatePageSize={handlePageSizeChange}
+            {/* 搜索和过滤 */}
+            <NCard bordered={false} class="mb-4 shadow-sm rounded-lg">
+              <NSpace vertical size="medium">
+                <div class="flex flex-wrap gap-4">
+                  <NInput
+                    v-model:value={searchParams.service}
+                    placeholder="服务名称"
+                    clearable
+                    style={{ width: '180px' }}
+                  />
+                  <NSelect
+                    v-model:value={searchParams.groupBy}
+                    placeholder="分组方式"
+                    style={{ width: '140px' }}
+                    options={groupByOptions}
+                  />
+                  <NSelect
+                    v-model:value={searchParams.sortBy}
+                    placeholder="排序字段"
+                    style={{ width: '140px' }}
+                    options={sortByOptions}
+                  />
+                  <NSelect
+                    v-model:value={searchParams.sortOrder}
+                    placeholder="排序方向"
+                    style={{ width: '120px' }}
+                    options={sortOrderOptions}
+                  />
+                  <NInput
+                    v-model:value={searchParams.minOccurrences}
+                    placeholder="最小次数"
+                    style={{ width: '120px' }}
                   />
                 </div>
-              </>
-            ) : (
-              <NEmpty description="暂无异常数据" />
-            )}
-          </NSpin>
-        </NCard>
+
+                <div class="flex flex-wrap gap-4 items-center justify-between">
+                  <div class="flex gap-4">
+                    <NDatePicker
+                      v-model:value={searchParams.startTime}
+                      type="datetime"
+                      placeholder="开始时间"
+                      format="yyyy-MM-dd HH:mm:ss"
+                      style={{ width: '200px' }}
+                    />
+                    <NDatePicker
+                      v-model:value={searchParams.endTime}
+                      type="datetime"
+                      placeholder="结束时间"
+                      format="yyyy-MM-dd HH:mm:ss"
+                      style={{ width: '200px' }}
+                    />
+                  </div>
+
+                  <div class="flex gap-4">
+                    <NButton type="primary" onClick={() => analyzeExceptions()} loading={loading.value}>
+                      <NIcon component={SearchOutline} class="mr-1" />
+                      分析
+                    </NButton>
+
+                    <NButton onClick={() => analyzeExceptions(false)}>
+                      <NIcon component={RefreshOutline} class="mr-1" />
+                      刷新
+                    </NButton>
+                  </div>
+                </div>
+              </NSpace>
+            </NCard>
+
+            {/* 异常列表 */}
+            <NCard bordered={false} class="shadow-sm rounded-lg mb-4" contentStyle={{ padding: 0 }}>
+              <NSpin show={loading.value}>
+                {analysisData.value?.exceptions && analysisData.value.exceptions.length > 0 ? (
+                  <div class="p-4">
+                    <NDataTable
+                      columns={columns}
+                      data={analysisData.value.exceptions}
+                      bordered={false}
+                      striped
+                      size="small"
+                      scrollX={1200}
+                    />
+
+                    <div class="mt-4 flex justify-end">
+                      <NPagination
+                        page={pagination.page}
+                        pageSize={pagination.pageSize}
+                        itemCount={pagination.total}
+                        showSizePicker
+                        pageSizes={pagination.pageSizes}
+                        onUpdatePage={handlePageChange}
+                        onUpdatePageSize={handlePageSizeChange}
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div class="py-12">
+                    <NEmpty description="暂无异常数据" />
+                  </div>
+                )}
+              </NSpin>
+            </NCard>
+          </div>
+        </NScrollbar>
 
         {/* 异常详情弹窗 */}
         <NModal
           v-model:show={showExceptionDetail.value}
           preset="card"
           title="异常详情"
+          bordered={false}
+          class="shadow-lg rounded-lg"
           style={{ width: '90%', maxWidth: '1200px' }}>
           {selectedException.value && (
             <NSpace vertical size="large">
               {/* 基本信息 */}
-              <div>
-                <h3>基本信息</h3>
-                <NGrid cols={2} xGap={16} yGap={8}>
+              <div class="bg-gray-50 p-4 rounded-lg">
+                <h3 class="text-lg font-medium mb-4">基本信息</h3>
+                <NGrid cols={2} xGap={16} yGap={12}>
                   <NGridItem>
-                    <div class="text-sm text-gray-500">异常类型</div>
-                    <div class="font-medium">{selectedException.value.type}</div>
+                    <div class="text-sm text-gray-500 mb-1">异常类型</div>
+                    <div class="font-medium text-base">{selectedException.value.type}</div>
                   </NGridItem>
                   <NGridItem>
-                    <div class="text-sm text-gray-500">服务名称</div>
-                    <NTag type="info">{selectedException.value.service}</NTag>
+                    <div class="text-sm text-gray-500 mb-1">服务名称</div>
+                    <NTag type="info" bordered={false}>
+                      {selectedException.value.service}
+                    </NTag>
                   </NGridItem>
                   <NGridItem>
-                    <div class="text-sm text-gray-500">发生次数</div>
-                    <div class="font-medium text-red-500">{selectedException.value.count.toLocaleString()}</div>
+                    <div class="text-sm text-gray-500 mb-1">发生次数</div>
+                    <div class="font-medium text-red-600 text-lg">{selectedException.value.count.toLocaleString()}</div>
                   </NGridItem>
                   <NGridItem>
-                    <div class="text-sm text-gray-500">影响用户</div>
-                    <div class="font-medium">{selectedException.value.affectedUsers?.toLocaleString() || '-'}</div>
+                    <div class="text-sm text-gray-500 mb-1">影响用户</div>
+                    <div class="font-medium text-base">
+                      {selectedException.value.affectedUsers?.toLocaleString() || '-'}
+                    </div>
                   </NGridItem>
                   <NGridItem>
-                    <div class="text-sm text-gray-500">首次发生</div>
+                    <div class="text-sm text-gray-500 mb-1">首次发生</div>
                     <div>{dayjs(selectedException.value.firstOccurrence).format('YYYY-MM-DD HH:mm:ss')}</div>
                   </NGridItem>
                   <NGridItem>
-                    <div class="text-sm text-gray-500">最近发生</div>
+                    <div class="text-sm text-gray-500 mb-1">最近发生</div>
                     <div>{dayjs(selectedException.value.lastOccurrence).format('YYYY-MM-DD HH:mm:ss')}</div>
                   </NGridItem>
                 </NGrid>
@@ -437,57 +465,69 @@ export default defineComponent({
 
               {/* 异常消息 */}
               <div>
-                <h3>异常消息</h3>
-                <NCode code={selectedException.value.message} language="text" />
+                <h3 class="text-lg font-medium mb-2">异常消息</h3>
+                <div class="border rounded-lg overflow-hidden">
+                  <NCode code={selectedException.value.message} language="text" class="p-4" />
+                </div>
               </div>
 
               {/* 堆栈跟踪 */}
               {selectedException.value.stackTrace && (
                 <div>
-                  <h3>堆栈跟踪</h3>
-                  <NScrollbar style={{ maxHeight: '400px' }}>
-                    <NCode code={selectedException.value.stackTrace} language="text" />
-                  </NScrollbar>
+                  <h3 class="text-lg font-medium mb-2">堆栈跟踪</h3>
+                  <div class="border rounded-lg overflow-hidden bg-gray-50">
+                    <NScrollbar style={{ maxHeight: '400px' }}>
+                      <NCode code={selectedException.value.stackTrace} language="text" class="p-4" />
+                    </NScrollbar>
+                  </div>
                 </div>
               )}
 
               {/* 示例日志 */}
               {selectedException.value.sampleLogs && selectedException.value.sampleLogs.length > 0 && (
                 <div>
-                  <h3>示例日志</h3>
+                  <h3 class="text-lg font-medium mb-2">示例日志</h3>
                   <NCollapse>
                     {selectedException.value.sampleLogs.map((log, index) => (
                       <NCollapseItem
                         key={index}
                         title={`示例 ${index + 1} - ${dayjs(log.timestamp).format('MM-DD HH:mm:ss')}`}>
-                        <NSpace vertical size="small">
-                          <div>
-                            <span class="text-sm text-gray-500">时间: </span>
-                            <span>{dayjs(log.timestamp).format('YYYY-MM-DD HH:mm:ss.SSS')}</span>
-                          </div>
-                          <div>
-                            <span class="text-sm text-gray-500">主机: </span>
-                            <span>{log.hostname}</span>
-                          </div>
-                          {log.containerId && (
-                            <div>
-                              <span class="text-sm text-gray-500">容器: </span>
-                              <span>{log.containerId}</span>
+                        <div class="bg-gray-50 p-4 rounded-md">
+                          <NSpace vertical size="small">
+                            <div class="grid grid-cols-2 gap-4">
+                              <div>
+                                <span class="text-sm text-gray-500 mr-2">时间: </span>
+                                <span>{dayjs(log.timestamp).format('YYYY-MM-DD HH:mm:ss.SSS')}</span>
+                              </div>
+                              <div>
+                                <span class="text-sm text-gray-500 mr-2">主机: </span>
+                                <span>{log.hostname}</span>
+                              </div>
+                              {log.containerId && (
+                                <div>
+                                  <span class="text-sm text-gray-500 mr-2">容器: </span>
+                                  <span>{log.containerId}</span>
+                                </div>
+                              )}
                             </div>
-                          )}
-                          <div>
-                            <span class="text-sm text-gray-500">消息: </span>
-                            <NCode code={log.message} language="text" />
-                          </div>
-                          {log.stack && (
                             <div>
-                              <span class="text-sm text-gray-500">堆栈: </span>
-                              <NScrollbar style={{ maxHeight: '200px' }}>
-                                <NCode code={log.stack} language="text" />
-                              </NScrollbar>
+                              <div class="text-sm text-gray-500 mb-1">消息: </div>
+                              <div class="bg-white p-2 rounded border border-gray-200">
+                                <NCode code={log.message} language="text" />
+                              </div>
                             </div>
-                          )}
-                        </NSpace>
+                            {log.stack && (
+                              <div>
+                                <div class="text-sm text-gray-500 mb-1">堆栈: </div>
+                                <div class="bg-white p-2 rounded border border-gray-200">
+                                  <NScrollbar style={{ maxHeight: '200px' }}>
+                                    <NCode code={log.stack} language="text" />
+                                  </NScrollbar>
+                                </div>
+                              </div>
+                            )}
+                          </NSpace>
+                        </div>
                       </NCollapseItem>
                     ))}
                   </NCollapse>
@@ -497,27 +537,33 @@ export default defineComponent({
               {/* 趋势分析 */}
               {selectedException.value.hourlyTrend && selectedException.value.hourlyTrend.length > 0 && (
                 <div>
-                  <h3>24小时趋势</h3>
-                  <div class="grid grid-cols-12 gap-2">
-                    {selectedException.value.hourlyTrend.map((trend, index) => {
-                      const maxCount = Math.max(...selectedException.value!.hourlyTrend!.map((t) => t.count))
-                      const height = maxCount > 0 ? (trend.count / maxCount) * 100 : 0
+                  <h3 class="text-lg font-medium mb-2">24小时趋势</h3>
+                  <div class="bg-white p-4 rounded-lg border border-gray-100 shadow-sm">
+                    <div class="grid grid-cols-12 gap-2 h-40 items-end">
+                      {selectedException.value.hourlyTrend.map((trend, index) => {
+                        const maxCount = Math.max(...selectedException.value!.hourlyTrend!.map((t) => t.count))
+                        const height = maxCount > 0 ? (trend.count / maxCount) * 100 : 0
 
-                      return (
-                        <div key={index} class="text-center">
-                          <div class="text-xs text-gray-500 mb-1">{dayjs(trend.hour).format('HH:mm')}</div>
-                          <div
-                            class="bg-blue-500 rounded-sm mx-auto"
-                            style={{
-                              width: '20px',
-                              height: `${Math.max(height, 2)}px`,
-                              minHeight: '2px'
-                            }}
-                          />
-                          <div class="text-xs mt-1">{trend.count}</div>
-                        </div>
-                      )
-                    })}
+                        return (
+                          <div key={index} class="text-center flex flex-col justify-end h-full group">
+                            <div class="text-xs font-bold mb-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                              {trend.count}
+                            </div>
+                            <div
+                              class="bg-blue-500 rounded-sm mx-auto transition-all duration-300 hover:bg-blue-600"
+                              style={{
+                                width: '60%',
+                                height: `${Math.max(height, 2)}%`,
+                                minHeight: '2px'
+                              }}
+                            />
+                            <div class="text-xs text-gray-500 mt-2 transform -rotate-45 origin-top-left translate-y-2">
+                              {dayjs(trend.hour).format('HH:mm')}
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
                   </div>
                 </div>
               )}

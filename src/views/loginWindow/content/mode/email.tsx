@@ -2,13 +2,25 @@ import { useLoginHistoriesStore } from '@/store/loginHistory'
 import { useSettingStore } from '@/store/setting'
 import { useNetwork } from '@vueuse/core'
 import { NAvatar, NButton, NCheckbox, NFlex, NInput, NScrollbar } from 'naive-ui'
-import { getCookie } from '@/utils/Cookie'
-import api from '@/api'
+import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
+import { getCookie, setCookie } from '@/utils/Cookie'
+import * as api from '@/api'
 import { useRouter } from 'vue-router'
 import { UserInfoType } from '@/types/userInfo'
 import { useWindow } from '@/hooks/useWindow'
 import { encryptPassword } from '@/utils/Crypto'
 import { throttle } from 'lodash-es'
+import { type } from '@tauri-apps/plugin-os'
+
+const getIsDesktop = () => {
+  try {
+    const osType = type()
+    return osType === 'windows' || osType === 'linux' || osType === 'macos'
+  } catch (e) {
+    // 默认为桌面端
+    return true
+  }
+}
 
 export default defineComponent({
   name: 'LoginWindowContentEmail',
@@ -170,19 +182,41 @@ export default defineComponent({
 
         // 登录成功后的处理
         console.log('登录成功', response)
+        const res = response as any
+
+        // 尝试提取 Token (如果后端在Body中也返回了)
+        const token = res.token || res.accessToken || res.access_token
+        const refreshTokenVal = res.refreshToken || res.refresh_token
+
+        // 手动保存 Token 到 Cookie，解决 Tauri 插件不自动同步 Cookie 到 WebView 的问题
+        if (token) {
+          if (state.info.remember) {
+            setCookie('ACCESS_TOKEN', token, 7)
+          } else {
+            setCookie('ACCESS_TOKEN', token)
+          }
+        }
+
+        if (refreshTokenVal) {
+          if (state.info.remember) {
+            setCookie('REFRESH_TOKEN', refreshTokenVal, 30)
+          } else {
+            setCookie('REFRESH_TOKEN', refreshTokenVal)
+          }
+        }
 
         // 如果记住密码，保存登录信息到历史记录
         if (state.info.remember) {
           const userInfo: UserInfoType = {
-            userId: response.userId || state.info.userId,
+            userId: res.userId || state.info.userId,
             email: state.info.email,
             hash: state.info.remember ? state.info.password : undefined,
-            avatar: response.userInfo?.avatar || state.info.avatar || 'star_1',
-            nickName: response.userInfo?.nickName || state.info.nickname || state.info.email,
-            client: response.userInfo?.client || 'desktop',
-            isAdmin: response.userInfo?.isAdmin || false,
-            status: response.userInfo?.status || 'active',
-            lastActiveAt: response.userInfo?.lastActiveAt || new Date().toISOString()
+            avatar: res.userInfo?.avatar || state.info.avatar || 'star_1',
+            nickName: res.userInfo?.nickName || state.info.nickname || state.info.email,
+            client: res.userInfo?.client || 'desktop',
+            isAdmin: res.userInfo?.isAdmin || false,
+            status: res.userInfo?.status || 'active',
+            lastActiveAt: res.userInfo?.lastActiveAt || new Date().toISOString()
           }
           addLoginHistory(userInfo)
         }
@@ -191,8 +225,32 @@ export default defineComponent({
         settingStore.login.autoLogin = state.info.remember
 
         // 跳转到主界面
+        const isOnboardingCompleted = localStorage.getItem('onboarding_completed') === 'true'
+        const isDesktop = getIsDesktop()
+
+        let targetRoute = 'home'
+        if (isDesktop) {
+          targetRoute = isOnboardingCompleted ? 'home' : 'onboarding'
+        } else {
+          // Mobile logic:
+          // If NOT onboarded -> Onboarding Notice (Please use PC)
+          // If Onboarded -> Mobile Home
+          targetRoute = isOnboardingCompleted ? 'mobile-home' : 'mobile-onboarding-notice'
+        }
+
         setTimeout(async () => {
-          await createWebviewWindow('StarLight', 'home', 1080, 720, 'login', true)
+          if (isDesktop) {
+            const win = getCurrentWebviewWindow()
+            // 如果已经在主窗口（例如被踢出后的重新登录），直接路由跳转，不创建新窗口
+            if (win.label === 'StarLight' || win.label === 'home' || win.label === 'onboarding') {
+              router.push({ name: targetRoute })
+            } else {
+              await createWebviewWindow('StarLight', targetRoute, 1080, 720, 'login', true)
+            }
+          } else {
+            // Mobile navigation
+            router.push({ name: targetRoute })
+          }
         }, 1000)
       } catch (error: any) {
         console.error('登录失败:', error)
@@ -261,8 +319,11 @@ export default defineComponent({
           // 这里可以添加自动登录的逻辑
           // 例如使用保存的token直接登录
 
+          const isOnboardingCompleted = localStorage.getItem('onboarding_completed') === 'true'
+          const targetRoute = isOnboardingCompleted ? 'home' : 'onboarding'
+
           setTimeout(async () => {
-            await createWebviewWindow('StarLight', 'home', 1080, 720, 'login', true)
+            await createWebviewWindow('StarLight', targetRoute, 1080, 720, 'login', true)
             state.loading = false
           }, 1000)
         } catch (error) {

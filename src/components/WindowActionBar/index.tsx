@@ -24,7 +24,25 @@ export default defineComponent({
     showSlot: { type: Boolean, default: false }
   },
   setup(props, { slots }) {
-    const appWindow = WebviewWindow.getCurrent()
+    let appWindow: any = null
+    try {
+      appWindow = WebviewWindow.getCurrent()
+    } catch (e) {
+      console.warn('Failed to get current window:', e)
+      // Mock window object for non-Tauri environments to prevent crash
+      appWindow = {
+        label: 'mock-window',
+        listen: () => Promise.resolve(() => {}),
+        setAlwaysOnTop: () => Promise.resolve(),
+        minimize: () => Promise.resolve(),
+        maximize: () => Promise.resolve(),
+        unmaximize: () => Promise.resolve(),
+        close: () => Promise.resolve(),
+        hide: () => Promise.resolve(),
+        isMaximizable: () => Promise.resolve(false)
+      }
+    }
+
     const { getWindowTop, setWindowTop } = useAlwaysOnTopStore()
     const { pushListeners } = useTauriListener()
     const settingStore = useSettingStore()
@@ -43,7 +61,13 @@ export default defineComponent({
     })
 
     // 判断是兼容的系统
-    const isCompatibility = computed(() => type() === 'windows' || type() === 'linux')
+    const isCompatibility = computed(() => {
+      try {
+        return type() === 'windows' || type() === 'linux'
+      } catch (error) {
+        return false
+      }
+    })
 
     // 窗口是否置顶状态
     const alwaysOnTopStatus = computed(() => {
@@ -51,6 +75,14 @@ export default defineComponent({
 
       return getWindowTop(props.topWinLable)
     })
+
+    const getOsType = () => {
+      try {
+        return type()
+      } catch (error) {
+        return 'unknown'
+      }
+    }
 
     // 窗口置顶
     watchEffect(() => {
@@ -66,7 +98,7 @@ export default defineComponent({
           if (appWindow.label !== 'login') {
             await nextTick()
             // 针对不同系统采用不同关闭策略
-            if (type() === 'macos') {
+            if (getOsType() === 'macos') {
               // macos上先隐藏窗口，然后延迟关闭
               await appWindow.hide()
               setTimeout(async () => {
@@ -83,7 +115,7 @@ export default defineComponent({
         })
       ])
 
-      if (escClose.value && type() === 'windows') {
+      if (escClose.value && getOsType() === 'windows') {
         window.addEventListener('keydown', (e) => isEsc(e))
       } else {
         window.removeEventListener('keydown', (e) => isEsc(e))
@@ -133,7 +165,7 @@ export default defineComponent({
      * 判断当前是否为全屏
      */
     const handleResize = () => {
-      appWindow.isMaximizable().then((res) => {
+      appWindow.isMaximizable().then((res: boolean) => {
         // state.windowMaxmized = res
       })
     }
@@ -191,7 +223,7 @@ export default defineComponent({
 
     onMounted(() => {
       window.addEventListener('resize', handleResize)
-      state.osType = type()
+      state.osType = getOsType()
     })
 
     onUnmounted(() => {

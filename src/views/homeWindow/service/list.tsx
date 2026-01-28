@@ -156,11 +156,11 @@ export default defineComponent({
     }
 
     return () => (
-      <div class="p-24px h-full">
+      <div class="p-24px h-full bg-gray-50/50 overflow-hidden flex flex-col">
         <SectionHeader title="服务列表" subtitle="查看和管理所有微服务的运行状态" icon={PulseOutline} />
 
-        <NCard class="mb-16px">
-          <NSpace class="mb-16px">
+        <NCard class="mb-16px shadow-sm rounded-lg" bordered={false}>
+          <NSpace>
             <NInput v-model:value={searchValue.value} placeholder="搜索服务名称" style={{ width: '300px' }} clearable />
             <NSelect v-model:value={statusFilter.value} options={statusOptions} style={{ width: '120px' }} />
             <NButton type="primary" onClick={doFetch}>
@@ -169,13 +169,15 @@ export default defineComponent({
           </NSpace>
         </NCard>
 
-        <NCard>
+        <NCard class="flex-1 shadow-sm rounded-lg" bordered={false} contentStyle={{ padding: 0 }}>
           {loading.value ? (
             <div class="py-40px flex items-center justify-center">
               <NSpin size="large" />
             </div>
           ) : (
             <NDataTable
+              class="h-full"
+              flex-height
               columns={columns}
               data={data.value}
               pagination={{
@@ -194,41 +196,62 @@ export default defineComponent({
           v-model:show={showDetail.value}
           preset="card"
           style={{ width: '720px' }}
-          title={currentService.value?.name}>
+          title={currentService.value?.name}
+          bordered={false}
+          class="shadow-lg rounded-lg">
           {detailLoading.value ? (
             <div class="py-32px flex items-center justify-center">
               <NSpin size="large" />
             </div>
           ) : (
-            <NGrid cols={3} xGap={16}>
+            <NGrid cols={3} xGap={16} yGap={16}>
               <NGridItem>
-                <NCard>
-                  <NStatistic label="CPU" value={`${detailMetrics.value.cpu}%`} />
+                <NCard embedded bordered={false} contentStyle={{ padding: '16px' }}>
+                  <NStatistic label="CPU" value={`${detailMetrics.value.cpu}%`}>
+                    {{ default: () => <div class="text-20px font-bold">{detailMetrics.value.cpu}%</div> }}
+                  </NStatistic>
                 </NCard>
               </NGridItem>
               <NGridItem>
-                <NCard>
-                  <NStatistic label="内存" value={`${detailMetrics.value.memory}%`} />
+                <NCard embedded bordered={false} contentStyle={{ padding: '16px' }}>
+                  <NStatistic label="内存" value={`${detailMetrics.value.memory}%`}>
+                    {{ default: () => <div class="text-20px font-bold">{detailMetrics.value.memory}%</div> }}
+                  </NStatistic>
                 </NCard>
               </NGridItem>
               <NGridItem>
-                <NCard>
-                  <NStatistic label="QPS" value={detailMetrics.value.qps} />
+                <NCard embedded bordered={false} contentStyle={{ padding: '16px' }}>
+                  <NStatistic label="QPS" value={detailMetrics.value.qps}>
+                    {{ default: () => <div class="text-20px font-bold">{detailMetrics.value.qps}</div> }}
+                  </NStatistic>
                 </NCard>
               </NGridItem>
               <NGridItem>
-                <NCard>
-                  <NStatistic label="响应时间" value={`${detailMetrics.value.responseTime}ms`} />
+                <NCard embedded bordered={false} contentStyle={{ padding: '16px' }}>
+                  <NStatistic label="响应时间" value={`${detailMetrics.value.responseTime}ms`}>
+                    {{ default: () => <div class="text-20px font-bold">{detailMetrics.value.responseTime}ms</div> }}
+                  </NStatistic>
                 </NCard>
               </NGridItem>
               <NGridItem>
-                <NCard>
-                  <NStatistic label="错误率" value={`${detailMetrics.value.errorRate.toFixed(2)}%`} />
+                <NCard embedded bordered={false} contentStyle={{ padding: '16px' }}>
+                  <NStatistic label="错误率" value={`${detailMetrics.value.errorRate.toFixed(2)}%`}>
+                    {{
+                      default: () => (
+                        <div
+                          class={`text-20px font-bold ${detailMetrics.value.errorRate > 0 ? 'text-red-500' : 'text-green-500'}`}>
+                          {detailMetrics.value.errorRate.toFixed(2)}%
+                        </div>
+                      )
+                    }}
+                  </NStatistic>
                 </NCard>
               </NGridItem>
               <NGridItem>
-                <NCard>
-                  <NStatistic label="活跃连接" value={detailMetrics.value.activeConnections} />
+                <NCard embedded bordered={false} contentStyle={{ padding: '16px' }}>
+                  <NStatistic label="活跃连接" value={detailMetrics.value.activeConnections}>
+                    {{ default: () => <div class="text-20px font-bold">{detailMetrics.value.activeConnections}</div> }}
+                  </NStatistic>
                 </NCard>
               </NGridItem>
             </NGrid>

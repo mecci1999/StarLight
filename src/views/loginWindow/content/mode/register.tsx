@@ -3,7 +3,7 @@
  */
 import { useNetwork } from '@vueuse/core'
 import { NButton, NFlex, NInput } from 'naive-ui'
-import api from '@/api'
+import * as api from '@/api'
 import { RegisterUserReq } from '@/types/login'
 import { encryptPassword } from '@/utils/Crypto'
 import { throttle } from 'lodash-es'
@@ -136,7 +136,7 @@ export default defineComponent({
           code: state.validCode
         }
 
-        const response = await api.register(registerData)
+        const response = await api.registerUser(registerData)
 
         // 注册成功后的处理
         console.log('注册成功', response)

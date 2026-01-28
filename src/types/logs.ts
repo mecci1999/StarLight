@@ -62,6 +62,14 @@ export interface LogSearchParams {
 export interface LogEntry {
   /** 日志ID */
   id: string
+  /** 列表Key (用于前端渲染) */
+  key?: string
+  /** 线程 */
+  thread?: string
+  /** Logger名称 */
+  logger?: string
+  /** 堆栈信息 */
+  stackTrace?: string
   /** 时间戳 */
   timestamp: string
   /** 日志级别 */

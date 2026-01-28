@@ -9,7 +9,13 @@ export default defineComponent({
   name: 'LoginWindow',
   setup(props, { slots }) {
     onMounted(async () => {
-      await getCurrentWebviewWindow().show()
+      try {
+        const win = getCurrentWebviewWindow()
+        await win.show()
+        await win.setFocus()
+      } catch (e) {
+        console.warn('Failed to show window:', e)
+      }
     })
 
     return () => (

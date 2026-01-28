@@ -106,7 +106,7 @@ const responseInterceptor = async <T>(
  * @param noRetry
  * @returns
  */
-const get = async <T>(url: string, query: T, abort?: AbortController, noRetry?: boolean): Promise<T> => {
+const get = async <T>(url: string, query: any, abort?: AbortController, noRetry?: boolean): Promise<T> => {
   return responseInterceptor(url, 'GET', query, {}, abort, noRetry)
 }
 

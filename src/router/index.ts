@@ -8,9 +8,16 @@ import {
 import { type } from '@tauri-apps/plugin-os'
 import { getCookie } from '@/utils/Cookie'
 
-const isDesktop = computed(() => {
-  return type() === 'windows' || type() === 'linux' || type() === 'macos'
-})
+const getIsDesktop = () => {
+  try {
+    const osType = type()
+    return osType === 'windows' || osType === 'linux' || osType === 'macos'
+  } catch (e) {
+    // 如果调用失败（例如在纯浏览器环境中），默认为 true（桌面端行为）
+    console.warn('Failed to get OS type, defaulting to desktop:', e)
+    return true
+  }
+}
 
 /**! 创建窗口后再跳转页面就会导致样式没有生效所以不能使用懒加载路由的方式，有些页面需要快速响应的就不需要懒加载 */
 const routes: Array<RouteRecordRaw> = [
@@ -20,26 +27,41 @@ const routes: Array<RouteRecordRaw> = [
     component: () => import('@/views/loginWindow/index')
   },
   {
+    path: '/tray',
+    name: 'tray',
+    component: () => import('@/views/trayWindow/index')
+  },
+  {
+    path: '/onboarding',
+    name: 'onboarding',
+    component: () => import('@/views/homeWindow/onboarding/index')
+  },
+  {
+    path: '/mobile/onboarding-notice',
+    name: 'mobile-onboarding-notice',
+    component: () => import('@/mobile/views/OnboardingNotice')
+  },
+  {
+    path: '/mobile/home',
+    name: 'mobile-home',
+    component: () => import('@/mobile/views/Home')
+  },
+  {
+    path: '/mobile/login',
+    name: 'mobile-login',
+    component: () => import('@/views/loginWindow/index')
+  },
+  {
     path: '/home',
     name: 'home',
     component: () => import('@/layout/index'),
-    redirect: '/home/service-topology',
+    redirect: '/home/service-overview',
     children: [
       // 📋 服务总览模块
       {
-        path: 'service-topology',
-        name: 'service-topology',
+        path: 'service-overview',
+        name: 'service-overview',
         component: () => import('@/views/homeWindow/service/topology')
-      },
-      {
-        path: 'service-list',
-        name: 'service-list',
-        component: () => import('@/views/homeWindow/service/list')
-      },
-      {
-        path: 'instance-monitor',
-        name: 'instance-monitor',
-        component: () => import('@/views/homeWindow/service/instance')
       },
       // 📊 性能监控模块
       {
@@ -95,97 +117,6 @@ const routes: Array<RouteRecordRaw> = [
         name: 'trace-explorer',
         component: () => import('@/views/homeWindow/monitor/trace')
       }
-      // {
-      //   path: 'slow-analysis',
-      //   name: 'slow-analysis',
-      //   component: () => import('@/views/homeWindow/tracing/slow')
-      // },
-      // // ⚙️ 配置管理模块
-      // {
-      //   path: 'config-center',
-      //   name: 'config-center',
-      //   component: () => import('@/views/homeWindow/config/center')
-      // },
-      // {
-      //   path: 'config-list',
-      //   name: 'config-list',
-      //   component: () => import('@/views/homeWindow/config/list')
-      // },
-      // {
-      //   path: 'config-history',
-      //   name: 'config-history',
-      //   component: () => import('@/views/homeWindow/config/history')
-      // },
-      // // 🧱 服务注册模块
-      // {
-      //   path: 'registry-view',
-      //   name: 'registry-view',
-      //   component: () => import('@/views/homeWindow/registry/view')
-      // },
-      // {
-      //   path: 'service-registry',
-      //   name: 'service-registry',
-      //   component: () => import('@/views/homeWindow/registry/service')
-      // },
-      // // 👥 用户权限模块
-      // {
-      //   path: 'user-management',
-      //   name: 'user-management',
-      //   component: () => import('@/views/homeWindow/user/management')
-      // },
-      // {
-      //   path: 'team-collaboration',
-      //   name: 'team-collaboration',
-      //   component: () => import('@/views/homeWindow/user/team')
-      // },
-      // {
-      //   path: 'role-management',
-      //   name: 'role-management',
-      //   component: () => import('@/views/homeWindow/user/role')
-      // },
-      // // 🔧 系统设置模块
-      // {
-      //   path: 'data-source',
-      //   name: 'data-source',
-      //   component: () => import('@/views/homeWindow/system/datasource')
-      // },
-      // {
-      //   path: 'plugin-management',
-      //   name: 'plugin-management',
-      //   component: () => import('@/views/homeWindow/system/plugin')
-      // },
-      // {
-      //   path: 'system-settings',
-      //   name: 'system-settings',
-      //   component: () => import('@/views/homeWindow/system/settings')
-      // },
-      // // 📂 审计事件模块
-      // {
-      //   path: 'audit-logs',
-      //   name: 'audit-logs',
-      //   component: () => import('@/views/homeWindow/audit/logs')
-      // },
-      // {
-      //   path: 'system-events',
-      //   name: 'system-events',
-      //   component: () => import('@/views/homeWindow/audit/events')
-      // },
-      // // 🧪 测试调试模块
-      // {
-      //   path: 'api-testing',
-      //   name: 'api-testing',
-      //   component: () => import('@/views/homeWindow/testing/api')
-      // },
-      // {
-      //   path: 'mock-service',
-      //   name: 'mock-service',
-      //   component: () => import('@/views/homeWindow/testing/mock')
-      // },
-      // {
-      //   path: 'debug-tools',
-      //   name: 'debug-tools',
-      //   component: () => import('@/views/homeWindow/testing/debug')
-      // }
     ]
   }
 ]
@@ -198,23 +129,60 @@ const router = createRouter({
 
 // 路由守卫
 router.beforeEach((to: RouteLocationNormalized, _from: RouteLocationNormalized, next: NavigationGuardNext) => {
-  // 如果是桌面端，直接放行
-  if (isDesktop.value) {
+  const isDesktop = getIsDesktop()
+
+  // 如果是桌面端
+  if (isDesktop) {
+    // 桌面端禁止访问移动端页面
+    if (to.path.startsWith('/mobile')) {
+      return next('/home')
+    }
+    // 注意：这里不要直接 return next()，否则会跳过后面的登录检查
+  }
+
+  // 移动端处理逻辑
+  if (!isDesktop) {
+    // 移动端禁止访问桌面端页面（除了login）
+    if (!to.path.startsWith('/mobile') && to.path !== '/login') {
+      // 如果尝试访问 /onboarding 或 /home，重定向到移动端对应页面
+      if (to.path === '/onboarding') {
+        return next('/mobile/onboarding-notice')
+      }
+      return next('/mobile/home')
+    }
+  }
+
+  // 仅从 Cookie 获取登录态
+  const token = getCookie('ACCESS_TOKEN')
+
+  console.log(`[Router] Navigation to: ${to.path}, Token exists: ${!!token}`)
+
+  // 兼容移动端和桌面端的登录页路径
+  const isLoginPage = to.path === '/login' || to.path === '/mobile/login'
+  const isTrayPage = to.path === '/tray'
+  const isCapturePage = to.path === '/capture'
+
+  // Tray 和 Capture 页面不需要登录
+  if (isTrayPage || isCapturePage) {
     return next()
   }
 
-  // 从cookie中获取ACCESS_TOKEN
-  const token = getCookie('ACCESS_TOKEN')
-  const isLoginPage = to.path === '/mobile/login'
-
   // 已登录用户访问登录页时重定向到首页
   if (isLoginPage && token) {
-    return next('/mobile/home')
+    if (isDesktop) {
+      return next('/home')
+    } else {
+      return next('/mobile/home')
+    }
   }
 
   // 未登录用户访问非登录页时重定向到登录页
   if (!isLoginPage && !token) {
-    return next('/mobile/login')
+    if (isDesktop) {
+      return next('/login')
+    } else {
+      return next('/mobile/login')
+    }
   }
 
   next()

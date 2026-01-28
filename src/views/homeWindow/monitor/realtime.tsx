@@ -1,17 +1,19 @@
-import { NCard, NGrid, NGridItem, NStatistic, NProgress, NSpace, NButton, NSelect, NSpin } from 'naive-ui'
-import { ref, onMounted, onUnmounted } from 'vue'
-import { fetchRealtimeMetrics } from '@/mock/api'
+import { NCard, NGrid, NGridItem, NStatistic, NProgress, NSpace, NButton, NSelect, NSpin, NEmpty } from 'naive-ui'
+import { ref, onMounted, onUnmounted, defineComponent, computed, watch } from 'vue'
+import api from '@/api'
 import SectionHeader from '@/components/common/SectionHeader'
 import { SpeedometerOutline } from '@vicons/ionicons5'
+import { useTimeStore } from '@/store/useTimeStore'
 
 export default defineComponent({
   name: 'RealtimeMonitor',
   setup() {
-    const selectedService = ref('all')
+    const timeStore = useTimeStore()
+    const selectedService = ref<string | null>(null)
     const refreshInterval = ref<NodeJS.Timeout | null>(null)
     const loading = ref(false)
+    const appKeys = ref<any[]>([])
 
-    // 模拟实时数据
     const realtimeData = ref({
       cpu: 0,
       memory: 0,
@@ -21,25 +23,104 @@ export default defineComponent({
       activeConnections: 0
     })
 
-    const serviceOptions = [
-      { label: '全部服务', value: 'all' },
-      { label: 'user-service', value: 'user-service' },
-      { label: 'order-service', value: 'order-service' },
-      { label: 'payment-service', value: 'payment-service' }
-    ]
+    const serviceOptions = computed(() => {
+      return appKeys.value.map((app) => ({
+        label: app.name || app.keyName,
+        value: app.appKey
+      }))
+    })
 
-    // 模拟实时数据更新
-    const updateRealtimeData = async () => {
-      loading.value = true
-      const data = await fetchRealtimeMetrics(selectedService.value === 'all' ? undefined : selectedService.value)
-      realtimeData.value = data
-      loading.value = false
+    const fetchAppKeys = async () => {
+      try {
+        const res = await api.metrics.getAppKeys()
+        if (res && Array.isArray((res as any).appKeys)) {
+          appKeys.value = (res as any).appKeys
+        } else if (Array.isArray(res)) {
+          appKeys.value = res
+        }
+
+        if (appKeys.value.length > 0 && !selectedService.value) {
+          selectedService.value = appKeys.value[0].appKey
+          updateRealtimeData()
+        }
+      } catch (error) {
+        console.error('Failed to fetch app keys:', error)
+      }
     }
 
+    const updateRealtimeData = async () => {
+      if (!selectedService.value) return
+
+      loading.value = true
+      try {
+        // Use timeStore range
+        const endTime = timeStore.endTime
+        const startTime = timeStore.startTime
+
+        // If in live mode, ensure we are fetching strictly up to now if needed,
+        // but store handles that usually.
+        // Note: queryMetrics might return empty if range is in future, but store handles that.
+
+        const metrics = await api.metrics.queryMetrics({
+          appKey: selectedService.value,
+          startTime,
+          endTime,
+          step: '1m',
+          metrics: ['cpu', 'memory', 'qps', 'responseTime', 'errorRate', 'connections']
+        })
+
+        // Get the latest value from the series (or average if we wanted, but keeping last value logic for now)
+        // If viewing history, "Last Value" means "Value at end of selected range".
+        const getLastValue = (metricName: string) => {
+          const series = (metrics as any)[metricName]
+          if (series && Array.isArray(series) && series.length > 0) {
+            return series[series.length - 1].value || 0
+          }
+          return 0
+        }
+
+        realtimeData.value = {
+          cpu: getLastValue('cpu'),
+          memory: getLastValue('memory'),
+          qps: getLastValue('qps'),
+          responseTime: getLastValue('responseTime'),
+          errorRate: getLastValue('errorRate'),
+          activeConnections: getLastValue('connections')
+        }
+      } catch (error) {
+        console.error('Failed to update realtime data:', error)
+      } finally {
+        loading.value = false
+      }
+    }
+
+    watch(
+      () => [timeStore.startTime, timeStore.endTime],
+      () => {
+        updateRealtimeData()
+      }
+    )
+
+    watch(
+      () => timeStore.isLive,
+      (val) => {
+        if (val) {
+          updateRealtimeData()
+          refreshInterval.value = setInterval(updateRealtimeData, 5000)
+        } else {
+          if (refreshInterval.value) {
+            clearInterval(refreshInterval.value)
+            refreshInterval.value = null
+          }
+        }
+      }
+    )
+
     onMounted(() => {
-      // 每5秒更新一次数据
-      updateRealtimeData()
-      refreshInterval.value = setInterval(updateRealtimeData, 5000)
+      fetchAppKeys()
+      if (timeStore.isLive) {
+        refreshInterval.value = setInterval(updateRealtimeData, 5000)
+      }
     })
 
     onUnmounted(() => {
@@ -67,104 +148,131 @@ export default defineComponent({
     }
 
     return () => (
-      <div class="p-24px h-full">
-        <SectionHeader title="实时监控" subtitle="实时查看系统性能指标和运行状态" icon={SpeedometerOutline} />
+      <div class="p-24px h-full overflow-auto bg-gray-50/50">
+        <SectionHeader
+          title="Infrastructure Overview"
+          subtitle="System performance and health status metrics."
+          icon={SpeedometerOutline}
+        />
 
-        {/* 控制面板 */}
-        <NCard class="mb-16px">
+        {/* Control Panel */}
+        <NCard class="mb-16px shadow-sm rounded-lg" bordered={false}>
           <NSpace>
-            <NSelect v-model:value={selectedService.value} options={serviceOptions} style={{ width: '200px' }} />
-            <NButton type="primary" onClick={updateRealtimeData}>
-              刷新数据
+            <NSelect
+              v-model:value={selectedService.value}
+              options={serviceOptions.value}
+              style={{ width: '200px' }}
+              placeholder="Select Service"
+              disabled={appKeys.value.length === 0}
+              onUpdateValue={updateRealtimeData}
+            />
+            <NButton type="primary" onClick={updateRealtimeData} disabled={!selectedService.value}>
+              Refresh
             </NButton>
-            <NButton>导出报告</NButton>
+            <NButton>Export Report</NButton>
           </NSpace>
         </NCard>
 
-        {loading.value ? (
+        {loading.value && !realtimeData.value.cpu ? (
           <div class="py-40px flex items-center justify-center">
             <NSpin size="large" />
           </div>
         ) : null}
-        <NGrid cols={3} xGap={16} class="mb-16px">
-          <NGridItem>
-            <NCard>
-              <div class="text-center">
-                <div class="text-14px text-[--color-text-3] mb-8px">CPU使用率</div>
-                <NProgress
-                  type="circle"
-                  percentage={realtimeData.value.cpu}
-                  status={getCpuStatus(realtimeData.value.cpu)}
-                  strokeWidth={8}
-                  style={{ width: '120px', margin: '0 auto' }}
-                />
-                <div class="text-24px font-600 mt-8px">{realtimeData.value.cpu}%</div>
-              </div>
-            </NCard>
-          </NGridItem>
-          <NGridItem>
-            <NCard>
-              <div class="text-center">
-                <div class="text-14px text-[--color-text-3] mb-8px">内存使用率</div>
-                <NProgress
-                  type="circle"
-                  percentage={realtimeData.value.memory}
-                  status={getMemoryStatus(realtimeData.value.memory)}
-                  strokeWidth={8}
-                  style={{ width: '120px', margin: '0 auto' }}
-                />
-                <div class="text-24px font-600 mt-8px">{realtimeData.value.memory}%</div>
-              </div>
-            </NCard>
-          </NGridItem>
-          <NGridItem>
-            <NCard>
-              <div class="text-center">
-                <div class="text-14px text-[--color-text-3] mb-8px">错误率</div>
-                <div
-                  class="text-48px font-600"
-                  style={{ color: realtimeData.value.errorRate > 1 ? '#d03050' : '#18a058' }}>
-                  {realtimeData.value.errorRate.toFixed(2)}%
-                </div>
-              </div>
-            </NCard>
-          </NGridItem>
-        </NGrid>
 
-        {/* 性能指标 */}
-        <NGrid cols={3} xGap={16}>
-          <NGridItem>
-            <NCard>
-              <NStatistic
-                label="QPS (每秒请求数)"
-                value={realtimeData.value.qps.toLocaleString()}
-                style={{ fontSize: '24px', fontWeight: '600' }}
-              />
-            </NCard>
-          </NGridItem>
-          <NGridItem>
-            <NCard>
-              <NStatistic
-                label="平均响应时间"
-                value={`${realtimeData.value.responseTime}ms`}
-                style={{
-                  fontSize: '24px',
-                  fontWeight: '600',
-                  color: getResponseTimeColor(realtimeData.value.responseTime)
-                }}
-              />
-            </NCard>
-          </NGridItem>
-          <NGridItem>
-            <NCard>
-              <NStatistic
-                label="活跃连接数"
-                value={realtimeData.value.activeConnections.toLocaleString()}
-                style={{ fontSize: '24px', fontWeight: '600' }}
-              />
-            </NCard>
-          </NGridItem>
-        </NGrid>
+        {!selectedService.value && !loading.value ? (
+          <NEmpty description="Please select a service to view data" class="py-40px" />
+        ) : (
+          <>
+            <NGrid cols={3} xGap={16} class="mb-16px">
+              <NGridItem>
+                <NCard
+                  bordered={false}
+                  class="shadow-[var(--shadow-center-1)] rounded-lg hover:shadow-[var(--shadow-center-2)] transition-shadow">
+                  <div class="text-center">
+                    <div class="text-14px text-[--color-text-3] mb-8px font-medium">CPU Usage</div>
+                    <NProgress
+                      type="circle"
+                      percentage={realtimeData.value.cpu}
+                      status={getCpuStatus(realtimeData.value.cpu)}
+                      strokeWidth={10}
+                      style={{ width: '120px', margin: '16px auto' }}
+                    />
+                    <div class="text-24px font-bold mt-8px">{realtimeData.value.cpu.toFixed(1)}%</div>
+                  </div>
+                </NCard>
+              </NGridItem>
+              <NGridItem>
+                <NCard
+                  bordered={false}
+                  class="shadow-[var(--shadow-center-1)] rounded-lg hover:shadow-[var(--shadow-center-2)] transition-shadow">
+                  <div class="text-center">
+                    <div class="text-14px text-[--color-text-3] mb-8px font-medium">Memory Usage</div>
+                    <NProgress
+                      type="circle"
+                      percentage={realtimeData.value.memory}
+                      status={getMemoryStatus(realtimeData.value.memory)}
+                      strokeWidth={10}
+                      style={{ width: '120px', margin: '16px auto' }}
+                    />
+                    <div class="text-24px font-bold mt-8px">{realtimeData.value.memory.toFixed(1)}%</div>
+                  </div>
+                </NCard>
+              </NGridItem>
+              <NGridItem>
+                <NCard
+                  bordered={false}
+                  class="shadow-[var(--shadow-center-1)] rounded-lg hover:shadow-[var(--shadow-center-2)] transition-shadow">
+                  <div class="text-center h-full flex flex-col justify-center">
+                    <div class="text-14px text-[--color-text-3] mb-16px font-medium">Error Rate</div>
+                    <div
+                      class="text-56px font-bold"
+                      style={{
+                        color: realtimeData.value.errorRate > 1 ? 'var(--color-danger-6)' : 'var(--color-success-6)'
+                      }}>
+                      {realtimeData.value.errorRate.toFixed(2)}%
+                    </div>
+                    <div class="text-12px text-[--color-text-4] mt-8px">Last Value</div>
+                  </div>
+                </NCard>
+              </NGridItem>
+            </NGrid>
+
+            {/* Performance Metrics */}
+            <NGrid cols={3} xGap={16}>
+              <NGridItem>
+                <NCard>
+                  <NStatistic
+                    label="QPS (Req/sec)"
+                    value={realtimeData.value.qps.toLocaleString()}
+                    style={{ fontSize: '24px', fontWeight: '600' }}
+                  />
+                </NCard>
+              </NGridItem>
+              <NGridItem>
+                <NCard>
+                  <NStatistic
+                    label="Avg Response Time"
+                    value={`${realtimeData.value.responseTime.toFixed(0)}ms`}
+                    style={{
+                      fontSize: '24px',
+                      fontWeight: '600',
+                      color: getResponseTimeColor(realtimeData.value.responseTime)
+                    }}
+                  />
+                </NCard>
+              </NGridItem>
+              <NGridItem>
+                <NCard>
+                  <NStatistic
+                    label="Active Connections"
+                    value={realtimeData.value.activeConnections.toLocaleString()}
+                    style={{ fontSize: '24px', fontWeight: '600' }}
+                  />
+                </NCard>
+              </NGridItem>
+            </NGrid>
+          </>
+        )}
       </div>
     )
   }

@@ -49,7 +49,10 @@ export default defineComponent({
     })
 
     return () => (
-      <div id="layout" class="bg-[--color-bg-1] rounded-8px select-none size-full" data-tauri-drag-region>
+      <div
+        id="layout"
+        class="bg-[--color-bg-1] rounded-[var(--border-radius-large)] select-none size-full"
+        data-tauri-drag-region>
         <Suspense>
           {{
             default: () => (

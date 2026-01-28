@@ -36,5 +36,19 @@ export default {
   logStream: `${prefix + URLEnum.LOGS}/${VersionEnum.V1}/stream`, // 日志流
   logIngest: `${prefix + URLEnum.LOGS}/${VersionEnum.V1}/ingest`, // 日志摄取
   logBatchIngest: `${prefix + URLEnum.LOGS}/${VersionEnum.V1}/batch-ingest`, // 批量日志摄取
-  exceptionAnalysis: `${prefix + URLEnum.LOGS}/${VersionEnum.V1}/exception-analysis` // 异常分析
+  exceptionAnalysis: `${prefix + URLEnum.LOGS}/${VersionEnum.V1}/exception-analysis`, // 异常分析
+
+  // 指标模块
+  metricsIngest: `${prefix + URLEnum.METRICS}/${VersionEnum.V1}/ingest`, // 指标摄取
+  metricsQuery: `${prefix + URLEnum.METRICS}/${VersionEnum.V1}/query`, // 指标查询
+  metricsSchema: `${prefix + URLEnum.METRICS}/${VersionEnum.V1}/schema`, // 指标元数据
+  metricsAppKeyList: `${prefix + URLEnum.METRICS}/${VersionEnum.V1}/appkey/list`, // AppKey列表
+  metricsAppKeyGenerate: `${prefix + URLEnum.METRICS}/${VersionEnum.V1}/appkey/generate`, // 生成AppKey
+  metricsStats: `${prefix + URLEnum.METRICS}/${VersionEnum.V1}/stats`, // 服务统计
+
+  // 订阅模块
+  subscriptionPlans: `${prefix + URLEnum.SUBSCRIPTION}/${VersionEnum.V1}/plans`, // 获取所有订阅计划
+  userSubscription: `${prefix + URLEnum.SUBSCRIPTION}/${VersionEnum.V1}/user`, // 获取用户订阅信息
+  subscribe: `${prefix + URLEnum.SUBSCRIPTION}/${VersionEnum.V1}/subscribe`, // 订阅计划
+  cancelSubscription: `${prefix + URLEnum.SUBSCRIPTION}/${VersionEnum.V1}/cancel` // 取消订阅
 }

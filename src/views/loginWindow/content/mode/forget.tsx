@@ -3,7 +3,7 @@
  */
 import { useNetwork } from '@vueuse/core'
 import { NButton, NFlex, NInput } from 'naive-ui'
-import api from '@/api'
+import * as api from '@/api'
 import { encryptPassword } from '@/utils/Crypto'
 import { throttle } from 'lodash-es'
 

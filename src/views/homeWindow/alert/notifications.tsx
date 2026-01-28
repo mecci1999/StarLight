@@ -12,6 +12,8 @@ import {
   NDescriptionsItem
 } from 'naive-ui'
 import { ref, h } from 'vue'
+import { NotificationsOutline } from '@vicons/ionicons5'
+import SectionHeader from '@/components/common/SectionHeader'
 
 export default defineComponent({
   name: 'NotificationHistory',
@@ -208,14 +210,11 @@ export default defineComponent({
     }
 
     return () => (
-      <div class="p-24px h-full">
-        <div class="mb-16px">
-          <h1 class="text-20px font-600 text-[--color-text-1] m-0">通知历史</h1>
-          <p class="text-14px text-[--color-text-3] mt-8px mb-0">告警触发后的通知记录</p>
-        </div>
+      <div class="p-24px h-full bg-gray-50/50 flex flex-col overflow-hidden">
+        <SectionHeader title="通知历史" subtitle="告警触发后的通知记录" icon={NotificationsOutline} />
 
         {/* 筛选面板 */}
-        <NCard class="mb-16px">
+        <NCard bordered={false} class="mb-16px shadow-sm rounded-lg">
           <NSpace>
             <NInput v-model:value={searchText.value} placeholder="搜索告警规则" style={{ width: '200px' }} />
             <NSelect
@@ -239,25 +238,25 @@ export default defineComponent({
 
         {/* 统计面板 */}
         <div class="grid grid-cols-4 gap-16px mb-16px">
-          <NCard>
+          <NCard bordered={false} class="shadow-sm rounded-lg">
             <div class="text-center">
               <div class="text-24px font-600 text-[--color-success]">156</div>
               <div class="text-14px text-[--color-text-3]">发送成功</div>
             </div>
           </NCard>
-          <NCard>
+          <NCard bordered={false} class="shadow-sm rounded-lg">
             <div class="text-center">
               <div class="text-24px font-600 text-[--color-error]">8</div>
               <div class="text-14px text-[--color-text-3]">发送失败</div>
             </div>
           </NCard>
-          <NCard>
+          <NCard bordered={false} class="shadow-sm rounded-lg">
             <div class="text-center">
               <div class="text-24px font-600 text-[--color-warning]">3</div>
               <div class="text-14px text-[--color-text-3]">发送中</div>
             </div>
           </NCard>
-          <NCard>
+          <NCard bordered={false} class="shadow-sm rounded-lg">
             <div class="text-center">
               <div class="text-24px font-600 text-[--color-info]">95.2%</div>
               <div class="text-14px text-[--color-text-3]">成功率</div>
@@ -266,19 +265,23 @@ export default defineComponent({
         </div>
 
         {/* 通知列表 */}
-        <NCard>
-          <NDataTable
-            columns={columns}
-            data={notificationData.value}
-            pagination={{
-              pageSize: 10,
-              showSizePicker: true,
-              pageSizes: [10, 20, 50]
-            }}
-            bordered={false}
-            singleLine={false}
-            rowKey={(row: any) => row.key}
-          />
+        <NCard bordered={false} class="flex-1 shadow-sm rounded-lg" contentStyle={{ padding: 0 }}>
+          <div class="p-4 h-full flex flex-col">
+            <NDataTable
+              class="flex-1"
+              flex-height
+              columns={columns}
+              data={notificationData.value}
+              pagination={{
+                pageSize: 10,
+                showSizePicker: true,
+                pageSizes: [10, 20, 50]
+              }}
+              bordered={false}
+              singleLine={false}
+              rowKey={(row: any) => row.key}
+            />
+          </div>
         </NCard>
 
         {/* 详情模态框 */}

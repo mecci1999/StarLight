@@ -34,10 +34,11 @@ import {
   RefreshOutline
 } from '@vicons/ionicons5'
 import { LogLevelEnum } from '@/types/logs'
-import type { LogEntry, LogStatsResponse } from '@/types/logs'
+import type { LogEntry } from '@/types/logs'
 import api from '@/api'
 import dayjs from 'dayjs'
 import { useRouter } from 'vue-router'
+import SectionHeader from '@/components/common/SectionHeader'
 
 // 导入子组件
 import LogService from './service'
@@ -273,24 +274,18 @@ export default defineComponent({
     })
 
     return () => (
-      <div class="log-center-container">
-        <NTabs v-model:value={activeTab.value} type="line" size="large">
+      <div class="log-center-container h-full bg-gray-50/50 p-24px overflow-auto">
+        <NTabs v-model:value={activeTab.value} type="line" size="large" animated>
           {/* 概览页面 */}
           <NTabPane name="overview" tab="概览">
-            <NSpace vertical size="large">
+            <div class="flex flex-col gap-16px">
               {/* 页面头部 */}
-              <div class="flex justify-between items-center">
-                <div>
-                  <h1 class="text-2xl font-bold mb-2">日志中心</h1>
-                  <p class="text-gray-500">统一的日志管理和分析平台</p>
-                </div>
-
-                <NSpace>
-                  <NButton onClick={refreshData} loading={loading.value}>
-                    <NIcon component={RefreshOutline} class="mr-1" />
-                    刷新
-                  </NButton>
-                </NSpace>
+              <div class="flex justify-between items-start">
+                <SectionHeader title="日志中心" subtitle="统一的日志管理和分析平台" icon={DocumentTextOutline} />
+                <NButton onClick={refreshData} loading={loading.value} type="primary" secondary>
+                  <NIcon component={RefreshOutline} class="mr-1" />
+                  刷新
+                </NButton>
               </div>
 
               {/* 系统健康状态 */}
@@ -302,9 +297,10 @@ export default defineComponent({
                       ? 'warning'
                       : 'error'
                 }
-                showIcon>
+                showIcon
+                class="shadow-sm rounded-lg border-0">
                 <div class="flex justify-between items-center">
-                  <span>
+                  <span class="font-medium">
                     系统状态:{' '}
                     {stats.systemHealth.status === 'healthy'
                       ? '健康'
@@ -313,24 +309,26 @@ export default defineComponent({
                         : '错误'}
                     {stats.systemHealth.uptime && ` | 可用性: ${stats.systemHealth.uptime}`}
                   </span>
-                  <span class="text-sm">最后更新: {stats.systemHealth.lastUpdate}</span>
+                  <span class="text-sm opacity-80">最后更新: {stats.systemHealth.lastUpdate}</span>
                 </div>
               </NAlert>
 
               {/* 核心指标 */}
-              <NCard title="核心指标">
+              <NCard title="核心指标" bordered={false} class="shadow-sm rounded-lg">
                 <NGrid cols={4} xGap={16}>
                   <NGridItem>
                     <NStatistic label="总日志数" value={stats.totalLogs.toLocaleString()}>
                       {{
-                        prefix: () => h(NIcon, { component: DocumentTextOutline, color: '#1890ff' })
+                        prefix: () => h(NIcon, { component: DocumentTextOutline, color: '#1890ff' }),
+                        default: () => <span class="text-24px font-bold">{stats.totalLogs.toLocaleString()}</span>
                       }}
                     </NStatistic>
                   </NGridItem>
                   <NGridItem>
                     <NStatistic label="今日日志" value={stats.todayLogs.toLocaleString()}>
                       {{
-                        prefix: () => h(NIcon, { component: TimeOutline, color: '#52c41a' })
+                        prefix: () => h(NIcon, { component: TimeOutline, color: '#52c41a' }),
+                        default: () => <span class="text-24px font-bold">{stats.todayLogs.toLocaleString()}</span>
                       }}
                     </NStatistic>
                   </NGridItem>
@@ -341,14 +339,21 @@ export default defineComponent({
                           h(NIcon, {
                             component: WarningOutline,
                             color: getHealthColor(errorRateStatus.value)
-                          })
+                          }),
+                        default: () => (
+                          <span
+                            class={`text-24px font-bold ${stats.errorRate > 0 ? 'text-red-500' : 'text-green-500'}`}>
+                            {stats.errorRate.toFixed(2)}%
+                          </span>
+                        )
                       }}
                     </NStatistic>
                   </NGridItem>
                   <NGridItem>
                     <NStatistic label="平均响应时间" value={`${stats.avgResponseTime}ms`}>
                       {{
-                        prefix: () => h(NIcon, { component: TrendingUpOutline, color: '#722ed1' })
+                        prefix: () => h(NIcon, { component: TrendingUpOutline, color: '#722ed1' }),
+                        default: () => <span class="text-24px font-bold">{stats.avgResponseTime}ms</span>
                       }}
                     </NStatistic>
                   </NGridItem>
@@ -356,21 +361,21 @@ export default defineComponent({
               </NCard>
 
               {/* 快捷操作 */}
-              <NCard title="快捷操作">
+              <NCard title="快捷操作" bordered={false} class="shadow-sm rounded-lg">
                 <NGrid cols={5} xGap={16} yGap={16}>
                   {quickActions.map((action, index) => (
                     <NGridItem key={index}>
                       <div
-                        class="p-4 border border-gray-200 rounded-lg cursor-pointer hover:shadow-md transition-shadow"
+                        class="p-4 border border-gray-100 bg-gray-50/30 rounded-lg cursor-pointer hover:shadow-md transition-all hover:bg-white hover:-translate-y-1"
                         onClick={action.action}>
                         <div class="flex flex-col items-center text-center">
                           <div
                             class="w-12 h-12 rounded-full flex items-center justify-center mb-3"
-                            style={{ backgroundColor: `${action.color}20` }}>
+                            style={{ backgroundColor: `${action.color}15` }}>
                             <NIcon component={action.icon} size={24} color={action.color} />
                           </div>
-                          <h4 class="font-medium mb-1">{action.title}</h4>
-                          <p class="text-sm text-gray-500">{action.description}</p>
+                          <h4 class="font-medium mb-1 text-gray-700">{action.title}</h4>
+                          <p class="text-xs text-gray-400">{action.description}</p>
                         </div>
                       </div>
                     </NGridItem>
@@ -381,28 +386,37 @@ export default defineComponent({
               <NGrid cols={2} xGap={16}>
                 {/* 服务分布 */}
                 <NGridItem>
-                  <NCard title="Top 5 服务">
+                  <NCard title="Top 5 服务" bordered={false} class="shadow-sm rounded-lg h-full">
                     {stats.topServices.length > 0 ? (
-                      <NSpace vertical>
+                      <div class="flex flex-col gap-3">
                         {stats.topServices.map((service, index) => (
-                          <div key={index} class="flex justify-between items-center">
+                          <div
+                            key={index}
+                            class="flex justify-between items-center p-2 hover:bg-gray-50 rounded transition-colors">
                             <div class="flex items-center">
-                              <NIcon component={ServerOutline} class="mr-2" color="#1890ff" />
-                              <span class="font-medium">{service.service}</span>
+                              <div class="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center mr-3">
+                                <NIcon component={ServerOutline} size={16} color="#1890ff" />
+                              </div>
+                              <span class="font-medium text-gray-700">{service.service}</span>
                             </div>
-                            <div class="flex items-center gap-2">
-                              <span class="text-sm text-gray-500">{service.count.toLocaleString()}</span>
-                              <NProgress
-                                type="line"
-                                percentage={service.percentage}
-                                showIndicator={false}
-                                style={{ width: '60px' }}
-                              />
-                              <span class="text-xs text-gray-400 w-10">{service.percentage.toFixed(1)}%</span>
+                            <div class="flex items-center gap-3">
+                              <span class="text-sm text-gray-500 font-mono">{service.count.toLocaleString()}</span>
+                              <div class="w-20">
+                                <NProgress
+                                  type="line"
+                                  percentage={service.percentage}
+                                  showIndicator={false}
+                                  height={6}
+                                  color="#1890ff"
+                                />
+                              </div>
+                              <span class="text-xs text-gray-400 w-10 text-right">
+                                {service.percentage.toFixed(1)}%
+                              </span>
                             </div>
                           </div>
                         ))}
-                      </NSpace>
+                      </div>
                     ) : (
                       <NEmpty description="暂无数据" />
                     )}
@@ -411,30 +425,37 @@ export default defineComponent({
 
                 {/* 日志级别分布 */}
                 <NGridItem>
-                  <NCard title="日志级别分布">
+                  <NCard title="日志级别分布" bordered={false} class="shadow-sm rounded-lg h-full">
                     {stats.levelDistribution.length > 0 ? (
-                      <NSpace vertical>
+                      <div class="flex flex-col gap-3">
                         {stats.levelDistribution.map((level, index) => (
-                          <div key={index} class="flex justify-between items-center">
+                          <div
+                            key={index}
+                            class="flex justify-between items-center p-2 hover:bg-gray-50 rounded transition-colors">
                             <div class="flex items-center">
-                              <NTag size="small" color={{ color: getLevelColor(level.level) }} class="mr-2">
+                              <NTag
+                                size="small"
+                                color={{ color: getLevelColor(level.level), textColor: '#fff' }}
+                                class="mr-2 w-16 justify-center">
                                 {level.level}
                               </NTag>
                             </div>
-                            <div class="flex items-center gap-2">
-                              <span class="text-sm text-gray-500">{level.count.toLocaleString()}</span>
-                              <NProgress
-                                type="line"
-                                percentage={level.percentage}
-                                showIndicator={false}
-                                style={{ width: '60px' }}
-                                color={getLevelColor(level.level)}
-                              />
-                              <span class="text-xs text-gray-400 w-10">{level.percentage.toFixed(1)}%</span>
+                            <div class="flex items-center gap-3">
+                              <span class="text-sm text-gray-500 font-mono">{level.count.toLocaleString()}</span>
+                              <div class="w-20">
+                                <NProgress
+                                  type="line"
+                                  percentage={level.percentage}
+                                  showIndicator={false}
+                                  height={6}
+                                  color={getLevelColor(level.level)}
+                                />
+                              </div>
+                              <span class="text-xs text-gray-400 w-10 text-right">{level.percentage.toFixed(1)}%</span>
                             </div>
                           </div>
                         ))}
-                      </NSpace>
+                      </div>
                     ) : (
                       <NEmpty description="暂无数据" />
                     )}
@@ -443,34 +464,38 @@ export default defineComponent({
               </NGrid>
 
               {/* 最近日志 */}
-              <NCard title="最近日志">
+              <NCard title="最近日志" bordered={false} class="shadow-sm rounded-lg">
                 {stats.recentLogs.length > 0 ? (
                   <div class="space-y-2">
                     {stats.recentLogs.map((log, index) => (
-                      <div key={index} class="flex items-center justify-between p-3 bg-gray-50 rounded">
-                        <div class="flex items-center space-x-3">
-                          <NTime time={new Date(log.timestamp)} format="HH:mm:ss" />
-                          <NTag size="small" color={{ color: getLevelColor(log.level) }}>
+                      <div
+                        key={index}
+                        class="flex items-center justify-between p-3 bg-gray-50/50 rounded-lg hover:bg-gray-100 transition-colors border border-transparent hover:border-gray-200">
+                        <div class="flex items-center space-x-4 overflow-hidden">
+                          <NTime
+                            time={new Date(log.timestamp)}
+                            format="HH:mm:ss"
+                            class="font-mono text-gray-500 text-sm whitespace-nowrap"
+                          />
+                          <NTag
+                            size="small"
+                            color={{ color: getLevelColor(log.level), textColor: '#fff' }}
+                            class="w-16 justify-center shrink-0">
                             {log.level}
                           </NTag>
-                          <NTag size="small">{log.service}</NTag>
-                          <span class="text-sm text-gray-600 truncate max-w-md">{log.message}</span>
+                          <NTag size="small" bordered={false} class="bg-gray-200 text-gray-600 shrink-0">
+                            {log.service}
+                          </NTag>
+                          <span class="text-sm text-gray-700 truncate font-mono">{log.message}</span>
                         </div>
-                        <NTooltip>
-                          {{
-                            trigger: () => (
-                              <NButton
-                                size="small"
-                                onClick={() => {
-                                  activeTab.value = 'service'
-                                  // 这里可以传递搜索参数
-                                }}>
-                                查看详情
-                              </NButton>
-                            ),
-                            default: () => '在日志搜索中查看完整信息'
-                          }}
-                        </NTooltip>
+                        <NButton
+                          size="tiny"
+                          secondary
+                          onClick={() => {
+                            activeTab.value = 'service'
+                          }}>
+                          详情
+                        </NButton>
                       </div>
                     ))}
                   </div>
@@ -478,7 +503,7 @@ export default defineComponent({
                   <NEmpty description="暂无最近日志" />
                 )}
               </NCard>
-            </NSpace>
+            </div>
           </NTabPane>
 
           {/* 日志服务 */}

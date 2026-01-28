@@ -1,14 +1,13 @@
 /**
  * 日志流页面
  */
-import { defineComponent, ref, reactive, onMounted, onUnmounted, computed, nextTick } from 'vue'
+import { defineComponent, ref, reactive, onMounted, onUnmounted, nextTick } from 'vue'
 import {
   NCard,
   NSpace,
   NButton,
   NInput,
   NSelect,
-  NTag,
   NEmpty,
   NSpin,
   NIcon,
@@ -16,30 +15,27 @@ import {
   NGridItem,
   NStatistic,
   NSwitch,
-  NSlider,
   NTooltip,
   NAlert,
-  NCode,
-  NScrollbar,
-  NTime,
   useMessage
 } from 'naive-ui'
 import {
   PlayOutline,
   PauseOutline,
   StopOutline,
-  RefreshOutline,
   SettingsOutline,
   DownloadOutline,
   FilterOutline,
   EyeOutline,
   EyeOffOutline,
-  TrashOutline
+  TrashOutline,
+  RadioOutline
 } from '@vicons/ionicons5'
 import { LogLevelEnum } from '@/types/logs'
 import type { LogStreamParams, LogEntry } from '@/types/logs'
 import api from '@/api'
 import dayjs from 'dayjs'
+import SectionHeader from '@/components/common/SectionHeader'
 
 export default defineComponent({
   name: 'LogStream',
@@ -55,7 +51,6 @@ export default defineComponent({
     const showLevel = ref(true)
     const showService = ref(true)
     const maxLines = ref(1000)
-    const refreshRate = ref(1000) // ms
 
     const logContainer = ref<HTMLElement>()
     const logs = ref<LogEntry[]>([])
@@ -125,23 +120,6 @@ export default defineComponent({
           return '#f56c6c'
         default:
           return '#909399'
-      }
-    }
-
-    // 获取日志级别标签类型
-    const getLevelType = (level: LogLevelEnum) => {
-      switch (level) {
-        case LogLevelEnum.DEBUG:
-          return 'default'
-        case LogLevelEnum.INFO:
-          return 'info'
-        case LogLevelEnum.WARN:
-          return 'warning'
-        case LogLevelEnum.ERROR:
-        case LogLevelEnum.FATAL:
-          return 'error'
-        default:
-          return 'default'
       }
     }
 
@@ -345,212 +323,218 @@ export default defineComponent({
     })
 
     return () => (
-      <div class="log-stream-container">
-        {/* 控制面板 */}
-        <NCard class="mb-4">
-          <NSpace justify="space-between" align="center">
-            <NSpace>
-              {/* 流控制按钮 */}
-              {!isStreaming.value ? (
-                <NButton type="primary" onClick={startStream} loading={loading.value}>
-                  <NIcon component={PlayOutline} class="mr-1" />
-                  开始流
+      <div class="p-24px h-full bg-gray-50/50 flex flex-col overflow-hidden">
+        <SectionHeader title="日志流" subtitle="实时查看和监控系统日志" icon={RadioOutline} />
+
+        <div class="flex-1 overflow-auto">
+          {/* 控制面板 */}
+          <NCard bordered={false} class="mb-4 shadow-sm rounded-lg">
+            <NSpace justify="space-between" align="center">
+              <NSpace>
+                {/* 流控制按钮 */}
+                {!isStreaming.value ? (
+                  <NButton type="primary" onClick={startStream} loading={loading.value}>
+                    <NIcon component={PlayOutline} class="mr-1" />
+                    开始流
+                  </NButton>
+                ) : (
+                  <NSpace>
+                    <NButton type={isPaused.value ? 'primary' : 'default'} onClick={togglePause}>
+                      <NIcon component={isPaused.value ? PlayOutline : PauseOutline} class="mr-1" />
+                      {isPaused.value ? '恢复' : '暂停'}
+                    </NButton>
+
+                    <NButton onClick={stopStream}>
+                      <NIcon component={StopOutline} class="mr-1" />
+                      停止
+                    </NButton>
+                  </NSpace>
+                )}
+
+                <NButton onClick={clearLogs}>
+                  <NIcon component={TrashOutline} class="mr-1" />
+                  清空
                 </NButton>
-              ) : (
-                <NSpace>
-                  <NButton type={isPaused.value ? 'primary' : 'default'} onClick={togglePause}>
-                    <NIcon component={isPaused.value ? PlayOutline : PauseOutline} class="mr-1" />
-                    {isPaused.value ? '恢复' : '暂停'}
-                  </NButton>
 
-                  <NButton onClick={stopStream}>
-                    <NIcon component={StopOutline} class="mr-1" />
-                    停止
-                  </NButton>
+                <NButton onClick={exportLogs}>
+                  <NIcon component={DownloadOutline} class="mr-1" />
+                  导出
+                </NButton>
+              </NSpace>
+
+              <NSpace>
+                {/* 显示选项 */}
+                <NTooltip trigger="hover">
+                  {{
+                    trigger: () => (
+                      <NButton size="small" onClick={() => (autoScroll.value = !autoScroll.value)}>
+                        <NIcon component={autoScroll.value ? EyeOutline : EyeOffOutline} />
+                      </NButton>
+                    ),
+                    default: () => (autoScroll.value ? '关闭自动滚动' : '开启自动滚动')
+                  }}
+                </NTooltip>
+
+                <NTooltip trigger="hover">
+                  {{
+                    trigger: () => (
+                      <NButton size="small">
+                        <NIcon component={SettingsOutline} />
+                      </NButton>
+                    ),
+                    default: () => '流设置'
+                  }}
+                </NTooltip>
+              </NSpace>
+            </NSpace>
+          </NCard>
+
+          {/* 统计信息 */}
+          <NCard bordered={false} class="mb-4 shadow-sm rounded-lg">
+            <NGrid cols={5} xGap={16}>
+              <NGridItem>
+                <NStatistic label="接收总数" value={streamStats.totalReceived} />
+              </NGridItem>
+              <NGridItem>
+                <NStatistic label="每秒日志" value={streamStats.linesPerSecond} />
+              </NGridItem>
+              <NGridItem>
+                <NStatistic label="错误数" value={streamStats.errorCount} />
+              </NGridItem>
+              <NGridItem>
+                <NStatistic label="连接时间" value={streamStats.connectionTime || '-'} />
+              </NGridItem>
+              <NGridItem>
+                <NStatistic label="最后接收" value={streamStats.lastReceiveTime || '-'} />
+              </NGridItem>
+            </NGrid>
+          </NCard>
+
+          {/* 过滤器 */}
+          <NCard bordered={false} class="mb-4 shadow-sm rounded-lg">
+            <NSpace align="center">
+              <NIcon component={FilterOutline} />
+              <span>过滤器:</span>
+
+              <NSelect
+                v-model:value={filterParams.service}
+                options={serviceOptions.value}
+                placeholder="选择服务"
+                style={{ width: '150px' }}
+                clearable
+                onUpdateValue={watchFilter}
+              />
+
+              <NSelect
+                v-model:value={filterParams.level}
+                options={levelOptions}
+                placeholder="选择级别"
+                style={{ width: '120px' }}
+                clearable
+                onUpdateValue={watchFilter}
+              />
+
+              <NInput
+                v-model:value={filterParams.keyword}
+                placeholder="关键词搜索"
+                style={{ width: '200px' }}
+                clearable
+                onUpdateValue={watchFilter}
+              />
+
+              <span class="text-sm text-gray-500">
+                显示 {filteredLogs.value.length} / {logs.value.length} 条日志
+              </span>
+            </NSpace>
+          </NCard>
+
+          {/* 日志显示区域 */}
+          <NCard bordered={false} class="shadow-sm rounded-lg">
+            <div class="flex justify-between items-center mb-4">
+              <h3 class="text-lg font-medium">实时日志</h3>
+
+              <NSpace>
+                <span class="text-sm text-gray-500">显示选项:</span>
+
+                <NSpace size="small">
+                  <span class="text-xs">时间戳</span>
+                  <NSwitch v-model:value={showTimestamp.value} size="small" />
                 </NSpace>
-              )}
 
-              <NButton onClick={clearLogs}>
-                <NIcon component={TrashOutline} class="mr-1" />
-                清空
-              </NButton>
+                <NSpace size="small">
+                  <span class="text-xs">级别</span>
+                  <NSwitch v-model:value={showLevel.value} size="small" />
+                </NSpace>
 
-              <NButton onClick={exportLogs}>
-                <NIcon component={DownloadOutline} class="mr-1" />
-                导出
-              </NButton>
-            </NSpace>
-
-            <NSpace>
-              {/* 显示选项 */}
-              <NTooltip trigger="hover">
-                {{
-                  trigger: () => (
-                    <NButton size="small" onClick={() => (autoScroll.value = !autoScroll.value)}>
-                      <NIcon component={autoScroll.value ? EyeOutline : EyeOffOutline} />
-                    </NButton>
-                  ),
-                  default: () => (autoScroll.value ? '关闭自动滚动' : '开启自动滚动')
-                }}
-              </NTooltip>
-
-              <NTooltip trigger="hover">
-                {{
-                  trigger: () => (
-                    <NButton size="small">
-                      <NIcon component={SettingsOutline} />
-                    </NButton>
-                  ),
-                  default: () => '流设置'
-                }}
-              </NTooltip>
-            </NSpace>
-          </NSpace>
-        </NCard>
-
-        {/* 统计信息 */}
-        <NCard class="mb-4">
-          <NGrid cols={5} xGap={16}>
-            <NGridItem>
-              <NStatistic label="接收总数" value={streamStats.totalReceived} />
-            </NGridItem>
-            <NGridItem>
-              <NStatistic label="每秒日志" value={streamStats.linesPerSecond} />
-            </NGridItem>
-            <NGridItem>
-              <NStatistic label="错误数" value={streamStats.errorCount} />
-            </NGridItem>
-            <NGridItem>
-              <NStatistic label="连接时间" value={streamStats.connectionTime || '-'} />
-            </NGridItem>
-            <NGridItem>
-              <NStatistic label="最后接收" value={streamStats.lastReceiveTime || '-'} />
-            </NGridItem>
-          </NGrid>
-        </NCard>
-
-        {/* 过滤器 */}
-        <NCard class="mb-4">
-          <NSpace align="center">
-            <NIcon component={FilterOutline} />
-            <span>过滤器:</span>
-
-            <NSelect
-              v-model:value={filterParams.service}
-              options={serviceOptions.value}
-              placeholder="选择服务"
-              style={{ width: '150px' }}
-              clearable
-              onUpdateValue={watchFilter}
-            />
-
-            <NSelect
-              v-model:value={filterParams.level}
-              options={levelOptions}
-              placeholder="选择级别"
-              style={{ width: '120px' }}
-              clearable
-              onUpdateValue={watchFilter}
-            />
-
-            <NInput
-              v-model:value={filterParams.keyword}
-              placeholder="关键词搜索"
-              style={{ width: '200px' }}
-              clearable
-              onUpdateValue={watchFilter}
-            />
-
-            <span class="text-sm text-gray-500">
-              显示 {filteredLogs.value.length} / {logs.value.length} 条日志
-            </span>
-          </NSpace>
-        </NCard>
-
-        {/* 日志显示区域 */}
-        <NCard>
-          <div class="flex justify-between items-center mb-4">
-            <h3 class="text-lg font-medium">实时日志</h3>
-
-            <NSpace>
-              <span class="text-sm text-gray-500">显示选项:</span>
-
-              <NSpace size="small">
-                <span class="text-xs">时间戳</span>
-                <NSwitch v-model:value={showTimestamp.value} size="small" />
+                <NSpace size="small">
+                  <span class="text-xs">服务</span>
+                  <NSwitch v-model:value={showService.value} size="small" />
+                </NSpace>
               </NSpace>
+            </div>
 
-              <NSpace size="small">
-                <span class="text-xs">级别</span>
-                <NSwitch v-model:value={showLevel.value} size="small" />
-              </NSpace>
-
-              <NSpace size="small">
-                <span class="text-xs">服务</span>
-                <NSwitch v-model:value={showService.value} size="small" />
-              </NSpace>
-            </NSpace>
-          </div>
-
-          {isStreaming.value && (
-            <NAlert type="info" class="mb-4">
-              <div class="flex items-center justify-between">
-                <span>{isPaused.value ? '日志流已暂停' : '正在接收实时日志...'}</span>
-                <NSpin size="small" v-show={!isPaused.value} />
-              </div>
-            </NAlert>
-          )}
-
-          <div
-            ref={logContainer}
-            class="log-container"
-            style={{
-              height: '500px',
-              overflow: 'auto',
-              backgroundColor: '#1e1e1e',
-              color: '#d4d4d4',
-              fontFamily: 'Monaco, Consolas, "Courier New", monospace',
-              fontSize: '12px',
-              lineHeight: '1.4',
-              padding: '12px',
-              borderRadius: '4px'
-            }}>
-            {filteredLogs.value.length > 0 ? (
-              <div>
-                {filteredLogs.value.map((log, index) => (
-                  <div key={index} class="log-line" style={{ marginBottom: '2px' }}>
-                    {showTimestamp.value && (
-                      <span style={{ color: '#569cd6', marginRight: '8px' }}>
-                        [{dayjs(log.timestamp).format('HH:mm:ss.SSS')}]
-                      </span>
-                    )}
-
-                    {showLevel.value && (
-                      <span
-                        style={{
-                          color: getLevelColor(log.level),
-                          marginRight: '8px',
-                          fontWeight: 'bold',
-                          minWidth: '50px',
-                          display: 'inline-block'
-                        }}>
-                        [{log.level}]
-                      </span>
-                    )}
-
-                    {showService.value && <span style={{ color: '#4ec9b0', marginRight: '8px' }}>[{log.service}]</span>}
-
-                    <span style={{ color: '#d4d4d4' }}>{log.message}</span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div class="flex items-center justify-center h-full">
-                <NEmpty description="暂无日志数据" />
-              </div>
+            {isStreaming.value && (
+              <NAlert type="info" class="mb-4">
+                <div class="flex items-center justify-between">
+                  <span>{isPaused.value ? '日志流已暂停' : '正在接收实时日志...'}</span>
+                  <NSpin size="small" v-show={!isPaused.value} />
+                </div>
+              </NAlert>
             )}
-          </div>
-        </NCard>
+
+            <div
+              ref={logContainer}
+              class="log-container"
+              style={{
+                height: '500px',
+                overflow: 'auto',
+                backgroundColor: '#1e1e1e',
+                color: '#d4d4d4',
+                fontFamily: 'Monaco, Consolas, "Courier New", monospace',
+                fontSize: '12px',
+                lineHeight: '1.4',
+                padding: '12px',
+                borderRadius: '4px'
+              }}>
+              {filteredLogs.value.length > 0 ? (
+                <div>
+                  {filteredLogs.value.map((log, index) => (
+                    <div key={index} class="log-line" style={{ marginBottom: '2px' }}>
+                      {showTimestamp.value && (
+                        <span style={{ color: '#569cd6', marginRight: '8px' }}>
+                          [{dayjs(log.timestamp).format('HH:mm:ss.SSS')}]
+                        </span>
+                      )}
+
+                      {showLevel.value && (
+                        <span
+                          style={{
+                            color: getLevelColor(log.level),
+                            marginRight: '8px',
+                            fontWeight: 'bold',
+                            minWidth: '50px',
+                            display: 'inline-block'
+                          }}>
+                          [{log.level}]
+                        </span>
+                      )}
+
+                      {showService.value && (
+                        <span style={{ color: '#4ec9b0', marginRight: '8px' }}>[{log.service}]</span>
+                      )}
+
+                      <span style={{ color: '#d4d4d4' }}>{log.message}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div class="flex items-center justify-center h-full">
+                  <NEmpty description="暂无日志数据" />
+                </div>
+              )}
+            </div>
+          </NCard>
+        </div>
       </div>
     )
   }

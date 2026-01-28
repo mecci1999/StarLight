@@ -9,10 +9,9 @@ import {
   NSpace,
   NButton,
   NSelect,
-  NSpin,
-  NModal
+  NSpin
 } from 'naive-ui'
-import { ref, h, onMounted, watch, computed } from 'vue'
+import { defineComponent, ref, h, onMounted, watch, computed } from 'vue'
 import { fetchServiceInstances } from '@/mock/api'
 import type { ServiceInstance } from '@/types/monitor'
 import SectionHeader from '@/components/common/SectionHeader'
@@ -141,37 +140,45 @@ export default defineComponent({
     watch(selectedService, loadInstances)
 
     return () => (
-      <div class="p-24px h-full">
+      <div class="p-24px h-full bg-gray-50/50 overflow-hidden flex flex-col">
         <SectionHeader title="实例监控" subtitle="监控服务实例的运行状态和资源使用情况" icon={HardwareChipOutline} />
 
         {/* 概览统计 */}
         <NGrid cols={4} xGap={16} class="mb-16px">
           <NGridItem>
-            <NCard>
-              <NStatistic label="总实例数" value={totalInstances.value} />
+            <NCard bordered={false} class="shadow-sm rounded-lg">
+              <NStatistic label="总实例数" value={totalInstances.value}>
+                {{ default: () => <div class="text-24px font-bold">{totalInstances.value}</div> }}
+              </NStatistic>
             </NCard>
           </NGridItem>
           <NGridItem>
-            <NCard>
-              <NStatistic label="运行中" value={runningInstances.value} style={{ color: '#18a058' }} />
+            <NCard bordered={false} class="shadow-sm rounded-lg">
+              <NStatistic label="运行中" value={runningInstances.value}>
+                {{ default: () => <div class="text-24px font-bold text-green-500">{runningInstances.value}</div> }}
+              </NStatistic>
             </NCard>
           </NGridItem>
           <NGridItem>
-            <NCard>
-              <NStatistic label="异常" value={errorInstances.value} style={{ color: '#d03050' }} />
+            <NCard bordered={false} class="shadow-sm rounded-lg">
+              <NStatistic label="异常" value={errorInstances.value}>
+                {{ default: () => <div class="text-24px font-bold text-red-500">{errorInstances.value}</div> }}
+              </NStatistic>
             </NCard>
           </NGridItem>
           <NGridItem>
-            <NCard>
-              <NStatistic label="平均CPU" value={avgCpu.value} />
+            <NCard bordered={false} class="shadow-sm rounded-lg">
+              <NStatistic label="平均CPU" value={avgCpu.value}>
+                {{ default: () => <div class="text-24px font-bold">{avgCpu.value}</div> }}
+              </NStatistic>
             </NCard>
           </NGridItem>
         </NGrid>
 
-        <NCard>
-          <div class="mb-16px">
+        <NCard class="flex-1 shadow-sm rounded-lg" bordered={false} contentStyle={{ padding: 0 }}>
+          <div class="p-16px border-b border-gray-100">
             <div class="flex items-center justify-between">
-              <h3 class="text-16px font-600 text-[--color-text-1] m-0 mb-8px">实例列表 - {selectedService.value}</h3>
+              <h3 class="text-16px font-600 text-[--color-text-1] m-0">实例列表 - {selectedService.value}</h3>
               <NSelect v-model:value={selectedService.value} options={serviceOptions} style={{ width: '200px' }} />
             </div>
           </div>
@@ -181,6 +188,8 @@ export default defineComponent({
             </div>
           ) : (
             <NDataTable
+              class="h-full"
+              flex-height
               columns={instanceColumns}
               data={instanceData.value}
               pagination={{
@@ -194,8 +203,6 @@ export default defineComponent({
             />
           )}
         </NCard>
-
-        <NModal preset="dialog" title="重启实例" v-model:show={false}></NModal>
       </div>
     )
   }

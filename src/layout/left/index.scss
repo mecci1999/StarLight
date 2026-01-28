@@ -1,42 +1,14 @@
 .app-home__left {
-  // border-right: 0.5px solid var(--color-border-2);
+  /* Minimal styles, let Tailwind handle most */
 }
 
-/* 左侧菜单样式 */
-.module-item {
-  position: relative;
-  user-select: none;
-}
-
-.module-item:hover {
-  // transform: scale(1.05);
-}
-
-/* 拖拽相关样式 */
+/* Drag and drop styles */
 .ghost-item {
   opacity: 0.5;
-  background: var(--color-primary-1);
-  border: 2px dashed var(--color-primary-3);
+  background: var(--color-primary-6) !important;
 }
 
 .chosen-item {
   transform: scale(1.1);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   z-index: 999;
-}
-
-/* 模块项动画 */
-.module-item {
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.module-item:active {
-  // transform: scale(0.95);
-}
-
-/* 更多模块弹出框样式 */
-:deep(.n-popover) {
-  background-color: var(--color-fill-2) !important;
-  border-radius: 8px !important;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12) !important;
 }

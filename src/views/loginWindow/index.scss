@@ -1,7 +1,7 @@
 .login-window {
   &__container {
     width: 100%;
-    height: calc(100% - 24px);
+    height: calc(100% - 24px) !important;
     position: relative;
     overflow: hidden;
   }

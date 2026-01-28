@@ -1,91 +1,92 @@
-import { NInput, NIcon, NBadge, NAvatar, NPopover, NButton, NCard, NDivider } from 'naive-ui'
+import { NInput, NIcon, NBadge, NAvatar, NPopover, NButton, NDivider, NSelect, NPopselect } from 'naive-ui'
 import {
   SearchOutline,
   NotificationsOutline,
   PersonOutline,
   SettingsOutline,
   LogOutOutline,
-  ChevronDownOutline
+  ChevronDownOutline,
+  TimeOutline
 } from '@vicons/ionicons5'
-import { defineComponent, ref, h } from 'vue'
+import { defineComponent, ref, h, computed } from 'vue'
 import { useRouter } from 'vue-router'
+import { useTimeStore } from '@/store/useTimeStore'
 import './index.scss'
 
 export default defineComponent({
   name: 'ContainerHeader',
   setup() {
     const router = useRouter()
+    const timeStore = useTimeStore()
     const searchValue = ref('')
     const showUserPopover = ref(false)
 
-    // 模拟用户信息
+    // User info
     const userInfo = {
-      name: '张三',
-      email: 'zhangsan@example.com',
+      name: 'Admin',
+      email: 'admin@starlight.com',
       avatar: '',
-      role: '系统管理员'
+      role: 'Administrator'
     }
 
-    // 模拟未读消息数量
-    const unreadCount = ref(5)
+    const unreadCount = ref(3)
 
-    // 处理搜索
     const handleSearch = () => {
       if (searchValue.value.trim()) {
-        console.log('搜索:', searchValue.value)
-        // 这里可以实现搜索逻辑
+        console.log('Context Search:', searchValue.value)
       }
     }
 
-    // 处理消息通知点击
-    const handleNotificationClick = () => {
-      console.log('查看消息通知')
-      // 这里可以跳转到消息页面或显示消息列表
-    }
-
-    // 进入设置页面
     const goToSettings = () => {
       router.push('/home/system-settings')
       showUserPopover.value = false
     }
 
-    // 退出登录
     const handleLogout = () => {
-      console.log('退出登录')
-      // 这里可以实现退出登录逻辑
+      console.log('Logout')
       showUserPopover.value = false
     }
 
-    // 渲染用户头像弹窗内容
     const renderUserPopover = () => {
       return (
-        <div class="user-popover">
-          <div class="user-info">
-            <NAvatar size={48} src={userInfo.avatar} fallbackSrc="" class="user-avatar-large">
-              {userInfo.avatar ? null : userInfo.name.charAt(0)}
+        <div class="user-popover p-4 w-64">
+          <div class="flex items-center gap-3 mb-4">
+            <NAvatar size={48} round class="bg-[--color-primary-6] text-white">
+              {userInfo.name.charAt(0)}
             </NAvatar>
-            <div class="user-details">
-              <div class="user-name">{userInfo.name}</div>
-              <div class="user-email">{userInfo.email}</div>
-              <div class="user-role">{userInfo.role}</div>
+            <div>
+              <div class="font-bold text-[--color-text-1]">{userInfo.name}</div>
+              <div class="text-xs text-[--color-text-3]">{userInfo.email}</div>
             </div>
           </div>
-
-          <NDivider class="popover-divider" />
-
-          <div class="user-actions">
-            <NButton text class="action-btn" onClick={goToSettings}>
-              <NIcon size={16} class="action-icon">
-                {h(SettingsOutline)}
-              </NIcon>
-              <span>系统设置</span>
+          <NDivider class="my-2" />
+          <div class="flex flex-col gap-1">
+            <NButton text class="justify-start w-full py-2 hover:text-[--color-primary-6]" onClick={goToSettings}>
+              <template>
+                {{
+                  icon: () => (
+                    <NIcon>
+                      <SettingsOutline />
+                    </NIcon>
+                  )
+                }}
+              </template>
+              Settings
             </NButton>
-
-            <NButton text class="action-btn logout-btn" onClick={handleLogout}>
-              <NIcon size={16} class="action-icon">
-                {h(LogOutOutline)}
-              </NIcon>
-              <span>退出登录</span>
+            <NButton
+              text
+              class="justify-start w-full py-2 text-[--color-danger-6] hover:text-[--color-danger-7]"
+              onClick={handleLogout}>
+              <template>
+                {{
+                  icon: () => (
+                    <NIcon>
+                      <LogOutOutline />
+                    </NIcon>
+                  )
+                }}
+              </template>
+              Logout
             </NButton>
           </div>
         </div>
@@ -93,63 +94,84 @@ export default defineComponent({
     }
 
     return () => (
-      <div class="container-header select-none" data-tauri-drag-region>
-        {/* 搜索框 */}
-        <div class="search-section">
-          <NInput
-            v-model:value={searchValue.value}
-            placeholder="搜索服务、指标、日志..."
-            class="search-input h-28px"
-            onKeyup={(e: KeyboardEvent) => {
-              if (e.key === 'Enter') {
-                handleSearch()
-              }
-            }}>
-            {{
-              prefix: () => (
-                <NIcon size={16} class="search-icon">
-                  {h(SearchOutline)}
-                </NIcon>
-              )
-            }}
-          </NInput>
+      <div class="container-header h-14 bg-[--color-bg-2] border-b border-[--color-border-2] flex items-center px-4 justify-between shadow-sm z-10 relative">
+        {/* Left: Global Search */}
+        <div class="flex-1 max-w-2xl flex items-center gap-4">
+          <div class="relative w-full max-w-md group">
+            <NInput
+              v-model:value={searchValue.value}
+              placeholder="Search services, logs, or traces (e.g. service:web env:prod)..."
+              class="bg-[--color-fill-2] border-none rounded hover:bg-[--color-fill-3] transition-colors"
+              onKeyup={(e: KeyboardEvent) => e.key === 'Enter' && handleSearch()}>
+              {{
+                prefix: () => (
+                  <NIcon size={18} class="text-[--color-text-3] group-hover:text-[--color-primary-6] transition-colors">
+                    <SearchOutline />
+                  </NIcon>
+                )
+              }}
+            </NInput>
+          </div>
         </div>
 
-        {/* 右侧操作区 */}
-        <div class="actions-section">
-          {/* 消息通知 */}
-          <div class="notification-wrapper">
-            <NBadge value={unreadCount.value} max={99} show={unreadCount.value > 0}>
-              <NButton text class="action-button notification-btn" onClick={handleNotificationClick}>
-                <NIcon size={18}>{h(NotificationsOutline)}</NIcon>
+        {/* Right: Time Picker & User Actions */}
+        <div class="flex items-center gap-4">
+          {/* Global Time Picker */}
+          <div class="w-48">
+            <NPopselect
+              v-model:value={timeStore.timeRange}
+              options={timeStore.timeOptions}
+              trigger="click"
+              onUpdateValue={(val) => timeStore.setTimeRange(val as any)}>
+              <NButton class="w-full justify-between px-3" dashed>
+                <div class="flex items-center gap-2">
+                  <NIcon class="text-[--color-primary-6]">
+                    <TimeOutline />
+                  </NIcon>
+                  <span class="text-xs font-medium">
+                    {timeStore.timeOptions.find((o) => o.value === timeStore.timeRange)?.label}
+                  </span>
+                </div>
+                <NIcon size={12}>
+                  <ChevronDownOutline />
+                </NIcon>
               </NButton>
-            </NBadge>
+            </NPopselect>
           </div>
 
-          {/* 用户头像 */}
-          <div class="user-wrapper">
-            <NPopover
-              trigger="click"
-              placement="bottom-end"
-              show={showUserPopover.value}
-              onUpdateShow={(show: boolean) => {
-                showUserPopover.value = show
-              }}>
-              {{
-                trigger: () => (
-                  <div class="user-trigger">
-                    <NAvatar size={32} src={userInfo.avatar} fallbackSrc="" class="user-avatar">
-                      {userInfo.avatar ? null : userInfo.name.charAt(0)}
-                    </NAvatar>
-                    <NIcon size={12} class="dropdown-icon">
-                      {h(ChevronDownOutline)}
-                    </NIcon>
-                  </div>
-                ),
-                default: renderUserPopover
-              }}
-            </NPopover>
-          </div>
+          <div class="h-6 w-px bg-[--color-border-2] mx-1"></div>
+
+          {/* Notifications */}
+          <NBadge value={unreadCount.value} max={99} dot processing>
+            <NButton text class="text-[--color-text-2] hover:text-[--color-primary-6] transition-colors">
+              <NIcon size={20}>
+                <NotificationsOutline />
+              </NIcon>
+            </NButton>
+          </NBadge>
+
+          {/* User Profile */}
+          <NPopover
+            trigger="click"
+            placement="bottom-end"
+            show={showUserPopover.value}
+            onUpdateShow={(v) => (showUserPopover.value = v)}
+            raw
+            displayDirective="show">
+            {{
+              trigger: () => (
+                <div class="flex items-center gap-2 cursor-pointer hover:bg-[--color-fill-2] py-1 px-2 rounded transition-colors">
+                  <NAvatar size={28} round class="bg-[--color-primary-6] text-white text-xs font-bold">
+                    {userInfo.name.charAt(0)}
+                  </NAvatar>
+                  <NIcon size={12} class="text-[--color-text-3]">
+                    <ChevronDownOutline />
+                  </NIcon>
+                </div>
+              ),
+              default: renderUserPopover
+            }}
+          </NPopover>
         </div>
       </div>
     )

@@ -38,8 +38,15 @@ export const getEnhancedFingerprint = async (): Promise<string> => {
 
       // 收集设备信息
       const deviceInfoStart = performance.now()
+      let platform = 'unknown'
+      try {
+        platform = await type()
+      } catch (e) {
+        console.warn('Failed to get OS type in fingerprint service:', e)
+      }
+
       const deviceInfo = {
-        platform: await type(),
+        platform: platform,
         screenSize: `${window.screen.width}x${window.screen.height}`,
         pixelRatio: window.devicePixelRatio,
         colorDepth: window.screen.colorDepth,

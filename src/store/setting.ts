@@ -2,16 +2,21 @@ import { defineStore } from 'pinia'
 import { type } from '@tauri-apps/plugin-os'
 import { ThemeEnum, StoresEnum, ShowModeEnum, CloseBxEnum } from '@/types/enums'
 
-const isDesktop = computed(() => {
-  return type() === 'windows' || type() === 'linux' || type() === 'macos'
-})
+const getIsDesktop = () => {
+  try {
+    const osType = type()
+    return osType === 'windows' || osType === 'linux' || osType === 'macos'
+  } catch (e) {
+    return true
+  }
+}
 
 export const useSettingStore = defineStore(StoresEnum.SETTING, {
   state: (): STO.Setting => ({
     themes: {
       content: '',
       pattern: '',
-      versatile: isDesktop.value ? 'default' : 'simple'
+      versatile: getIsDesktop() ? 'default' : 'simple'
     },
     escClose: true,
     showMode: ShowModeEnum.ICON,

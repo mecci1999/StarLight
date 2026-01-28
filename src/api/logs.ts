@@ -1,48 +1,37 @@
-/**
- * 日志中心API接口
- */
 import request from '@/services/request'
-import urls from './url'
-import {
-  LogSearchParams,
-  LogSearchResponse,
-  LogStatsParams,
-  LogStatsResponse,
-  LogExportParams,
-  LogStreamParams,
-  ExceptionAnalysisParams,
-  ExceptionAnalysisResponse,
-  LogEntry
-} from '@/types/logs'
+import type { LogSearchParams, LogSearchResponse } from '@/types/logs'
 
-const GET = <T>(url: string, params?: any, abort?: AbortController) => request.get<T>(url, params, abort)
-const POST = <T>(url: string, params?: any, abort?: AbortController) => request.post<T>(url, params, abort)
+// 搜索日志
+export function searchLogs(params: LogSearchParams) {
+  return request.post<LogSearchResponse>('/logs/v1/search', params)
+}
 
-export default {
-  /** 搜索日志 */
-  searchLogs: (params: LogSearchParams, abort?: AbortController) =>
-    GET<LogSearchResponse>(urls.logSearch, params, abort),
+// 获取日志统计
+export function getLogStats(params: any) {
+  return request.post<any>('/logs/v1/stats', params)
+}
 
-  /** 获取日志统计 */
-  getLogStats: (params: LogStatsParams, abort?: AbortController) => GET<LogStatsResponse>(urls.logStats, params, abort),
+// 上报单条日志
+export function ingestLog(data: any) {
+  return request.post<any>('/logs/v1/ingest', data)
+}
 
-  /** 导出日志 */
-  exportLogs: (params: LogExportParams, abort?: AbortController) =>
-    POST<{ downloadUrl: string; filename: string }>(urls.logExport, params, abort),
+// 批量上报日志
+export function batchIngestLogs(logs: any[]) {
+  return request.post<any>('/logs/v1/ingest/batch', { logs })
+}
 
-  /** 创建日志流连接 */
-  createLogStream: (params: LogStreamParams, abort?: AbortController) =>
-    GET<{ streamId: string; wsUrl: string }>(urls.logStream, params, abort),
+// 导出日志
+export function exportLogs(params: any) {
+  return request.post<any>('/logs/v1/export', params)
+}
 
-  /** 摄取单条日志 */
-  ingestLog: (log: Omit<LogEntry, 'id'>, abort?: AbortController) =>
-    POST<{ success: boolean; logId: string }>(urls.logIngest, log, abort),
+// 创建日志流
+export function createLogStream(params: any) {
+  return request.post<any>('/logs/v1/stream', params)
+}
 
-  /** 批量摄取日志 */
-  batchIngestLogs: (logs: Omit<LogEntry, 'id'>[], abort?: AbortController) =>
-    POST<{ success: boolean; processedCount: number; failedCount: number }>(urls.logBatchIngest, { logs }, abort),
-
-  /** 异常分析 */
-  analyzeExceptions: (params: ExceptionAnalysisParams, abort?: AbortController) =>
-    GET<ExceptionAnalysisResponse>(urls.exceptionAnalysis, params, abort)
+// 分析异常
+export function analyzeExceptions(params: any) {
+  return request.post<any>('/logs/v1/analysis/exceptions', params)
 }

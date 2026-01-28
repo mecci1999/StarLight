@@ -1,4 +1,4 @@
-import { NIcon, NPopover, NButton } from 'naive-ui'
+import { NIcon, NPopover, NTooltip } from 'naive-ui'
 import { useRouter, useRoute } from 'vue-router'
 import {
   ServerOutline,
@@ -11,10 +11,11 @@ import {
   PeopleOutline,
   SettingsOutline,
   ConstructOutline,
-  EllipsisHorizontalOutline
+  EllipsisHorizontalOutline,
+  GridOutline
 } from '@vicons/ionicons5'
 import { VueDraggable } from 'vue-draggable-plus'
-import { markRaw } from 'vue'
+import { markRaw, defineComponent, ref, watch, computed, h } from 'vue'
 import './index.scss'
 
 export default defineComponent({
@@ -24,9 +25,8 @@ export default defineComponent({
     const route = useRoute()
 
     const activeModule = ref('service-overview')
-    const maxVisibleItems = 8 // 最多显示8个主模块
+    const maxVisibleItems = 10
 
-    // 监听路由变化更新激活状态
     watch(
       () => route.path,
       (newPath) => {
@@ -68,144 +68,146 @@ export default defineComponent({
       { immediate: true }
     )
 
-    // 主模块配置
     const allModules = ref([
       {
         key: 'service-overview',
-        label: '服务总览',
-        icon: markRaw(ServerOutline),
+        label: 'Dashboards',
+        icon: markRaw(GridOutline),
         route: '/home/service-overview'
       },
       {
         key: 'performance',
-        label: '性能监控',
-        icon: markRaw(StatsChartOutline),
+        label: 'Infrastructure',
+        icon: markRaw(ServerOutline),
         route: '/home/real-time-monitor'
       },
       {
-        key: 'alert',
-        label: '告警管理',
-        icon: markRaw(NotificationsOutline),
-        route: '/home/alert-list'
+        key: 'tracing',
+        label: 'APM',
+        icon: markRaw(GitNetworkOutline),
+        route: '/home/tracing'
       },
       {
         key: 'log',
-        label: '日志中心',
+        label: 'Logs',
         icon: markRaw(DocumentTextOutline),
         route: '/home/log-center'
       },
       {
-        key: 'tracing',
-        label: '调用链追踪',
-        icon: markRaw(GitBranchOutline),
-        route: '/home/tracing'
+        key: 'alert',
+        label: 'Monitors',
+        icon: markRaw(NotificationsOutline),
+        route: '/home/alert-list'
       },
       {
         key: 'config',
-        label: '配置管理',
+        label: 'Config',
         icon: markRaw(SettingsOutline),
         route: '/home/config-center'
       },
       {
         key: 'registry',
-        label: '服务注册',
-        icon: markRaw(GitNetworkOutline),
+        label: 'Registry',
+        icon: markRaw(GitBranchOutline),
         route: '/home/registry-view'
       },
       {
+        key: 'testing',
+        label: 'Synthetics',
+        icon: markRaw(ConstructOutline),
+        route: '/home/api-testing'
+      },
+      {
         key: 'user',
-        label: '用户权限',
+        label: 'Organization',
         icon: markRaw(PeopleOutline),
         route: '/home/user-management'
       },
       {
         key: 'system',
-        label: '系统设置',
-        icon: markRaw(SettingsOutline),
+        label: 'Integrations',
+        icon: markRaw(CogOutline),
         route: '/home/data-source'
       },
       {
         key: 'audit',
-        label: '审计事件',
+        label: 'Audit Trail',
         icon: markRaw(DocumentTextOutline),
         route: '/home/audit-logs'
-      },
-      {
-        key: 'testing',
-        label: '测试调试',
-        icon: markRaw(ConstructOutline),
-        route: '/home/api-testing'
       }
     ])
 
-    // 可见的模块和更多模块
     const visibleModules = computed(() => allModules.value.slice(0, maxVisibleItems))
     const moreModules = computed(() => allModules.value.slice(maxVisibleItems))
 
-    // 处理模块选择
     const handleModuleSelect = (module: any) => {
       activeModule.value = module.key
       router.push(module.route)
     }
 
-    // 拖拽排序处理
     const onDragEnd = (evt: any) => {
-      // 这里可以保存用户的排序偏好到本地存储或服务器
       console.log('模块排序已更新:', allModules.value)
     }
 
-    // 渲染模块项
     const renderModuleItem = (module: any, isInMore = false) => {
       const isActive = activeModule.value === module.key
-      return (
+      const itemContent = (
         <div
-          key={module.key}
           class={[
             'module-item',
-            'flex flex-col items-center justify-center',
-            'w-64px h-64px rounded-8px cursor-pointer transition-all duration-200',
-            'hover:bg-[--color-bg-5]  hover:text-[--color-primary-5]',
-            isActive ? 'bg-[--color-bg-5] text-[--color-primary-6]' : 'text-[--color-text-2]',
-            isInMore ? 'mb-8px' : ''
+            'flex items-center justify-center',
+            'w-40px h-40px rounded-md cursor-pointer transition-all duration-200',
+            'hover:bg-[var(--color-fill-3)] hover:text-[var(--color-text-1)]',
+            isActive ? 'bg-[var(--color-primary-6)] text-white' : 'text-[var(--color-text-3)]',
+            isInMore ? 'mb-2' : ''
           ]}
           onClick={() => handleModuleSelect(module)}>
-          <NIcon size={20} class="mb-4px">
-            {h(module.icon)}
-          </NIcon>
-          <span class="text-10px font-medium leading-none">{module.label}</span>
+          <NIcon size={22}>{h(module.icon)}</NIcon>
         </div>
+      )
+
+      if (isInMore) return itemContent
+
+      return (
+        <NTooltip placement="right" trigger="hover">
+          {{
+            trigger: () => <div key={module.key}>{itemContent}</div>,
+            default: () => module.label
+          }}
+        </NTooltip>
       )
     }
 
     return () => (
-      <div class="app-home__left w-80px h-full bg-[--color-fill-2] flex flex-col">
-        {/* 主模块区域 */}
-        <div class="flex-1 p-8px pt-40px">
+      <div class="app-home__left w-56px h-full bg-[#1e1e1e] flex flex-col items-center py-4 border-r border-[#333]">
+        <div class="flex-1 w-full flex flex-col items-center gap-2">
           <VueDraggable
             modelValue={allModules.value}
             onEnd={onDragEnd}
             animation={200}
             ghostClass="ghost-item"
-            chosenClass="chosen-item">
-            <div class="grid grid-cols-1 gap-8px">{visibleModules.value.map((module) => renderModuleItem(module))}</div>
+            chosenClass="chosen-item"
+            class="flex flex-col gap-2">
+            {visibleModules.value.map((module) => renderModuleItem(module))}
           </VueDraggable>
         </div>
 
-        {/* 更多模块 */}
         {moreModules.value.length > 0 && (
-          <div class="p-8px">
-            <NPopover trigger="hover" placement="right">
+          <div class="mt-2">
+            <NPopover
+              trigger="hover"
+              placement="right"
+              style={{ padding: '8px', backgroundColor: 'var(--color-bg-5)' }}>
               {{
                 trigger: () => (
-                  <div class="flex flex-col items-center justify-center w-64px h-64px rounded-8px cursor-pointer transition-all duration-200 hover:bg-[--color-bg-5] text-[--color-text-2] hover:text-[--color-primary-5]">
-                    <NIcon size={20} class="mb-4px">
-                      {h(EllipsisHorizontalOutline)}
+                  <div class="flex items-center justify-center w-40px h-40px rounded-md cursor-pointer transition-all duration-200 hover:bg-[--color-fill-3] text-[--color-text-3] hover:text-[--color-text-1]">
+                    <NIcon size={22}>
+                      <EllipsisHorizontalOutline />
                     </NIcon>
-                    <span class="text-10px font-medium leading-none">更多</span>
                   </div>
                 ),
                 default: () => (
-                  <div class="p-8px min-w-80px">
+                  <div class="grid grid-cols-1 gap-2">
                     {moreModules.value.map((module) => renderModuleItem(module, true))}
                   </div>
                 )

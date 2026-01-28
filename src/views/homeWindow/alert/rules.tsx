@@ -14,6 +14,8 @@ import {
   NSpin
 } from 'naive-ui'
 import { ref, h, onMounted } from 'vue'
+import { NotificationsOutline } from '@vicons/ionicons5'
+import SectionHeader from '@/components/common/SectionHeader'
 import { fetchAlertRules, saveAlertRule, updateAlertRule, deleteAlertRule } from '@/mock/api'
 import type { AlertRuleItem } from '@/types/monitor'
 
@@ -253,14 +255,15 @@ export default defineComponent({
     }
 
     return () => (
-      <div class="p-24px h-full">
-        <div class="mb-16px">
-          <h1 class="text-20px font-600 text-[--color-text-1] m-0">告警规则配置</h1>
-          <p class="text-14px text-[--color-text-3] mt-8px mb-0">支持设置阈值告警、自定义条件、通知渠道</p>
-        </div>
+      <div class="p-24px h-full bg-gray-50/50 flex flex-col overflow-hidden">
+        <SectionHeader
+          title="告警规则配置"
+          subtitle="支持设置阈值告警、自定义条件、通知渠道"
+          icon={NotificationsOutline}
+        />
 
         {/* 操作面板 */}
-        <NCard class="mb-16px">
+        <NCard bordered={false} class="mb-4 shadow-sm rounded-lg">
           <NSpace>
             <NButton type="primary" onClick={handleAdd}>
               + 添加规则
@@ -273,30 +276,39 @@ export default defineComponent({
         </NCard>
 
         {/* 规则列表 */}
-        <NCard>
+        <NCard bordered={false} class="flex-1 shadow-sm rounded-lg" contentStyle={{ padding: 0 }}>
           {loading.value ? (
             <div class="py-40px flex items-center justify-center">
               <NSpin size="large" />
             </div>
           ) : (
-            <NDataTable
-              columns={columns}
-              data={rulesData.value}
-              pagination={{
-                pageSize: 10,
-                showSizePicker: true,
-                pageSizes: [10, 20, 50]
-              }}
-              bordered={false}
-              singleLine={false}
-              rowKey={(row: any) => row.id}
-            />
+            <div class="p-4 h-full flex flex-col">
+              <NDataTable
+                class="flex-1"
+                flex-height
+                columns={columns}
+                data={rulesData.value}
+                pagination={{
+                  pageSize: 10,
+                  showSizePicker: true,
+                  pageSizes: [10, 20, 50]
+                }}
+                bordered={false}
+                singleLine={false}
+                rowKey={(row: any) => row.id}
+              />
+            </div>
           )}
         </NCard>
 
         {/* 添加规则模态框 */}
-        <NModal v-model:show={showAddModal.value} preset="dialog" title="添加告警规则">
-          <NForm model={formData.value} labelPlacement="left" labelWidth={100}>
+        <NModal
+          v-model:show={showAddModal.value}
+          preset="dialog"
+          title="添加告警规则"
+          bordered={false}
+          class="shadow-lg rounded-lg">
+          <NForm model={formData.value} labelPlacement="left" labelWidth={100} class="mt-4">
             <NFormItem label="规则名称" required>
               <NInput v-model:value={formData.value.name} placeholder="请输入规则名称" />
             </NFormItem>
@@ -338,8 +350,13 @@ export default defineComponent({
         </NModal>
 
         {/* 编辑规则模态框 */}
-        <NModal v-model:show={showEditModal.value} preset="dialog" title="编辑告警规则">
-          <NForm model={formData.value} labelPlacement="left" labelWidth={100}>
+        <NModal
+          v-model:show={showEditModal.value}
+          preset="dialog"
+          title="编辑告警规则"
+          bordered={false}
+          class="shadow-lg rounded-lg">
+          <NForm model={formData.value} labelPlacement="left" labelWidth={100} class="mt-4">
             <NFormItem label="规则名称" required>
               <NInput v-model:value={formData.value.name} placeholder="请输入规则名称" />
             </NFormItem>

@@ -4,9 +4,13 @@
 import { useSettingStore } from '@/store/setting'
 import { useNetwork } from '@vueuse/core'
 import { NAvatar, NButton, NCheckbox, NFlex, NInput, NQrCode, NScrollbar, NSkeleton } from 'naive-ui'
-import { getCookie } from '@/utils/Cookie'
-import api from '@/api'
+import { getCookie, setCookie } from '@/utils/Cookie'
+import * as api from '@/api'
 import { QrCodeStatus } from '@/types/enums'
+import { useWindow } from '@/hooks/useWindow'
+import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
+import { type } from '@tauri-apps/plugin-os'
+import { useRouter } from 'vue-router'
 // 在文件顶部添加导入语句
 import RefreshIcon from '@/assets/icons/refresh.svg'
 
@@ -23,6 +27,16 @@ export default defineComponent({
     const { isOnline } = useNetwork()
     const settingStore = useSettingStore()
     const { login } = storeToRefs(settingStore)
+    const { createWebviewWindow } = useWindow()
+
+    const getIsDesktop = () => {
+      try {
+        const osType = type()
+        return osType === 'windows' || osType === 'linux' || osType === 'macos'
+      } catch (e) {
+        return true
+      }
+    }
 
     const TOKEN = ref(getCookie('ACCESS_TOKEN'))
     const REFRESH_TOKEN = ref(getCookie('REFRESH_TOKEN'))
@@ -50,7 +64,7 @@ export default defineComponent({
         state.statusText = '正在生成二维码...'
 
         // 调用API获取二维码key
-        const response = await api.getLoginQrCode()
+        const response = (await api.getQRCodeKey()) as any
 
         if (response) {
           // 生成二维码内容，这里使用key作为二维码内容
@@ -93,7 +107,7 @@ export default defineComponent({
       if (!state.qrCodeKey) return
 
       try {
-        const response = await api.qrcodeStatus(state.qrCodeKey)
+        const response = (await api.getQRCodeStatus({ key: state.qrCodeKey })) as any
 
         if (response) {
           const status = response.status
@@ -112,15 +126,44 @@ export default defineComponent({
               state.statusText = '登录成功'
               stopPolling()
 
+              // 手动保存 Token
+              if (response.token) {
+                setCookie('ACCESS_TOKEN', response.token, 7)
+              } else if (response.accessToken) {
+                setCookie('ACCESS_TOKEN', response.accessToken, 7)
+              }
+              if (response.refreshToken) {
+                setCookie('REFRESH_TOKEN', response.refreshToken, 30)
+              }
+
               // 处理登录成功逻辑
               if (response.userInfo?.userId) {
                 // 这里可以根据需要处理用户信息
                 // 可能需要调用其他API获取完整的登录token
 
                 // 跳转到主页面或关闭登录窗口
-                setTimeout(() => {
-                  // 这里根据你的路由配置进行跳转
-                  router.push('/home')
+                const isOnboardingCompleted = localStorage.getItem('onboarding_completed') === 'true'
+                const isDesktop = getIsDesktop()
+
+                let targetRoute = 'home'
+                if (isDesktop) {
+                  targetRoute = isOnboardingCompleted ? 'home' : 'onboarding'
+                } else {
+                  targetRoute = isOnboardingCompleted ? 'mobile-home' : 'mobile-onboarding-notice'
+                }
+
+                setTimeout(async () => {
+                  if (isDesktop) {
+                    const win = getCurrentWebviewWindow()
+                    // 如果已经在主窗口（例如被踢出后的重新登录），直接路由跳转，不创建新窗口
+                    if (win.label === 'StarLight' || win.label === 'home' || win.label === 'onboarding') {
+                      router.push({ name: targetRoute })
+                    } else {
+                      await createWebviewWindow('StarLight', targetRoute, 1080, 720, 'login', true)
+                    }
+                  } else {
+                    router.push({ name: targetRoute })
+                  }
                 }, 1000)
               }
               break

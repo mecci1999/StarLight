@@ -38,26 +38,7 @@ export default defineComponent({
 
     // 二级菜单配置
     const subMenuConfig = {
-      'service-overview': [
-        {
-          key: 'service-topology',
-          label: '服务拓扑图',
-          icon: GitNetworkOutline,
-          route: '/home/service-topology'
-        },
-        {
-          key: 'service-list',
-          label: '服务列表',
-          icon: ListOutline,
-          route: '/home/service-list'
-        },
-        {
-          key: 'instance-monitor',
-          label: '实例监控',
-          icon: EyeOutline,
-          route: '/home/instance-monitor'
-        }
-      ],
+      'service-overview': [],
       performance: [
         {
           key: 'real-time-monitor',
@@ -240,6 +221,7 @@ export default defineComponent({
     const currentModule = computed(() => {
       const path = route.path
       const moduleMap: Record<string, string> = {
+        '/home/service-overview': 'service-overview',
         '/home/service-topology': 'service-overview',
         '/home/service-list': 'service-overview',
         '/home/instance-monitor': 'service-overview',

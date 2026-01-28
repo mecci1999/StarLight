@@ -6,26 +6,27 @@ import {
   NButton,
   NInput,
   NSelect,
-  NDatePicker,
   NSpin,
   NProgress,
   NTooltip,
   NTimeline,
   NTimelineItem
 } from 'naive-ui'
-import { ref, h } from 'vue'
-import { fetchAlerts } from '@/mock/api'
+import { ref, h, defineComponent, watch, onMounted } from 'vue'
+import { fetchAlerts } from '@/api'
 import type { AlertItem } from '@/types/monitor'
 import SectionHeader from '@/components/common/SectionHeader'
 import { AlertCircleOutline, CheckmarkCircleOutline, WarningOutline, CloseCircleOutline } from '@vicons/ionicons5'
+import { useTimeStore } from '@/store/useTimeStore'
+import dayjs from 'dayjs'
 
 export default defineComponent({
   name: 'AlertList',
   setup() {
+    const timeStore = useTimeStore()
     const searchText = ref('')
     const selectedService = ref('')
     const selectedLevel = ref('')
-    const dateRange = ref<[number, number] | null>(null)
 
     const serviceOptions = [
       { label: 'All Services', value: '' },
@@ -147,7 +148,18 @@ export default defineComponent({
     const handleQuery = async () => {
       loading.value = true
       const list = await fetchAlerts({ level: selectedLevel.value as any })
-      alertData.value = list.filter((i) => (searchText.value ? i.message.includes(searchText.value) : true))
+      alertData.value = list.filter((i) => {
+        const matchSearch = searchText.value ? i.message.includes(searchText.value) : true
+        // Try to parse time. Mock API usually returns formatted string like "2023-10-27 10:00:00"
+        const alertTime = dayjs(i.time).valueOf()
+        // If invalid date (mock might return relative time string like "2 mins ago"), skip time filter or handle it.
+        // Assuming standard format for now or ignoring time filter if parse fails.
+        let matchTime = true
+        if (!isNaN(alertTime)) {
+          matchTime = alertTime >= timeStore.startTime && alertTime <= timeStore.endTime
+        }
+        return matchSearch && matchTime
+      })
       loading.value = false
     }
 
@@ -158,10 +170,14 @@ export default defineComponent({
       await handleQuery()
     }
 
-    handleQuery()
+    watch(() => [timeStore.startTime, timeStore.endTime], handleQuery)
+
+    onMounted(() => {
+      handleQuery()
+    })
 
     return () => (
-      <div class="p-24px h-full flex flex-col">
+      <div class="p-24px h-full flex flex-col bg-gray-50/50 overflow-hidden">
         <SectionHeader
           title="Alert History"
           subtitle="Comprehensive view of all system alerts and incidents."
@@ -169,7 +185,7 @@ export default defineComponent({
         />
 
         {/* Filters */}
-        <NCard class="mb-16px" contentStyle={{ padding: '16px' }}>
+        <NCard class="mb-16px shadow-sm rounded-lg" bordered={false} contentStyle={{ padding: '16px' }}>
           <div class="flex justify-between items-center">
             <NSpace>
               <NInput v-model:value={searchText.value} placeholder="Search alerts..." style={{ width: '240px' }} />
@@ -185,7 +201,6 @@ export default defineComponent({
                 placeholder="Severity"
                 style={{ width: '140px' }}
               />
-              <NDatePicker v-model:value={dateRange.value} type="datetimerange" clearable style={{ width: '300px' }} />
             </NSpace>
             <NSpace>
               <NButton type="primary" onClick={handleQuery}>
@@ -198,72 +213,38 @@ export default defineComponent({
 
         {/* Alert Stats */}
         <div class="grid grid-cols-4 gap-16px mb-16px">
-          <NCard contentStyle={{ padding: '16px' }}>
-            <div class="flex items-center justify-between">
-              <div>
-                <div class="text-12px text-[--color-text-3] uppercase font-bold">Active Alerts</div>
-                <div class="text-28px font-700 text-[--color-error] mt-4px">7</div>
-              </div>
-              <AlertCircleOutline class="text-32px text-[--color-error] opacity-20" />
-            </div>
-            <NProgress type="line" percentage={30} showIndicator={false} color="#d03050" height={4} class="mt-12px" />
+          <NCard size="small" bordered={false} class="shadow-[var(--shadow-center-1)]">
+            <div class="text-[--color-text-3] text-xs font-medium uppercase tracking-wider">Total Alerts</div>
+            <div class="text-2xl font-bold mt-1">{alertData.value.length}</div>
           </NCard>
-          <NCard contentStyle={{ padding: '16px' }}>
-            <div class="flex items-center justify-between">
-              <div>
-                <div class="text-12px text-[--color-text-3] uppercase font-bold">Critical</div>
-                <div class="text-28px font-700 text-[--color-error] mt-4px">2</div>
-              </div>
-              <WarningOutline class="text-32px text-[--color-error] opacity-20" />
+          <NCard size="small" bordered={false} class="shadow-[var(--shadow-center-1)]">
+            <div class="text-[--color-text-3] text-xs font-medium uppercase tracking-wider">Critical</div>
+            <div class="text-2xl font-bold mt-1 text-[--color-danger-6]">
+              {alertData.value.filter((a) => a.level === 'critical').length}
             </div>
-            <div class="text-12px text-[--color-text-3] mt-12px">Avg Resolution: 15m</div>
           </NCard>
-          <NCard contentStyle={{ padding: '16px' }}>
-            <div class="flex items-center justify-between">
-              <div>
-                <div class="text-12px text-[--color-text-3] uppercase font-bold">Warning</div>
-                <div class="text-28px font-700 text-[--color-warning] mt-4px">3</div>
-              </div>
-              <WarningOutline class="text-32px text-[--color-warning] opacity-20" />
+          <NCard size="small" bordered={false} class="shadow-[var(--shadow-center-1)]">
+            <div class="text-[--color-text-3] text-xs font-medium uppercase tracking-wider">Active</div>
+            <div class="text-2xl font-bold mt-1 text-[--color-warning-6]">
+              {alertData.value.filter((a) => a.status === 'active').length}
             </div>
-            <div class="text-12px text-[--color-text-3] mt-12px">Avg Resolution: 45m</div>
           </NCard>
-          <NCard contentStyle={{ padding: '16px' }}>
-            <div class="flex items-center justify-between">
-              <div>
-                <div class="text-12px text-[--color-text-3] uppercase font-bold">Resolved Today</div>
-                <div class="text-28px font-700 text-[--color-success] mt-4px">15</div>
-              </div>
-              <CheckmarkCircleOutline class="text-32px text-[--color-success] opacity-20" />
-            </div>
-            <div class="text-12px text-[--color-text-3] mt-12px">
-              Efficiency: <span class="text-green-500">+12%</span>
+          <NCard size="small" bordered={false} class="shadow-[var(--shadow-center-1)]">
+            <div class="text-[--color-text-3] text-xs font-medium uppercase tracking-wider">Resolved</div>
+            <div class="text-2xl font-bold mt-1 text-[--color-success-6]">
+              {alertData.value.filter((a) => a.status === 'resolved').length}
             </div>
           </NCard>
         </div>
 
-        {/* Alert List */}
-        <NCard class="flex-1" contentStyle={{ padding: 0 }}>
-          {loading.value ? (
-            <div class="py-40px flex items-center justify-center">
-              <NSpin size="large" />
-            </div>
-          ) : (
-            <NDataTable
-              columns={columns}
-              data={alertData.value}
-              pagination={{
-                pageSize: 10,
-                showSizePicker: true,
-                pageSizes: [10, 20, 50]
-              }}
-              bordered={false}
-              singleLine={false}
-              rowKey={(row: any) => row.id}
-              class="h-full"
-              flex-height
-            />
-          )}
+        <NCard class="flex-1 shadow-[var(--shadow-center-1)] rounded-lg" bordered={false} contentStyle={{ padding: 0 }}>
+          <NDataTable
+            columns={columns}
+            data={alertData.value}
+            loading={loading.value}
+            flex-height={true}
+            style={{ height: '100%' }}
+          />
         </NCard>
       </div>
     )

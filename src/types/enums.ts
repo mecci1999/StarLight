@@ -130,7 +130,9 @@ export enum URLEnum {
   USER = '/user', // 用户模块
   AUTH = '/auth', // 认证模块
   CONFIG = '/config', // 配置模块
-  LOGS = '/logs' // 日志模块
+  LOGS = '/logs', // 日志模块
+  METRICS = '/metrics', // 指标模块
+  SUBSCRIPTION = '/subscription' // 订阅模块
 }
 
 /**

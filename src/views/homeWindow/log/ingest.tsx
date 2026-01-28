@@ -1,7 +1,7 @@
 /**
  * 日志摄取页面
  */
-import { defineComponent, ref, reactive, onMounted, computed } from 'vue'
+import { defineComponent, ref, reactive, onMounted, computed, h } from 'vue'
 import {
   NCard,
   NSpace,
@@ -9,18 +9,14 @@ import {
   NInput,
   NSelect,
   NDataTable,
-  NPagination,
   NTag,
   NModal,
-  NCode,
   NEmpty,
   NSpin,
-  NTooltip,
   NIcon,
   NGrid,
   NGridItem,
   NStatistic,
-  NProgress,
   NUpload,
   NUploadDragger,
   NText,
@@ -46,6 +42,7 @@ import { LogLevelEnum, LogSourceEnum } from '@/types/logs'
 import type { LogIngestParams, LogBatchIngestParams, LogEntry } from '@/types/logs'
 import api from '@/api'
 import dayjs from 'dayjs'
+import SectionHeader from '@/components/common/SectionHeader'
 
 export default defineComponent({
   name: 'LogIngest',
@@ -386,215 +383,219 @@ export default defineComponent({
     })
 
     return () => (
-      <div class="log-ingest-container">
-        {/* 统计概览 */}
-        <NCard class="mb-4">
-          <NGrid cols={4} xGap={16}>
-            <NGridItem>
-              <NStatistic label="总摄取量" value={ingestStats.totalIngested}>
-                {{
-                  prefix: () => h(NIcon, { component: DocumentTextOutline, color: '#1890ff' })
-                }}
-              </NStatistic>
-            </NGridItem>
-            <NGridItem>
-              <NStatistic label="成功率" value={`${successRate.value}%`}>
-                {{
-                  prefix: () => h(NIcon, { component: CheckmarkCircleOutline, color: '#52c41a' })
-                }}
-              </NStatistic>
-            </NGridItem>
-            <NGridItem>
-              <NStatistic label="错误数量" value={ingestStats.errorCount}>
-                {{
-                  prefix: () => h(NIcon, { component: CloseCircleOutline, color: '#ff4d4f' })
-                }}
-              </NStatistic>
-            </NGridItem>
-            <NGridItem>
-              <NStatistic label="最后摄取" value={ingestStats.lastIngestTime || '暂无'}>
-                {{
-                  prefix: () => h(NIcon, { component: TimeOutline, color: '#722ed1' })
-                }}
-              </NStatistic>
-            </NGridItem>
-          </NGrid>
-        </NCard>
+      <div class="p-24px h-full bg-gray-50/50 flex flex-col overflow-hidden">
+        <SectionHeader title="日志摄取" subtitle="支持单条调试与批量文件导入" icon={CloudUploadOutline} />
 
-        {/* 摄取操作 */}
-        <NCard class="mb-4">
-          <NTabs v-model:value={activeTab.value} type="line">
-            {/* 单条摄取 */}
-            <NTabPane name="single" tab="单条摄取">
-              <NSpace vertical size="large">
-                <NAlert type="info" title="单条日志摄取">
-                  手动输入单条日志信息进行摄取，适用于测试和调试场景。
-                </NAlert>
+        <div class="flex-1 overflow-auto">
+          {/* 统计概览 */}
+          <NCard bordered={false} class="mb-4 shadow-sm rounded-lg">
+            <NGrid cols={4} xGap={16}>
+              <NGridItem>
+                <NStatistic label="总摄取量" value={ingestStats.totalIngested}>
+                  {{
+                    prefix: () => h(NIcon, { component: DocumentTextOutline, color: '#1890ff' })
+                  }}
+                </NStatistic>
+              </NGridItem>
+              <NGridItem>
+                <NStatistic label="成功率" value={`${successRate.value}%`}>
+                  {{
+                    prefix: () => h(NIcon, { component: CheckmarkCircleOutline, color: '#52c41a' })
+                  }}
+                </NStatistic>
+              </NGridItem>
+              <NGridItem>
+                <NStatistic label="错误数量" value={ingestStats.errorCount}>
+                  {{
+                    prefix: () => h(NIcon, { component: CloseCircleOutline, color: '#ff4d4f' })
+                  }}
+                </NStatistic>
+              </NGridItem>
+              <NGridItem>
+                <NStatistic label="最后摄取" value={ingestStats.lastIngestTime || '暂无'}>
+                  {{
+                    prefix: () => h(NIcon, { component: TimeOutline, color: '#722ed1' })
+                  }}
+                </NStatistic>
+              </NGridItem>
+            </NGrid>
+          </NCard>
 
-                <NForm labelPlacement="left" labelWidth="100px">
-                  <NGrid cols={2} xGap={16}>
-                    <NGridItem>
-                      <NFormItem label="时间戳">
-                        <NInput v-model:value={singleLogForm.timestamp} placeholder="YYYY-MM-DD HH:mm:ss" />
-                      </NFormItem>
-                    </NGridItem>
-                    <NGridItem>
-                      <NFormItem label="日志级别">
-                        <NSelect
-                          v-model:value={singleLogForm.level}
-                          options={levelOptions}
-                          placeholder="选择日志级别"
-                        />
-                      </NFormItem>
-                    </NGridItem>
-                    <NGridItem>
-                      <NFormItem label="服务名称">
-                        <NInput v-model:value={singleLogForm.service} placeholder="输入服务名称" />
-                      </NFormItem>
-                    </NGridItem>
-                    <NGridItem>
-                      <NFormItem label="主机名">
-                        <NInput v-model:value={singleLogForm.hostname} placeholder="输入主机名" />
-                      </NFormItem>
-                    </NGridItem>
-                    <NGridItem span={2}>
-                      <NFormItem label="容器ID">
-                        <NInput v-model:value={singleLogForm.containerId} placeholder="输入容器ID（可选）" />
-                      </NFormItem>
-                    </NGridItem>
-                    <NGridItem span={2}>
-                      <NFormItem label="日志消息">
-                        <NInput
-                          v-model:value={singleLogForm.message}
-                          type="textarea"
-                          placeholder="输入日志消息内容"
-                          rows={4}
-                        />
-                      </NFormItem>
-                    </NGridItem>
-                  </NGrid>
+          {/* 摄取操作 */}
+          <NCard bordered={false} class="mb-4 shadow-sm rounded-lg">
+            <NTabs v-model:value={activeTab.value} type="line">
+              {/* 单条摄取 */}
+              <NTabPane name="single" tab="单条摄取">
+                <NSpace vertical size="large">
+                  <NAlert type="info" title="单条日志摄取">
+                    手动输入单条日志信息进行摄取，适用于测试和调试场景。
+                  </NAlert>
 
-                  <div class="mt-4">
-                    <NButton type="primary" size="large" onClick={ingestSingleLog} loading={loading.value}>
-                      <NIcon component={CloudUploadOutline} class="mr-2" />
-                      摄取日志
-                    </NButton>
-                  </div>
-                </NForm>
-              </NSpace>
-            </NTabPane>
+                  <NForm labelPlacement="left" labelWidth="100px">
+                    <NGrid cols={2} xGap={16}>
+                      <NGridItem>
+                        <NFormItem label="时间戳">
+                          <NInput v-model:value={singleLogForm.timestamp} placeholder="YYYY-MM-DD HH:mm:ss" />
+                        </NFormItem>
+                      </NGridItem>
+                      <NGridItem>
+                        <NFormItem label="日志级别">
+                          <NSelect
+                            v-model:value={singleLogForm.level}
+                            options={levelOptions}
+                            placeholder="选择日志级别"
+                          />
+                        </NFormItem>
+                      </NGridItem>
+                      <NGridItem>
+                        <NFormItem label="服务名称">
+                          <NInput v-model:value={singleLogForm.service} placeholder="输入服务名称" />
+                        </NFormItem>
+                      </NGridItem>
+                      <NGridItem>
+                        <NFormItem label="主机名">
+                          <NInput v-model:value={singleLogForm.hostname} placeholder="输入主机名" />
+                        </NFormItem>
+                      </NGridItem>
+                      <NGridItem span={2}>
+                        <NFormItem label="容器ID">
+                          <NInput v-model:value={singleLogForm.containerId} placeholder="输入容器ID（可选）" />
+                        </NFormItem>
+                      </NGridItem>
+                      <NGridItem span={2}>
+                        <NFormItem label="日志消息">
+                          <NInput
+                            v-model:value={singleLogForm.message}
+                            type="textarea"
+                            placeholder="输入日志消息内容"
+                            rows={4}
+                          />
+                        </NFormItem>
+                      </NGridItem>
+                    </NGrid>
 
-            {/* 批量摄取 */}
-            <NTabPane name="batch" tab="批量摄取">
-              <NSpace vertical size="large">
-                <NAlert type="info" title="批量日志摄取">
-                  支持上传JSON、CSV、纯文本格式的日志文件进行批量摄取。
-                </NAlert>
-
-                <div class="flex justify-between items-center">
-                  <NSpace>
-                    <NText>文件格式:</NText>
-                    <NSelect v-model:value={batchConfig.format} options={formatOptions} style={{ width: '120px' }} />
-
-                    <NButton size="small" onClick={() => (showConfigModal.value = true)}>
-                      <NIcon component={SettingsOutline} class="mr-1" />
-                      配置
-                    </NButton>
-                  </NSpace>
-                </div>
-
-                <NUpload accept=".json,.csv,.txt,.log" customRequest={handleFileUpload} showFileList={false}>
-                  <NUploadDragger>
-                    <div class="text-center py-8">
-                      <NIcon size={48} component={CloudUploadOutline} class="text-gray-400 mb-4" />
-                      <NText class="text-lg">点击或拖拽文件到此区域上传</NText>
-                      <div class="text-sm text-gray-500 mt-2">支持 .json, .csv, .txt, .log 格式文件</div>
+                    <div class="mt-4">
+                      <NButton type="primary" size="large" onClick={ingestSingleLog} loading={loading.value}>
+                        <NIcon component={CloudUploadOutline} class="mr-2" />
+                        摄取日志
+                      </NButton>
                     </div>
-                  </NUploadDragger>
-                </NUpload>
+                  </NForm>
+                </NSpace>
+              </NTabPane>
 
-                {uploadLoading.value && (
-                  <div class="text-center py-4">
-                    <NSpin size="large" />
-                    <div class="mt-2 text-gray-500">正在处理文件...</div>
+              {/* 批量摄取 */}
+              <NTabPane name="batch" tab="批量摄取">
+                <NSpace vertical size="large">
+                  <NAlert type="info" title="批量日志摄取">
+                    支持上传JSON、CSV、纯文本格式的日志文件进行批量摄取。
+                  </NAlert>
+
+                  <div class="flex justify-between items-center">
+                    <NSpace>
+                      <NText>文件格式:</NText>
+                      <NSelect v-model:value={batchConfig.format} options={formatOptions} style={{ width: '120px' }} />
+
+                      <NButton size="small" onClick={() => (showConfigModal.value = true)}>
+                        <NIcon component={SettingsOutline} class="mr-1" />
+                        配置
+                      </NButton>
+                    </NSpace>
                   </div>
-                )}
-              </NSpace>
-            </NTabPane>
-          </NTabs>
-        </NCard>
 
-        {/* 摄取历史 */}
-        <NCard>
-          <div class="flex justify-between items-center mb-4">
-            <h3 class="text-lg font-medium">摄取历史</h3>
-            <NButton size="small" onClick={refreshHistory}>
-              <NIcon component={RefreshOutline} class="mr-1" />
-              刷新
-            </NButton>
-          </div>
+                  <NUpload accept=".json,.csv,.txt,.log" customRequest={handleFileUpload} showFileList={false}>
+                    <NUploadDragger>
+                      <div class="text-center py-8">
+                        <NIcon size={48} component={CloudUploadOutline} class="text-gray-400 mb-4" />
+                        <NText class="text-lg">点击或拖拽文件到此区域上传</NText>
+                        <div class="text-sm text-gray-500 mt-2">支持 .json, .csv, .txt, .log 格式文件</div>
+                      </div>
+                    </NUploadDragger>
+                  </NUpload>
 
-          {ingestHistory.value.length > 0 ? (
-            <NDataTable
-              columns={historyColumns}
-              data={ingestHistory.value}
-              bordered={false}
-              striped
-              size="small"
-              maxHeight={400}
-            />
-          ) : (
-            <NEmpty description="暂无摄取历史" />
-          )}
-        </NCard>
+                  {uploadLoading.value && (
+                    <div class="text-center py-4">
+                      <NSpin size="large" />
+                      <div class="mt-2 text-gray-500">正在处理文件...</div>
+                    </div>
+                  )}
+                </NSpace>
+              </NTabPane>
+            </NTabs>
+          </NCard>
 
-        {/* 批量摄取配置弹窗 */}
-        <NModal v-model:show={showConfigModal.value} preset="card" title="批量摄取配置" style={{ width: '600px' }}>
-          <NForm labelPlacement="left" labelWidth="120px">
-            <NFormItem label="文件格式">
-              <NSelect v-model:value={batchConfig.format} options={formatOptions} />
-            </NFormItem>
+          {/* 摄取历史 */}
+          <NCard bordered={false} class="shadow-sm rounded-lg">
+            <div class="flex justify-between items-center mb-4">
+              <h3 class="text-lg font-medium">摄取历史</h3>
+              <NButton size="small" onClick={refreshHistory}>
+                <NIcon component={RefreshOutline} class="mr-1" />
+                刷新
+              </NButton>
+            </div>
 
-            <NFormItem label="分隔符">
-              <NInput v-model:value={batchConfig.delimiter} placeholder="行分隔符" />
-            </NFormItem>
-
-            <NFormItem label="自动检测">
-              <NSwitch v-model:value={batchConfig.autoDetect} />
-            </NFormItem>
-
-            {!batchConfig.autoDetect && (
-              <>
-                <NFormItem label="时间戳字段">
-                  <NInput v-model:value={batchConfig.timestampField} placeholder="timestamp" />
-                </NFormItem>
-
-                <NFormItem label="级别字段">
-                  <NInput v-model:value={batchConfig.levelField} placeholder="level" />
-                </NFormItem>
-
-                <NFormItem label="服务字段">
-                  <NInput v-model:value={batchConfig.serviceField} placeholder="service" />
-                </NFormItem>
-
-                <NFormItem label="消息字段">
-                  <NInput v-model:value={batchConfig.messageField} placeholder="message" />
-                </NFormItem>
-
-                <NFormItem label="主机字段">
-                  <NInput v-model:value={batchConfig.hostnameField} placeholder="hostname" />
-                </NFormItem>
-              </>
+            {ingestHistory.value.length > 0 ? (
+              <NDataTable
+                columns={historyColumns}
+                data={ingestHistory.value}
+                bordered={false}
+                striped
+                size="small"
+                maxHeight={400}
+              />
+            ) : (
+              <NEmpty description="暂无摄取历史" />
             )}
-          </NForm>
+          </NCard>
 
-          <div class="flex justify-end gap-2 mt-4">
-            <NButton onClick={() => (showConfigModal.value = false)}>取消</NButton>
-            <NButton type="primary" onClick={() => (showConfigModal.value = false)}>
-              确定
-            </NButton>
-          </div>
-        </NModal>
+          {/* 批量摄取配置弹窗 */}
+          <NModal v-model:show={showConfigModal.value} preset="card" title="批量摄取配置" style={{ width: '600px' }}>
+            <NForm labelPlacement="left" labelWidth="120px">
+              <NFormItem label="文件格式">
+                <NSelect v-model:value={batchConfig.format} options={formatOptions} />
+              </NFormItem>
+
+              <NFormItem label="分隔符">
+                <NInput v-model:value={batchConfig.delimiter} placeholder="行分隔符" />
+              </NFormItem>
+
+              <NFormItem label="自动检测">
+                <NSwitch v-model:value={batchConfig.autoDetect} />
+              </NFormItem>
+
+              {!batchConfig.autoDetect && (
+                <>
+                  <NFormItem label="时间戳字段">
+                    <NInput v-model:value={batchConfig.timestampField} placeholder="timestamp" />
+                  </NFormItem>
+
+                  <NFormItem label="级别字段">
+                    <NInput v-model:value={batchConfig.levelField} placeholder="level" />
+                  </NFormItem>
+
+                  <NFormItem label="服务字段">
+                    <NInput v-model:value={batchConfig.serviceField} placeholder="service" />
+                  </NFormItem>
+
+                  <NFormItem label="消息字段">
+                    <NInput v-model:value={batchConfig.messageField} placeholder="message" />
+                  </NFormItem>
+
+                  <NFormItem label="主机字段">
+                    <NInput v-model:value={batchConfig.hostnameField} placeholder="hostname" />
+                  </NFormItem>
+                </>
+              )}
+            </NForm>
+
+            <div class="flex justify-end gap-2 mt-4">
+              <NButton onClick={() => (showConfigModal.value = false)}>取消</NButton>
+              <NButton type="primary" onClick={() => (showConfigModal.value = false)}>
+                确定
+              </NButton>
+            </div>
+          </NModal>
+        </div>
       </div>
     )
   }

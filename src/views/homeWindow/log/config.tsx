@@ -1,7 +1,7 @@
 /**
  * 日志配置页面
  */
-import { defineComponent, ref, reactive, onMounted, computed } from 'vue'
+import { defineComponent, ref, reactive, onMounted, computed, h } from 'vue'
 import {
   NCard,
   NSpace,
@@ -9,7 +9,6 @@ import {
   NInput,
   NSelect,
   NSwitch,
-  NSlider,
   NInputNumber,
   NForm,
   NFormItem,
@@ -19,10 +18,6 @@ import {
   NTabPane,
   NTag,
   NAlert,
-  NCode,
-  NCollapse,
-  NCollapseItem,
-  NTooltip,
   NIcon,
   NPopconfirm,
   NDataTable,
@@ -35,13 +30,9 @@ import {
   RefreshOutline,
   AddOutline,
   TrashOutline,
-  CreateOutline,
-  InformationCircleOutline,
-  WarningOutline,
-  CheckmarkCircleOutline
+  CreateOutline
 } from '@vicons/ionicons5'
-import { LogLevelEnum } from '@/types/logs'
-import api from '@/api'
+import SectionHeader from '@/components/common/SectionHeader'
 
 export default defineComponent({
   name: 'LogConfig',
@@ -136,26 +127,6 @@ export default defineComponent({
         },
         action: 'mask',
         description: '对包含密码的日志进行脱敏处理'
-      }
-    ])
-
-    // 告警规则
-    const alertRules = ref([
-      {
-        id: '1',
-        name: '错误日志告警',
-        enabled: true,
-        condition: {
-          field: 'level',
-          operator: 'equals',
-          value: 'ERROR'
-        },
-        threshold: {
-          count: 10,
-          timeWindow: 300 // 5分钟
-        },
-        actions: ['email', 'webhook'],
-        description: '5分钟内错误日志超过10条时触发告警'
       }
     ])
 
@@ -405,10 +376,10 @@ export default defineComponent({
     })
 
     return () => (
-      <div class="log-config-container">
+      <div class="p-24px h-full bg-gray-50/50 flex flex-col overflow-hidden">
         {/* 页面头部 */}
-        <div class="flex justify-between items-center mb-6">
-          <h2 class="text-xl font-semibold">日志配置</h2>
+        <div class="flex justify-between items-start mb-6 shrink-0">
+          <SectionHeader title="日志配置" subtitle="管理系统日志的采集、存储和保留策略" icon={SettingsOutline} />
 
           <NSpace>
             <NButton onClick={resetConfig} loading={loading.value}>
@@ -423,234 +394,53 @@ export default defineComponent({
           </NSpace>
         </div>
 
-        <NTabs v-model:value={activeTab.value} type="line">
-          {/* 通用配置 */}
-          <NTabPane name="general" tab="通用配置">
-            <NSpace vertical size="large">
-              {/* 存储使用情况 */}
-              <NCard title="存储使用情况">
-                <NGrid cols={3} xGap={16}>
-                  <NGridItem>
-                    <div class="text-center">
-                      <div class="text-2xl font-bold text-blue-500">{storageUsage.value.used} GB</div>
-                      <div class="text-sm text-gray-500">已使用</div>
-                    </div>
-                  </NGridItem>
-                  <NGridItem>
-                    <div class="text-center">
-                      <div class="text-2xl font-bold text-green-500">{storageUsage.value.total} GB</div>
-                      <div class="text-sm text-gray-500">总容量</div>
-                    </div>
-                  </NGridItem>
-                  <NGridItem>
-                    <div class="text-center">
-                      <div class="text-2xl font-bold text-orange-500">{storageUsage.value.percentage}%</div>
-                      <div class="text-sm text-gray-500">使用率</div>
-                    </div>
-                  </NGridItem>
-                </NGrid>
-              </NCard>
-
-              {/* 日志保留设置 */}
-              <NCard title="日志保留设置">
-                <NForm labelPlacement="left" labelWidth="150px">
-                  <NGrid cols={2} xGap={16}>
+        <div class="flex-1 overflow-auto">
+          <NTabs v-model:value={activeTab.value} type="line" animated>
+            {/* 通用配置 */}
+            <NTabPane name="general" tab="通用配置">
+              <NSpace vertical size="large" class="pb-24px">
+                {/* 存储使用情况 */}
+                <NCard title="存储使用情况" bordered={false} class="shadow-sm rounded-lg">
+                  <NGrid cols={3} xGap={16}>
                     <NGridItem>
-                      <NFormItem label="保留天数">
-                        <NInputNumber
-                          v-model:value={generalConfig.retentionDays}
-                          min={1}
-                          max={365}
-                          style={{ width: '100%' }}
-                        />
-                      </NFormItem>
+                      <div class="text-center">
+                        <div class="text-2xl font-bold text-blue-500">{storageUsage.value.used} GB</div>
+                        <div class="text-sm text-gray-500">已使用</div>
+                      </div>
                     </NGridItem>
                     <NGridItem>
-                      <NFormItem label="最大存储 (GB)">
-                        <NInputNumber
-                          v-model:value={generalConfig.maxLogSize}
-                          min={1}
-                          max={1000}
-                          style={{ width: '100%' }}
-                        />
-                      </NFormItem>
+                      <div class="text-center">
+                        <div class="text-2xl font-bold text-green-500">{storageUsage.value.total} GB</div>
+                        <div class="text-sm text-gray-500">总容量</div>
+                      </div>
                     </NGridItem>
                     <NGridItem>
-                      <NFormItem label="启用压缩">
-                        <NSwitch v-model:value={generalConfig.compressionEnabled} />
-                      </NFormItem>
+                      <div class="text-center">
+                        <div class="text-2xl font-bold text-orange-500">{storageUsage.value.percentage}%</div>
+                        <div class="text-sm text-gray-500">使用率</div>
+                      </div>
                     </NGridItem>
                   </NGrid>
-                </NForm>
-              </NCard>
+                </NCard>
 
-              {/* 性能设置 */}
-              <NCard title="性能设置">
-                <NForm labelPlacement="left" labelWidth="150px">
-                  <NGrid cols={2} xGap={16}>
-                    <NGridItem>
-                      <NFormItem label="批处理大小">
-                        <NInputNumber
-                          v-model:value={generalConfig.batchSize}
-                          min={100}
-                          max={10000}
-                          style={{ width: '100%' }}
-                        />
-                      </NFormItem>
-                    </NGridItem>
-                    <NGridItem>
-                      <NFormItem label="刷新间隔 (ms)">
-                        <NInputNumber
-                          v-model:value={generalConfig.flushInterval}
-                          min={1000}
-                          max={60000}
-                          style={{ width: '100%' }}
-                        />
-                      </NFormItem>
-                    </NGridItem>
-                    <NGridItem>
-                      <NFormItem label="最大内存 (MB)">
-                        <NInputNumber
-                          v-model:value={generalConfig.maxMemoryUsage}
-                          min={128}
-                          max={2048}
-                          style={{ width: '100%' }}
-                        />
-                      </NFormItem>
-                    </NGridItem>
-                  </NGrid>
-                </NForm>
-              </NCard>
-
-              {/* 索引设置 */}
-              <NCard title="索引设置">
-                <NForm labelPlacement="left" labelWidth="150px">
-                  <NGrid cols={2} xGap={16}>
-                    <NGridItem>
-                      <NFormItem label="启用索引">
-                        <NSwitch v-model:value={generalConfig.indexingEnabled} />
-                      </NFormItem>
-                    </NGridItem>
-                    <NGridItem>
-                      <NFormItem label="全文搜索">
-                        <NSwitch v-model:value={generalConfig.fullTextSearch} />
-                      </NFormItem>
-                    </NGridItem>
-                  </NGrid>
-                </NForm>
-              </NCard>
-            </NSpace>
-          </NTabPane>
-
-          {/* 存储配置 */}
-          <NTabPane name="storage" tab="存储配置">
-            <NSpace vertical size="large">
-              <NCard title="存储引擎">
-                <NForm labelPlacement="left" labelWidth="120px">
-                  <NFormItem label="引擎类型">
-                    <NSelect v-model:value={storageConfig.engine} options={engineOptions} style={{ width: '200px' }} />
-                  </NFormItem>
-                </NForm>
-              </NCard>
-
-              {/* Elasticsearch配置 */}
-              {storageConfig.engine === 'elasticsearch' && (
-                <NCard title="Elasticsearch 配置">
-                  <NForm labelPlacement="left" labelWidth="120px">
+                {/* 日志保留设置 */}
+                <NCard title="日志保留设置" bordered={false} class="shadow-sm rounded-lg">
+                  <NForm labelPlacement="left" labelWidth="150px">
                     <NGrid cols={2} xGap={16}>
-                      <NGridItem span={2}>
-                        <NFormItem label="主机地址">
-                          <NInput
-                            v-model:value={storageConfig.elasticsearch.hosts[0]}
-                            placeholder="http://localhost:9200"
-                          />
-                        </NFormItem>
-                      </NGridItem>
                       <NGridItem>
-                        <NFormItem label="用户名">
-                          <NInput v-model:value={storageConfig.elasticsearch.username} placeholder="用户名（可选）" />
-                        </NFormItem>
-                      </NGridItem>
-                      <NGridItem>
-                        <NFormItem label="密码">
-                          <NInput
-                            v-model:value={storageConfig.elasticsearch.password}
-                            type="password"
-                            placeholder="密码（可选）"
-                          />
-                        </NFormItem>
-                      </NGridItem>
-                      <NGridItem>
-                        <NFormItem label="索引前缀">
-                          <NInput v-model:value={storageConfig.elasticsearch.indexPrefix} placeholder="logs" />
-                        </NFormItem>
-                      </NGridItem>
-                      <NGridItem>
-                        <NFormItem label="分片数">
+                        <NFormItem label="保留天数">
                           <NInputNumber
-                            v-model:value={storageConfig.elasticsearch.shards}
+                            v-model:value={generalConfig.retentionDays}
                             min={1}
-                            max={10}
+                            max={365}
                             style={{ width: '100%' }}
                           />
                         </NFormItem>
                       </NGridItem>
-                    </NGrid>
-
-                    <div class="mt-4">
-                      <NButton onClick={testConnection} loading={loading.value}>
-                        测试连接
-                      </NButton>
-                    </div>
-                  </NForm>
-                </NCard>
-              )}
-
-              {/* MongoDB配置 */}
-              {storageConfig.engine === 'mongodb' && (
-                <NCard title="MongoDB 配置">
-                  <NForm labelPlacement="left" labelWidth="120px">
-                    <NGrid cols={2} xGap={16}>
-                      <NGridItem span={2}>
-                        <NFormItem label="连接URI">
-                          <NInput v-model:value={storageConfig.mongodb.uri} placeholder="mongodb://localhost:27017" />
-                        </NFormItem>
-                      </NGridItem>
                       <NGridItem>
-                        <NFormItem label="数据库">
-                          <NInput v-model:value={storageConfig.mongodb.database} placeholder="logs" />
-                        </NFormItem>
-                      </NGridItem>
-                      <NGridItem>
-                        <NFormItem label="集合">
-                          <NInput v-model:value={storageConfig.mongodb.collection} placeholder="entries" />
-                        </NFormItem>
-                      </NGridItem>
-                    </NGrid>
-
-                    <div class="mt-4">
-                      <NButton onClick={testConnection} loading={loading.value}>
-                        测试连接
-                      </NButton>
-                    </div>
-                  </NForm>
-                </NCard>
-              )}
-
-              {/* 文件存储配置 */}
-              {storageConfig.engine === 'file' && (
-                <NCard title="文件存储配置">
-                  <NForm labelPlacement="left" labelWidth="120px">
-                    <NGrid cols={2} xGap={16}>
-                      <NGridItem span={2}>
-                        <NFormItem label="存储目录">
-                          <NInput v-model:value={storageConfig.file.directory} placeholder="/var/log/app" />
-                        </NFormItem>
-                      </NGridItem>
-                      <NGridItem>
-                        <NFormItem label="轮转大小 (MB)">
+                        <NFormItem label="最大存储 (GB)">
                           <NInputNumber
-                            v-model:value={storageConfig.file.rotationSize}
+                            v-model:value={generalConfig.maxLogSize}
                             min={1}
                             max={1000}
                             style={{ width: '100%' }}
@@ -658,14 +448,44 @@ export default defineComponent({
                         </NFormItem>
                       </NGridItem>
                       <NGridItem>
-                        <NFormItem label="轮转时间">
-                          <NSelect
-                            v-model:value={storageConfig.file.rotationTime}
-                            options={[
-                              { label: '每小时', value: '1h' },
-                              { label: '每天', value: '1d' },
-                              { label: '每周', value: '1w' }
-                            ]}
+                        <NFormItem label="启用压缩">
+                          <NSwitch v-model:value={generalConfig.compressionEnabled} />
+                        </NFormItem>
+                      </NGridItem>
+                    </NGrid>
+                  </NForm>
+                </NCard>
+
+                {/* 性能设置 */}
+                <NCard title="性能设置" bordered={false} class="shadow-sm rounded-lg">
+                  <NForm labelPlacement="left" labelWidth="150px">
+                    <NGrid cols={2} xGap={16}>
+                      <NGridItem>
+                        <NFormItem label="批处理大小">
+                          <NInputNumber
+                            v-model:value={generalConfig.batchSize}
+                            min={100}
+                            max={10000}
+                            style={{ width: '100%' }}
+                          />
+                        </NFormItem>
+                      </NGridItem>
+                      <NGridItem>
+                        <NFormItem label="刷新间隔 (ms)">
+                          <NInputNumber
+                            v-model:value={generalConfig.flushInterval}
+                            min={1000}
+                            max={60000}
+                            style={{ width: '100%' }}
+                          />
+                        </NFormItem>
+                      </NGridItem>
+                      <NGridItem>
+                        <NFormItem label="最大内存 (MB)">
+                          <NInputNumber
+                            v-model:value={generalConfig.maxMemoryUsage}
+                            min={128}
+                            max={2048}
                             style={{ width: '100%' }}
                           />
                         </NFormItem>
@@ -673,27 +493,186 @@ export default defineComponent({
                     </NGrid>
                   </NForm>
                 </NCard>
-              )}
-            </NSpace>
-          </NTabPane>
 
-          {/* 过滤规则 */}
-          <NTabPane name="filters" tab="过滤规则">
-            <NSpace vertical size="large">
-              <div class="flex justify-between items-center">
-                <h3 class="text-lg font-medium">过滤规则管理</h3>
-                <NButton type="primary" onClick={addRule}>
-                  <NIcon component={AddOutline} class="mr-1" />
-                  新增规则
-                </NButton>
-              </div>
+                {/* 索引设置 */}
+                <NCard title="索引设置" bordered={false} class="shadow-sm rounded-lg">
+                  <NForm labelPlacement="left" labelWidth="150px">
+                    <NGrid cols={2} xGap={16}>
+                      <NGridItem>
+                        <NFormItem label="启用索引">
+                          <NSwitch v-model:value={generalConfig.indexingEnabled} />
+                        </NFormItem>
+                      </NGridItem>
+                      <NGridItem>
+                        <NFormItem label="全文搜索">
+                          <NSwitch v-model:value={generalConfig.fullTextSearch} />
+                        </NFormItem>
+                      </NGridItem>
+                    </NGrid>
+                  </NForm>
+                </NCard>
+              </NSpace>
+            </NTabPane>
 
-              <NAlert type="info">过滤规则用于在日志摄取过程中对日志进行预处理，包括丢弃、脱敏、转换等操作。</NAlert>
+            {/* 存储配置 */}
+            <NTabPane name="storage" tab="存储配置">
+              <NSpace vertical size="large" class="pb-24px">
+                <NCard title="存储引擎" bordered={false} class="shadow-sm rounded-lg">
+                  <NForm labelPlacement="left" labelWidth="120px">
+                    <NFormItem label="引擎类型">
+                      <NSelect
+                        v-model:value={storageConfig.engine}
+                        options={engineOptions}
+                        style={{ width: '200px' }}
+                      />
+                    </NFormItem>
+                  </NForm>
+                </NCard>
 
-              <NDataTable columns={ruleColumns} data={filterRules.value} bordered={false} striped />
-            </NSpace>
-          </NTabPane>
-        </NTabs>
+                {/* Elasticsearch配置 */}
+                {storageConfig.engine === 'elasticsearch' && (
+                  <NCard title="Elasticsearch 配置" bordered={false} class="shadow-sm rounded-lg">
+                    <NForm labelPlacement="left" labelWidth="120px">
+                      <NGrid cols={2} xGap={16}>
+                        <NGridItem span={2}>
+                          <NFormItem label="主机地址">
+                            <NInput
+                              v-model:value={storageConfig.elasticsearch.hosts[0]}
+                              placeholder="http://localhost:9200"
+                            />
+                          </NFormItem>
+                        </NGridItem>
+                        <NGridItem>
+                          <NFormItem label="用户名">
+                            <NInput v-model:value={storageConfig.elasticsearch.username} placeholder="用户名（可选）" />
+                          </NFormItem>
+                        </NGridItem>
+                        <NGridItem>
+                          <NFormItem label="密码">
+                            <NInput
+                              v-model:value={storageConfig.elasticsearch.password}
+                              type="password"
+                              placeholder="密码（可选）"
+                            />
+                          </NFormItem>
+                        </NGridItem>
+                        <NGridItem>
+                          <NFormItem label="索引前缀">
+                            <NInput v-model:value={storageConfig.elasticsearch.indexPrefix} placeholder="logs" />
+                          </NFormItem>
+                        </NGridItem>
+                        <NGridItem>
+                          <NFormItem label="分片数">
+                            <NInputNumber
+                              v-model:value={storageConfig.elasticsearch.shards}
+                              min={1}
+                              max={10}
+                              style={{ width: '100%' }}
+                            />
+                          </NFormItem>
+                        </NGridItem>
+                      </NGrid>
+
+                      <div class="mt-4">
+                        <NButton onClick={testConnection} loading={loading.value}>
+                          测试连接
+                        </NButton>
+                      </div>
+                    </NForm>
+                  </NCard>
+                )}
+
+                {/* MongoDB配置 */}
+                {storageConfig.engine === 'mongodb' && (
+                  <NCard title="MongoDB 配置" bordered={false} class="shadow-sm rounded-lg">
+                    <NForm labelPlacement="left" labelWidth="120px">
+                      <NGrid cols={2} xGap={16}>
+                        <NGridItem span={2}>
+                          <NFormItem label="连接URI">
+                            <NInput v-model:value={storageConfig.mongodb.uri} placeholder="mongodb://localhost:27017" />
+                          </NFormItem>
+                        </NGridItem>
+                        <NGridItem>
+                          <NFormItem label="数据库">
+                            <NInput v-model:value={storageConfig.mongodb.database} placeholder="logs" />
+                          </NFormItem>
+                        </NGridItem>
+                        <NGridItem>
+                          <NFormItem label="集合">
+                            <NInput v-model:value={storageConfig.mongodb.collection} placeholder="entries" />
+                          </NFormItem>
+                        </NGridItem>
+                      </NGrid>
+
+                      <div class="mt-4">
+                        <NButton onClick={testConnection} loading={loading.value}>
+                          测试连接
+                        </NButton>
+                      </div>
+                    </NForm>
+                  </NCard>
+                )}
+
+                {/* 文件存储配置 */}
+                {storageConfig.engine === 'file' && (
+                  <NCard title="文件存储配置" bordered={false} class="shadow-sm rounded-lg">
+                    <NForm labelPlacement="left" labelWidth="120px">
+                      <NGrid cols={2} xGap={16}>
+                        <NGridItem span={2}>
+                          <NFormItem label="存储目录">
+                            <NInput v-model:value={storageConfig.file.directory} placeholder="/var/log/app" />
+                          </NFormItem>
+                        </NGridItem>
+                        <NGridItem>
+                          <NFormItem label="轮转大小 (MB)">
+                            <NInputNumber
+                              v-model:value={storageConfig.file.rotationSize}
+                              min={1}
+                              max={1000}
+                              style={{ width: '100%' }}
+                            />
+                          </NFormItem>
+                        </NGridItem>
+                        <NGridItem>
+                          <NFormItem label="轮转时间">
+                            <NSelect
+                              v-model:value={storageConfig.file.rotationTime}
+                              options={[
+                                { label: '每小时', value: '1h' },
+                                { label: '每天', value: '1d' },
+                                { label: '每周', value: '1w' }
+                              ]}
+                              style={{ width: '100%' }}
+                            />
+                          </NFormItem>
+                        </NGridItem>
+                      </NGrid>
+                    </NForm>
+                  </NCard>
+                )}
+              </NSpace>
+            </NTabPane>
+
+            {/* 过滤规则 */}
+            <NTabPane name="filters" tab="过滤规则">
+              <NSpace vertical size="large" class="pb-24px">
+                <div class="flex justify-between items-center">
+                  <h3 class="text-lg font-medium">过滤规则管理</h3>
+                  <NButton type="primary" onClick={addRule}>
+                    <NIcon component={AddOutline} class="mr-1" />
+                    新增规则
+                  </NButton>
+                </div>
+
+                <NAlert type="info">过滤规则用于在日志摄取过程中对日志进行预处理，包括丢弃、脱敏、转换等操作。</NAlert>
+
+                <NCard bordered={false} class="shadow-sm rounded-lg">
+                  <NDataTable columns={ruleColumns} data={filterRules.value} bordered={false} striped />
+                </NCard>
+              </NSpace>
+            </NTabPane>
+          </NTabs>
+        </div>
 
         {/* 规则编辑弹窗 */}
         <NModal
