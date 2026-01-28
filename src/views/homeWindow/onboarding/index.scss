@@ -1,0 +1,233 @@
+.onboarding-window {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+
+  .onboarding-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    // background-color: #f5f7fa; // Handled by --color-bg-1
+
+    // .header removed
+
+    .main-content {
+      flex: 1;
+      overflow: hidden;
+      padding: 32px;
+      max-width: 1200px;
+      width: 100%;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+
+      .steps-wrapper {
+        margin-bottom: 32px;
+        padding: 0 20px;
+        flex-shrink: 0;
+
+        // 覆盖 Naive UI Steps 样式以适配暗色主题
+        .n-step {
+          .n-step-content-header__title {
+            color: var(--color-text-2);
+          }
+          .n-step-content__description {
+            color: var(--color-text-3);
+          }
+
+          // 当前进行中的步骤
+          &.n-step--process-status {
+            .n-step-content-header__title {
+              color: var(--color-primary-6) !important;
+              font-weight: 600;
+            }
+            .n-step-content__description {
+              color: var(--color-text-1) !important;
+            }
+          }
+
+          // 已完成的步骤
+          &.n-step--finish-status {
+            .n-step-content-header__title {
+              color: var(--color-text-2) !important;
+            }
+            .n-step-content__description {
+              color: var(--color-text-3) !important;
+            }
+          }
+
+          // 等待中的步骤
+          &.n-step--wait-status {
+            .n-step-content-header__title {
+              color: var(--color-text-3) !important;
+            }
+            .n-step-content__description {
+              color: var(--color-text-4) !important;
+            }
+          }
+        }
+      }
+
+      .step-content-area {
+        flex: 1;
+        overflow-y: auto;
+        padding-right: 8px; // For scrollbar
+      }
+    }
+
+    .footer {
+      padding: 20px 40px;
+      background: var(--color-bg-2);
+      border-top: 1px solid var(--color-border-1);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+
+      .actions {
+        display: flex;
+        gap: 12px;
+      }
+    }
+  }
+}
+
+.step-layout {
+  display: flex;
+  height: 100%;
+  gap: 40px;
+
+  .step-guide {
+    flex: 1;
+    padding-top: 20px;
+
+    h1 {
+      font-size: 28px;
+      margin-bottom: 16px;
+      color: var(--color-text-1);
+    }
+
+    .description {
+      font-size: 16px;
+      color: var(--color-text-2);
+      margin-bottom: 32px;
+      line-height: 1.6;
+    }
+
+    .guide-content {
+      color: var(--color-text-2);
+      line-height: 1.8;
+
+      ul {
+        padding-left: 20px;
+        margin-top: 10px;
+
+        li {
+          margin-bottom: 8px;
+        }
+      }
+    }
+  }
+
+  .step-content {
+    flex: 1.5;
+    display: flex;
+    flex-direction: column;
+
+    .content-card {
+      height: 100%;
+      border-radius: 12px;
+      background-color: var(--color-bg-2);
+      border: 1px solid var(--color-border-1);
+      // box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+
+      .n-card__content {
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+      }
+    }
+
+    // 欢迎页 Result 组件样式覆盖
+    .welcome-result {
+      .n-result-header__title {
+        color: var(--color-text-1) !important;
+        font-weight: 600;
+      }
+      .n-result-header__description {
+        color: var(--color-text-2) !important;
+      }
+    }
+
+    // 集成页 Tabs 样式覆盖
+    .integration-tabs {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+
+      .n-tabs-pane-wrapper {
+        flex: 1;
+        overflow: auto;
+        padding-bottom: 2px; // 避免滚动条贴底
+      }
+
+      .n-tabs-tab {
+        color: var(--color-text-2);
+        &.n-tabs-tab--active {
+          color: var(--color-primary-6);
+          font-weight: 600;
+        }
+      }
+      .n-code {
+        background-color: var(--color-fill-2);
+        padding: 16px;
+        border-radius: 4px;
+        font-family: monospace;
+
+        // 确保代码块可以滚动或换行显示完整
+        overflow-x: auto;
+
+        // 强制覆盖 Naive UI 内部 pre 样式
+        pre {
+          color: var(--color-text-1) !important;
+          font-family: inherit !important;
+          margin: 0 !important; // 移除 margin 避免空白
+        }
+
+        // 覆盖代码高亮颜色 (如果使用了 hljs)
+        .hljs-keyword,
+        .hljs-selector-tag,
+        .hljs-title,
+        .hljs-section,
+        .hljs-doctag,
+        .hljs-name,
+        .hljs-strong {
+          color: var(--color-primary-6);
+        }
+        .hljs-string,
+        .hljs-title,
+        .hljs-section,
+        .hljs-built_in,
+        .hljs-literal,
+        .hljs-type,
+        .hljs-addition,
+        .hljs-tag,
+        .hljs-quote,
+        .hljs-name,
+        .hljs-selector-id,
+        .hljs-selector-class {
+          color: #00b42a; // success-6
+        }
+        .hljs-comment,
+        .hljs-code,
+        .hljs-quote,
+        .hljs-bullet,
+        .hljs-meta,
+        .hljs-deletion {
+          color: var(--color-text-3);
+        }
+      }
+    }
+  }
+}

@@ -1,20 +1,26 @@
 import NaiveProvider from '@/components/common/NaiveProvider'
-import { RouterView } from 'vue-router'
+import { RouterView, useRouter } from 'vue-router'
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow'
 import { type } from '@tauri-apps/plugin-os'
 import { useSettingStore } from '@/store/setting'
 import { StoresEnum, ThemeEnum } from '@/types/enums'
+import { removeCookie } from '@/utils/Cookie'
 
 export default defineComponent({
   name: 'App',
   setup() {
     // const appWindow = WebviewWindow.getCurrent()
     const settingStore = useSettingStore()
+    const router = useRouter()
     const { themes, page } = storeToRefs(settingStore)
 
     // 是否桌面端
     const isDesktop = computed(() => {
-      return type() === 'windows' || type() === 'linux' || type() === 'macos'
+      try {
+        return type() === 'windows' || type() === 'linux' || type() === 'macos'
+      } catch (error) {
+        return true
+      }
     })
 
     /** 禁止图片以及输入框的拖拽 */
@@ -68,6 +74,13 @@ export default defineComponent({
     //   { immediate: true }
     // )
 
+    /** 重新登录处理 */
+    const handleReLogin = () => {
+      removeCookie('ACCESS_TOKEN')
+      removeCookie('REFRESH_TOKEN')
+      router.push('/login')
+    }
+
     onMounted(async () => {
       // 判断是否是桌面端，桌面端需要调整样式
       isDesktop.value && (await import('@/styles/desktop.scss'))
@@ -77,6 +90,7 @@ export default defineComponent({
       }
       document.documentElement.dataset.theme = themes.value.content
       window.addEventListener('dragstart', preventDrag)
+      window.addEventListener('needReLogin', handleReLogin)
       /** 开发环境不禁止 */
       if (process.env.NODE_ENV !== 'development') {
         /** 禁用浏览器默认的快捷键 */
@@ -94,6 +108,7 @@ export default defineComponent({
 
     onUnmounted(() => {
       window.removeEventListener('contextmenu', (e) => e.preventDefault(), false)
+      window.removeEventListener('needReLogin', handleReLogin)
       window.removeEventListener('dragstart', preventDrag)
     })
 
