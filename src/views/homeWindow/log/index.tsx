@@ -87,35 +87,35 @@ export default defineComponent({
         title: '日志搜索',
         description: '搜索和查看日志',
         icon: SearchOutline,
-        color: '#1890ff',
+        color: 'var(--color-primary-6)',
         action: () => (activeTab.value = 'service')
       },
       {
         title: '异常分析',
         description: '分析异常和错误',
         icon: AnalyticsOutline,
-        color: '#f5222d',
+        color: 'var(--color-danger-6)',
         action: () => (activeTab.value = 'exception')
       },
       {
         title: '日志摄取',
         description: '上传和摄取日志',
         icon: CloudUploadOutline,
-        color: '#52c41a',
+        color: 'var(--color-success-6)',
         action: () => (activeTab.value = 'ingest')
       },
       {
         title: '实时流',
         description: '查看实时日志流',
         icon: TrendingUpOutline,
-        color: '#722ed1',
+        color: 'var(--color-warning-6)',
         action: () => (activeTab.value = 'stream')
       },
       {
         title: '系统配置',
         description: '配置日志系统',
         icon: SettingsOutline,
-        color: '#fa8c16',
+        color: 'var(--color-text-2)',
         action: () => (activeTab.value = 'config')
       }
     ]
@@ -124,17 +124,17 @@ export default defineComponent({
     const getLevelColor = (level: LogLevelEnum) => {
       switch (level) {
         case LogLevelEnum.DEBUG:
-          return '#909399'
+          return 'var(--color-text-3)'
         case LogLevelEnum.INFO:
-          return '#409eff'
+          return 'var(--color-primary-6)'
         case LogLevelEnum.WARN:
-          return '#e6a23c'
+          return 'var(--color-warning-6)'
         case LogLevelEnum.ERROR:
-          return '#f56c6c'
+          return 'var(--color-danger-6)'
         case LogLevelEnum.FATAL:
-          return '#f56c6c'
+          return 'var(--color-danger-7)'
         default:
-          return '#909399'
+          return 'var(--color-text-3)'
       }
     }
 
@@ -142,13 +142,13 @@ export default defineComponent({
     const getHealthColor = (status: string) => {
       switch (status) {
         case 'healthy':
-          return '#52c41a'
+          return 'var(--color-success-6)'
         case 'warning':
-          return '#fa8c16'
+          return 'var(--color-warning-6)'
         case 'error':
-          return '#f5222d'
+          return 'var(--color-danger-6)'
         default:
-          return '#909399'
+          return 'var(--color-text-3)'
       }
     }
 
@@ -319,7 +319,7 @@ export default defineComponent({
                   <NGridItem>
                     <NStatistic label="总日志数" value={stats.totalLogs.toLocaleString()}>
                       {{
-                        prefix: () => h(NIcon, { component: DocumentTextOutline, color: '#1890ff' }),
+                        prefix: () => h(NIcon, { component: DocumentTextOutline, color: 'var(--color-primary-6)' }),
                         default: () => <span class="text-24px font-bold">{stats.totalLogs.toLocaleString()}</span>
                       }}
                     </NStatistic>
@@ -327,7 +327,7 @@ export default defineComponent({
                   <NGridItem>
                     <NStatistic label="今日日志" value={stats.todayLogs.toLocaleString()}>
                       {{
-                        prefix: () => h(NIcon, { component: TimeOutline, color: '#52c41a' }),
+                        prefix: () => h(NIcon, { component: TimeOutline, color: 'var(--color-success-6)' }),
                         default: () => <span class="text-24px font-bold">{stats.todayLogs.toLocaleString()}</span>
                       }}
                     </NStatistic>
@@ -342,7 +342,7 @@ export default defineComponent({
                           }),
                         default: () => (
                           <span
-                            class={`text-24px font-bold ${stats.errorRate > 0 ? 'text-red-500' : 'text-green-500'}`}>
+                            class={`text-24px font-bold ${stats.errorRate > 0 ? 'text-[--color-danger-6]' : 'text-[--color-success-6]'}`}>
                             {stats.errorRate.toFixed(2)}%
                           </span>
                         )
@@ -352,7 +352,7 @@ export default defineComponent({
                   <NGridItem>
                     <NStatistic label="平均响应时间" value={`${stats.avgResponseTime}ms`}>
                       {{
-                        prefix: () => h(NIcon, { component: TrendingUpOutline, color: '#722ed1' }),
+                        prefix: () => h(NIcon, { component: TrendingUpOutline, color: 'var(--color-warning-6)' }),
                         default: () => <span class="text-24px font-bold">{stats.avgResponseTime}ms</span>
                       }}
                     </NStatistic>
@@ -366,16 +366,16 @@ export default defineComponent({
                   {quickActions.map((action, index) => (
                     <NGridItem key={index}>
                       <div
-                        class="p-4 border border-gray-100 bg-gray-50/30 rounded-lg cursor-pointer hover:shadow-md transition-all hover:bg-white hover:-translate-y-1"
+                        class="p-4 border border-[--color-border-2] bg-[--color-fill-2] rounded-lg cursor-pointer hover:shadow-md transition-all hover:bg-[--color-bg-2] hover:-translate-y-1"
                         onClick={action.action}>
                         <div class="flex flex-col items-center text-center">
                           <div
                             class="w-12 h-12 rounded-full flex items-center justify-center mb-3"
-                            style={{ backgroundColor: `${action.color}15` }}>
+                            style={{ backgroundColor: `rgba(var(--color-primary-6), 0.1)` }}>
                             <NIcon component={action.icon} size={24} color={action.color} />
                           </div>
-                          <h4 class="font-medium mb-1 text-gray-700">{action.title}</h4>
-                          <p class="text-xs text-gray-400">{action.description}</p>
+                          <h4 class="font-medium mb-1 text-[--color-text-1]">{action.title}</h4>
+                          <p class="text-xs text-[--color-text-3]">{action.description}</p>
                         </div>
                       </div>
                     </NGridItem>
@@ -392,25 +392,27 @@ export default defineComponent({
                         {stats.topServices.map((service, index) => (
                           <div
                             key={index}
-                            class="flex justify-between items-center p-2 hover:bg-gray-50 rounded transition-colors">
+                            class="flex justify-between items-center p-2 hover:bg-[--color-fill-2] rounded transition-colors">
                             <div class="flex items-center">
-                              <div class="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center mr-3">
-                                <NIcon component={ServerOutline} size={16} color="#1890ff" />
+                              <div class="w-8 h-8 rounded-full bg-[--color-fill-2] flex items-center justify-center mr-3">
+                                <NIcon component={ServerOutline} size={16} color="var(--color-primary-6)" />
                               </div>
-                              <span class="font-medium text-gray-700">{service.service}</span>
+                              <span class="font-medium text-[--color-text-1]">{service.service}</span>
                             </div>
                             <div class="flex items-center gap-3">
-                              <span class="text-sm text-gray-500 font-mono">{service.count.toLocaleString()}</span>
+                              <span class="text-sm text-[--color-text-3] font-mono">
+                                {service.count.toLocaleString()}
+                              </span>
                               <div class="w-20">
                                 <NProgress
                                   type="line"
                                   percentage={service.percentage}
                                   showIndicator={false}
                                   height={6}
-                                  color="#1890ff"
+                                  color="var(--color-primary-6)"
                                 />
                               </div>
-                              <span class="text-xs text-gray-400 w-10 text-right">
+                              <span class="text-xs text-[--color-text-3] w-10 text-right">
                                 {service.percentage.toFixed(1)}%
                               </span>
                             </div>
@@ -431,7 +433,7 @@ export default defineComponent({
                         {stats.levelDistribution.map((level, index) => (
                           <div
                             key={index}
-                            class="flex justify-between items-center p-2 hover:bg-gray-50 rounded transition-colors">
+                            class="flex justify-between items-center p-2 hover:bg-[--color-fill-2] rounded transition-colors">
                             <div class="flex items-center">
                               <NTag
                                 size="small"
@@ -441,7 +443,9 @@ export default defineComponent({
                               </NTag>
                             </div>
                             <div class="flex items-center gap-3">
-                              <span class="text-sm text-gray-500 font-mono">{level.count.toLocaleString()}</span>
+                              <span class="text-sm text-[--color-text-3] font-mono">
+                                {level.count.toLocaleString()}
+                              </span>
                               <div class="w-20">
                                 <NProgress
                                   type="line"
@@ -451,7 +455,9 @@ export default defineComponent({
                                   color={getLevelColor(level.level)}
                                 />
                               </div>
-                              <span class="text-xs text-gray-400 w-10 text-right">{level.percentage.toFixed(1)}%</span>
+                              <span class="text-xs text-[--color-text-3] w-10 text-right">
+                                {level.percentage.toFixed(1)}%
+                              </span>
                             </div>
                           </div>
                         ))}
@@ -470,12 +476,12 @@ export default defineComponent({
                     {stats.recentLogs.map((log, index) => (
                       <div
                         key={index}
-                        class="flex items-center justify-between p-3 bg-gray-50/50 rounded-lg hover:bg-gray-100 transition-colors border border-transparent hover:border-gray-200">
+                        class="flex items-center justify-between p-3 bg-[--color-bg-2] rounded-lg hover:bg-[--color-fill-2] transition-colors border border-transparent hover:border-[--color-border-2]">
                         <div class="flex items-center space-x-4 overflow-hidden">
                           <NTime
                             time={new Date(log.timestamp)}
                             format="HH:mm:ss"
-                            class="font-mono text-gray-500 text-sm whitespace-nowrap"
+                            class="font-mono text-[--color-text-3] text-sm whitespace-nowrap"
                           />
                           <NTag
                             size="small"
@@ -483,10 +489,13 @@ export default defineComponent({
                             class="w-16 justify-center shrink-0">
                             {log.level}
                           </NTag>
-                          <NTag size="small" bordered={false} class="bg-gray-200 text-gray-600 shrink-0">
+                          <NTag
+                            size="small"
+                            bordered={false}
+                            class="bg-[--color-fill-3] text-[--color-text-2] shrink-0">
                             {log.service}
                           </NTag>
-                          <span class="text-sm text-gray-700 truncate font-mono">{log.message}</span>
+                          <span class="text-sm text-[--color-text-1] truncate font-mono">{log.message}</span>
                         </div>
                         <NButton
                           size="tiny"

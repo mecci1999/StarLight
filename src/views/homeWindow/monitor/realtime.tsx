@@ -142,13 +142,13 @@ export default defineComponent({
     }
 
     const getResponseTimeColor = (time: number) => {
-      if (time > 150) return '#d03050'
-      if (time > 100) return '#f0a020'
-      return '#18a058'
+      if (time > 150) return 'var(--color-danger-6)'
+      if (time > 100) return 'var(--color-warning-6)'
+      return 'var(--color-success-6)'
     }
 
     return () => (
-      <div class="p-24px h-full overflow-auto bg-gray-50/50">
+      <div class="p-24px h-full overflow-auto bg-[--color-bg-1]">
         <SectionHeader
           title="Infrastructure Overview"
           subtitle="System performance and health status metrics."
@@ -187,51 +187,69 @@ export default defineComponent({
               <NGridItem>
                 <NCard
                   bordered={false}
-                  class="shadow-[var(--shadow-center-1)] rounded-lg hover:shadow-[var(--shadow-center-2)] transition-shadow">
+                  class="shadow-sm rounded-lg hover:shadow-md transition-all duration-300 transform hover:-translate-y-1 bg-gradient-to-br from-[--color-bg-1] to-[--color-fill-1]">
                   <div class="text-center">
-                    <div class="text-14px text-[--color-text-3] mb-8px font-medium">CPU Usage</div>
+                    <div class="text-14px text-[--color-text-3] mb-8px font-medium uppercase tracking-wide">
+                      CPU Usage
+                    </div>
                     <NProgress
                       type="circle"
                       percentage={realtimeData.value.cpu}
                       status={getCpuStatus(realtimeData.value.cpu)}
-                      strokeWidth={10}
+                      strokeWidth={8}
+                      railColor="rgba(0,0,0,0.05)"
                       style={{ width: '120px', margin: '16px auto' }}
                     />
-                    <div class="text-24px font-bold mt-8px">{realtimeData.value.cpu.toFixed(1)}%</div>
+                    <div class="text-24px font-bold mt-8px text-[--color-text-1] font-mono">
+                      {realtimeData.value.cpu.toFixed(1)}%
+                    </div>
                   </div>
                 </NCard>
               </NGridItem>
               <NGridItem>
                 <NCard
                   bordered={false}
-                  class="shadow-[var(--shadow-center-1)] rounded-lg hover:shadow-[var(--shadow-center-2)] transition-shadow">
+                  class="shadow-sm rounded-lg hover:shadow-md transition-all duration-300 transform hover:-translate-y-1 bg-gradient-to-br from-[--color-bg-1] to-[--color-fill-1]">
                   <div class="text-center">
-                    <div class="text-14px text-[--color-text-3] mb-8px font-medium">Memory Usage</div>
+                    <div class="text-14px text-[--color-text-3] mb-8px font-medium uppercase tracking-wide">
+                      Memory Usage
+                    </div>
                     <NProgress
                       type="circle"
                       percentage={realtimeData.value.memory}
                       status={getMemoryStatus(realtimeData.value.memory)}
-                      strokeWidth={10}
+                      strokeWidth={8}
+                      railColor="rgba(0,0,0,0.05)"
                       style={{ width: '120px', margin: '16px auto' }}
                     />
-                    <div class="text-24px font-bold mt-8px">{realtimeData.value.memory.toFixed(1)}%</div>
+                    <div class="text-24px font-bold mt-8px text-[--color-text-1] font-mono">
+                      {realtimeData.value.memory.toFixed(1)}%
+                    </div>
                   </div>
                 </NCard>
               </NGridItem>
               <NGridItem>
                 <NCard
                   bordered={false}
-                  class="shadow-[var(--shadow-center-1)] rounded-lg hover:shadow-[var(--shadow-center-2)] transition-shadow">
+                  class="shadow-sm rounded-lg hover:shadow-md transition-all duration-300 transform hover:-translate-y-1 bg-gradient-to-br from-[--color-bg-1] to-[--color-fill-1]">
                   <div class="text-center h-full flex flex-col justify-center">
-                    <div class="text-14px text-[--color-text-3] mb-16px font-medium">Error Rate</div>
+                    <div class="text-14px text-[--color-text-3] mb-16px font-medium uppercase tracking-wide">
+                      Error Rate
+                    </div>
                     <div
-                      class="text-56px font-bold"
+                      class="text-56px font-bold font-mono tracking-tighter"
                       style={{
-                        color: realtimeData.value.errorRate > 1 ? 'var(--color-danger-6)' : 'var(--color-success-6)'
+                        color: realtimeData.value.errorRate > 1 ? 'var(--color-danger-6)' : 'var(--color-success-6)',
+                        textShadow:
+                          realtimeData.value.errorRate > 1
+                            ? '0 4px 12px rgba(245, 108, 108, 0.2)'
+                            : '0 4px 12px rgba(103, 194, 58, 0.2)'
                       }}>
                       {realtimeData.value.errorRate.toFixed(2)}%
                     </div>
-                    <div class="text-12px text-[--color-text-4] mt-8px">Last Value</div>
+                    <div class="text-12px text-[--color-text-4] mt-8px bg-[--color-fill-2] self-center px-2 py-1 rounded-full">
+                      Last Value
+                    </div>
                   </div>
                 </NCard>
               </NGridItem>
@@ -244,7 +262,7 @@ export default defineComponent({
                   <NStatistic
                     label="QPS (Req/sec)"
                     value={realtimeData.value.qps.toLocaleString()}
-                    style={{ fontSize: '24px', fontWeight: '600' }}
+                    style={{ fontSize: '24px', fontWeight: '600', color: 'var(--color-text-1)' }}
                   />
                 </NCard>
               </NGridItem>
@@ -266,7 +284,7 @@ export default defineComponent({
                   <NStatistic
                     label="Active Connections"
                     value={realtimeData.value.activeConnections.toLocaleString()}
-                    style={{ fontSize: '24px', fontWeight: '600' }}
+                    style={{ fontSize: '24px', fontWeight: '600', color: 'var(--color-text-1)' }}
                   />
                 </NCard>
               </NGridItem>

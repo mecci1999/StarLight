@@ -116,6 +116,12 @@ const routes: Array<RouteRecordRaw> = [
         path: 'trace-explorer',
         name: 'trace-explorer',
         component: () => import('@/views/homeWindow/monitor/trace')
+      },
+      // 💳 计费管理模块
+      {
+        path: 'billing',
+        name: 'billing',
+        component: () => import('@/views/homeWindow/billing/index')
       }
     ]
   }

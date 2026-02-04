@@ -100,3 +100,16 @@ export type TraceSpan = {
   status: 'ok' | 'error'
   tags: Record<string, string>
 }
+
+export type NotificationItem = {
+  key: string
+  sendTime: string
+  ruleName: string
+  service: string
+  channel: string
+  recipient: string
+  status: 'success' | 'failed' | 'pending'
+  retryCount: number
+  content: string
+  errorMessage?: string
+}

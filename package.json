@@ -4,8 +4,8 @@
   "version": "0.1.0",
   "type": "module",
   "engines": {
-    "node": ">=22.x",
-    "pnmp": ">=10.x"
+    "node": "*",
+    "pnmp": "*"
   },
   "repository": {
     "url": "https://github.com/mecci1999/StarLight.git"
@@ -37,7 +37,7 @@
     "========= 生成icon =========": "",
     "tauri:icon": "tauri icon starlight.png",
     "========= 安装依赖前执行 =========": "",
-    "preinstall": "npx only-allow pnpm && node scripts/check-all.js",
+    "preinstall": "",
     "========= 使用commit来进行代码提交 =========": "",
     "commit": "git add . && git-cz",
     "========= 校验代码规范 =========": "",

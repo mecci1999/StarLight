@@ -217,7 +217,7 @@
         .hljs-name,
         .hljs-selector-id,
         .hljs-selector-class {
-          color: #00b42a; // success-6
+          color: var(--color-success-6);
         }
         .hljs-comment,
         .hljs-code,

@@ -12,7 +12,8 @@ import {
   SettingsOutline,
   ConstructOutline,
   EllipsisHorizontalOutline,
-  GridOutline
+  GridOutline,
+  WalletOutline
 } from '@vicons/ionicons5'
 import { VueDraggable } from 'vue-draggable-plus'
 import { markRaw, defineComponent, ref, watch, computed, h } from 'vue'
@@ -61,7 +62,8 @@ export default defineComponent({
           '/home/system-events': 'audit',
           '/home/api-testing': 'testing',
           '/home/mock-service': 'testing',
-          '/home/debug-tools': 'testing'
+          '/home/debug-tools': 'testing',
+          '/home/billing': 'billing'
         }
         activeModule.value = moduleMap[newPath] || 'service-overview'
       },
@@ -134,6 +136,12 @@ export default defineComponent({
         label: 'Audit Trail',
         icon: markRaw(DocumentTextOutline),
         route: '/home/audit-logs'
+      },
+      {
+        key: 'billing',
+        label: 'Billing',
+        icon: markRaw(WalletOutline),
+        route: '/home/billing'
       }
     ])
 

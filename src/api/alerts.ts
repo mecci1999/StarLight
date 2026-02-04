@@ -1,16 +1,60 @@
 import request from '@/services/request'
-import type { AlertItem, AlertRuleItem } from '@/types/monitor'
+import type { AlertItem, AlertRuleItem, NotificationItem } from '@/types/monitor'
 
 // 获取告警列表
-// 暂时没有后端实现，或者复用 metrics 的查询?
-// 之前假设在 metrics 服务中，但没有实现 alerts actions
-// 这里先保留 mock 的接口定义，实际可能需要后续实现 alerts 服务
-export function fetchAlerts(params?: { level?: string; status?: string; serviceId?: string }) {
-  // 假设我们会在 metrics 服务中实现 v1.alerts.list
-  // 或者暂时返回空数组以免报错
+export function fetchAlerts(params?: {
+  level?: string
+  status?: string
+  serviceId?: string
+  keyword?: string
+  startTime?: number
+  endTime?: number
+}) {
   return request.get<AlertItem[]>('/metrics/v1/alerts', params || {})
 }
 
+// 解决告警
+export function resolveAlert(id: string) {
+  return request.post<{ success: boolean }>(`/metrics/v1/alerts/${id}/resolve`, {})
+}
+
+// 静默告警
+export function suppressAlert(id: string) {
+  return request.post<{ success: boolean }>(`/metrics/v1/alerts/${id}/suppress`, {})
+}
+
+// 获取告警规则列表
 export function fetchAlertRules() {
   return request.get<AlertRuleItem[]>('/metrics/v1/alert-rules', {})
+}
+
+// 保存告警规则
+export function saveAlertRule(rule: Partial<AlertRuleItem>) {
+  return request.post<AlertRuleItem>('/metrics/v1/alert-rules', rule)
+}
+
+// 更新告警规则
+export function updateAlertRule(rule: AlertRuleItem) {
+  return request.put<AlertRuleItem>(`/metrics/v1/alert-rules/${rule.id}`, rule)
+}
+
+// 删除告警规则
+export function deleteAlertRule(id: string) {
+  return request.delete<{ success: boolean }>(`/metrics/v1/alert-rules/${id}`, {})
+}
+
+// 获取通知历史
+export function fetchNotifications(params?: {
+  keyword?: string
+  channel?: string
+  status?: string
+  startTime?: number
+  endTime?: number
+}) {
+  return request.get<NotificationItem[]>('/metrics/v1/notifications', params || {})
+}
+
+// 重发通知
+export function resendNotification(id: string) {
+  return request.post<{ success: boolean }>(`/metrics/v1/notifications/${id}/resend`, {})
 }

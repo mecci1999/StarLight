@@ -239,52 +239,12 @@ export default defineComponent({
           pagination.page = response.data.page
           pagination.pageSize = response.data.pageSize
         } else {
-          // Mock data if API fails or empty (for demo)
-          if (state.logs.length === 0) {
-            state.logs = []
-          }
+          state.logs = []
+          pagination.total = 0
         }
       } catch (error) {
-        // Mock data for demo purposes if backend fails
-        console.warn('Backend search failed, using mock data for demo')
-        state.logs = [
-          {
-            id: '1',
-            key: '1',
-            source: LogSourceEnum.APPLICATION,
-            timestamp: new Date().toISOString(),
-            level: LogLevelEnum.INFO,
-            service: 'auth-service',
-            message: 'User login successful',
-            hostname: 'node-1',
-            logger: 'Auth',
-            thread: 'main'
-          },
-          {
-            id: '2',
-            key: '2',
-            source: LogSourceEnum.APPLICATION,
-            timestamp: new Date(Date.now() - 1000).toISOString(),
-            level: LogLevelEnum.WARN,
-            service: 'payment-service',
-            message: 'Payment gateway timeout, retrying...',
-            hostname: 'node-2',
-            logger: 'Payment',
-            thread: 'worker-1'
-          },
-          {
-            id: '3',
-            key: '3',
-            source: LogSourceEnum.SYSTEM,
-            timestamp: new Date(Date.now() - 5000).toISOString(),
-            level: LogLevelEnum.ERROR,
-            service: 'db-service',
-            message: 'Connection pool exhausted',
-            hostname: 'db-1',
-            logger: 'DB',
-            thread: 'pool-manager'
-          }
-        ]
+        message.error('加载日志失败')
+        state.logs = []
       } finally {
         state.loading = false
       }
@@ -595,6 +555,8 @@ export default defineComponent({
             onUpdatePage={handlePageChange}
             onUpdatePageSize={handlePageSizeChange}
             rowKey={(row) => row.key}
+            virtual-scroll
+            min-height={400}
           />
         </NCard>
 

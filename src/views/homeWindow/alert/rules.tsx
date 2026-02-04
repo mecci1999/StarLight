@@ -16,7 +16,8 @@ import {
 import { ref, h, onMounted } from 'vue'
 import { NotificationsOutline } from '@vicons/ionicons5'
 import SectionHeader from '@/components/common/SectionHeader'
-import { fetchAlertRules, saveAlertRule, updateAlertRule, deleteAlertRule } from '@/mock/api'
+import { fetchAlertRules, saveAlertRule, updateAlertRule, deleteAlertRule } from '@/api/alerts'
+import { getAppKeys } from '@/api/metrics'
 import type { AlertRuleItem } from '@/types/monitor'
 
 export default defineComponent({
@@ -39,12 +40,28 @@ export default defineComponent({
       notificationChannels: [] as string[]
     })
 
-    const serviceOptions = [
-      { label: 'user-service', value: 'user-service' },
-      { label: 'order-service', value: 'order-service' },
-      { label: 'payment-service', value: 'payment-service' },
-      { label: '全部服务', value: 'all' }
-    ]
+    const serviceOptions = ref([{ label: '全部服务', value: 'all' }])
+
+    const fetchServices = async () => {
+      try {
+        const keys = await getAppKeys()
+        if (keys && Array.isArray(keys)) {
+          serviceOptions.value = [
+            { label: '全部服务', value: 'all' },
+            ...keys.map((k: any) => ({
+              label: typeof k === 'string' ? k : k.name || k.appKey,
+              value: typeof k === 'string' ? k : k.appKey
+            }))
+          ]
+        }
+      } catch (e) {
+        console.error('Failed to fetch services', e)
+      }
+    }
+
+    onMounted(() => {
+      fetchServices()
+    })
 
     const metricOptions = [
       { label: 'CPU使用率', value: 'cpu_usage' },
@@ -313,7 +330,7 @@ export default defineComponent({
               <NInput v-model:value={formData.value.name} placeholder="请输入规则名称" />
             </NFormItem>
             <NFormItem label="服务" required>
-              <NSelect v-model:value={formData.value.service} options={serviceOptions} placeholder="选择服务" />
+              <NSelect v-model:value={formData.value.service} options={serviceOptions.value} placeholder="选择服务" />
             </NFormItem>
             <NFormItem label="监控指标" required>
               <NSelect v-model:value={formData.value.metric} options={metricOptions} placeholder="选择指标" />
@@ -361,7 +378,7 @@ export default defineComponent({
               <NInput v-model:value={formData.value.name} placeholder="请输入规则名称" />
             </NFormItem>
             <NFormItem label="服务" required>
-              <NSelect v-model:value={formData.value.service} options={serviceOptions} placeholder="选择服务" />
+              <NSelect v-model:value={formData.value.service} options={serviceOptions.value} placeholder="选择服务" />
             </NFormItem>
             <NFormItem label="监控指标" required>
               <NSelect v-model:value={formData.value.metric} options={metricOptions} placeholder="选择指标" />

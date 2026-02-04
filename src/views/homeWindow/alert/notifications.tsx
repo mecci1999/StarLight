@@ -11,9 +11,11 @@ import {
   NDescriptions,
   NDescriptionsItem
 } from 'naive-ui'
-import { ref, h } from 'vue'
+import { ref, h, onMounted } from 'vue'
 import { NotificationsOutline } from '@vicons/ionicons5'
 import SectionHeader from '@/components/common/SectionHeader'
+import { fetchNotifications, resendNotification } from '@/api/alerts'
+import type { NotificationItem } from '@/types/monitor'
 
 export default defineComponent({
   name: 'NotificationHistory',
@@ -24,6 +26,28 @@ export default defineComponent({
     const dateRange = ref<[number, number] | null>(null)
     const showDetailModal = ref(false)
     const selectedNotification = ref<any>(null)
+    const loading = ref(false)
+    const notificationData = ref<NotificationItem[]>([])
+
+    const loadNotifications = async () => {
+      loading.value = true
+      try {
+        const res = await fetchNotifications({
+          keyword: searchText.value,
+          channel: selectedChannel.value,
+          status: selectedStatus.value,
+          startTime: dateRange.value?.[0],
+          endTime: dateRange.value?.[1]
+        })
+        notificationData.value = res
+      } catch (e) {
+        console.error(e)
+      } finally {
+        loading.value = false
+      }
+    }
+
+    onMounted(loadNotifications)
 
     const channelOptions = [
       { label: '全部渠道', value: '' },
@@ -132,81 +156,85 @@ export default defineComponent({
       }
     ]
 
-    const notificationData = ref([
-      {
-        key: '1',
-        sendTime: '2024-01-15 14:30:25',
-        ruleName: 'CPU使用率过高',
-        service: 'user-service',
-        channel: 'email',
-        recipient: 'admin@example.com, ops@example.com',
-        status: 'success',
-        retryCount: 0,
-        content: 'CPU使用率超过90%，当前值：95%',
-        errorMessage: ''
-      },
-      {
-        key: '2',
-        sendTime: '2024-01-15 14:25:10',
-        ruleName: '内存使用率严重告警',
-        service: 'order-service',
-        channel: 'slack',
-        recipient: '#alerts',
-        status: 'success',
-        retryCount: 0,
-        content: '内存使用率超过80%，当前值：85%',
-        errorMessage: ''
-      },
-      {
-        key: '3',
-        sendTime: '2024-01-15 14:20:45',
-        ruleName: '响应时间过长',
-        service: 'payment-service',
-        channel: 'webhook',
-        recipient: 'https://api.example.com/webhook',
-        status: 'failed',
-        retryCount: 3,
-        content: '响应时间超过5秒，当前值：8.5秒',
-        errorMessage: '连接超时：无法连接到目标URL'
-      },
-      {
-        key: '4',
-        sendTime: '2024-01-15 14:15:30',
-        ruleName: 'QPS异常下降',
-        service: 'user-service',
-        channel: 'sms',
-        recipient: '+86 138****8888',
-        status: 'pending',
-        retryCount: 1,
-        content: 'QPS异常下降，当前值：50/s，正常值：1000/s',
-        errorMessage: ''
-      },
-      {
-        key: '5',
-        sendTime: '2024-01-15 14:10:15',
-        ruleName: '服务重启完成',
-        service: 'order-service',
-        channel: 'email',
-        recipient: 'admin@example.com',
-        status: 'success',
-        retryCount: 0,
-        content: '服务重启完成',
-        errorMessage: ''
-      }
-    ])
+    // const notificationData = ref([
+    //   {
+    //     key: '1',
+    //     sendTime: '2024-01-15 14:30:25',
+    //     ruleName: 'CPU使用率过高',
+    //     service: 'user-service',
+    //     channel: 'email',
+    //     recipient: 'admin@example.com, ops@example.com',
+    //     status: 'success',
+    //     retryCount: 0,
+    //     content: 'CPU使用率超过90%，当前值：95%',
+    //     errorMessage: ''
+    //   },
+    //   {
+    //     key: '2',
+    //     sendTime: '2024-01-15 14:25:10',
+    //     ruleName: '内存使用率严重告警',
+    //     service: 'order-service',
+    //     channel: 'slack',
+    //     recipient: '#alerts',
+    //     status: 'success',
+    //     retryCount: 0,
+    //     content: '内存使用率超过80%，当前值：85%',
+    //     errorMessage: ''
+    //   },
+    //   {
+    //     key: '3',
+    //     sendTime: '2024-01-15 14:20:45',
+    //     ruleName: '响应时间过长',
+    //     service: 'payment-service',
+    //     channel: 'webhook',
+    //     recipient: 'https://api.example.com/webhook',
+    //     status: 'failed',
+    //     retryCount: 3,
+    //     content: '响应时间超过5秒，当前值：8.5秒',
+    //     errorMessage: '连接超时：无法连接到目标URL'
+    //   },
+    //   {
+    //     key: '4',
+    //     sendTime: '2024-01-15 14:15:30',
+    //     ruleName: 'QPS异常下降',
+    //     service: 'user-service',
+    //     channel: 'sms',
+    //     recipient: '+86 138****8888',
+    //     status: 'pending',
+    //     retryCount: 1,
+    //     content: 'QPS异常下降，当前值：50/s，正常值：1000/s',
+    //     errorMessage: ''
+    //   },
+    //   {
+    //     key: '5',
+    //     sendTime: '2024-01-15 14:10:15',
+    //     ruleName: '服务重启完成',
+    //     service: 'order-service',
+    //     channel: 'email',
+    //     recipient: 'admin@example.com',
+    //     status: 'success',
+    //     retryCount: 0,
+    //     content: '服务重启完成',
+    //     errorMessage: ''
+    //   }
+    // ])
 
     const handleViewDetail = (notification: any) => {
       selectedNotification.value = notification
       showDetailModal.value = true
     }
 
-    const handleResend = (notification: any) => {
+    const handleResend = async (notification: any) => {
       notification.status = 'pending'
       notification.retryCount += 1
-      // 模拟重发逻辑
-      setTimeout(() => {
+      try {
+        await resendNotification(notification.key)
         notification.status = 'success'
-      }, 2000)
+        window.$message.success('重发成功')
+      } catch (e) {
+        notification.status = 'failed'
+        window.$message.error('重发失败')
+      }
     }
 
     return () => (
@@ -230,7 +258,9 @@ export default defineComponent({
               style={{ width: '120px' }}
             />
             <NDatePicker v-model:value={dateRange.value} type="datetimerange" clearable style={{ width: '300px' }} />
-            <NButton type="primary">查询</NButton>
+            <NButton type="primary" onClick={loadNotifications}>
+              查询
+            </NButton>
             <NButton>重置</NButton>
             <NButton type="error">批量重发</NButton>
           </NSpace>
@@ -272,6 +302,7 @@ export default defineComponent({
               flex-height
               columns={columns}
               data={notificationData.value}
+              loading={loading.value}
               pagination={{
                 pageSize: 10,
                 showSizePicker: true,

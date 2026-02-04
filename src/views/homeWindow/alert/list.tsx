@@ -13,7 +13,8 @@ import {
   NTimelineItem
 } from 'naive-ui'
 import { ref, h, defineComponent, watch, onMounted } from 'vue'
-import { fetchAlerts } from '@/api'
+import { fetchAlerts, resolveAlert, suppressAlert } from '@/api/alerts'
+import { getAppKeys } from '@/api/metrics'
 import type { AlertItem } from '@/types/monitor'
 import SectionHeader from '@/components/common/SectionHeader'
 import { AlertCircleOutline, CheckmarkCircleOutline, WarningOutline, CloseCircleOutline } from '@vicons/ionicons5'
@@ -28,12 +29,24 @@ export default defineComponent({
     const selectedService = ref('')
     const selectedLevel = ref('')
 
-    const serviceOptions = [
-      { label: 'All Services', value: '' },
-      { label: 'user-service', value: 'user-service' },
-      { label: 'order-service', value: 'order-service' },
-      { label: 'payment-service', value: 'payment-service' }
-    ]
+    const serviceOptions = ref([{ label: 'All Services', value: '' }])
+
+    const fetchServices = async () => {
+      try {
+        const keys = await getAppKeys()
+        if (keys && Array.isArray(keys)) {
+          serviceOptions.value = [
+            { label: 'All Services', value: '' },
+            ...keys.map((k: any) => ({
+              label: typeof k === 'string' ? k : k.name || k.appKey,
+              value: typeof k === 'string' ? k : k.appKey
+            }))
+          ]
+        }
+      } catch (e) {
+        console.error('Failed to fetch services', e)
+      }
+    }
 
     const levelOptions = [
       { label: 'All Levels', value: '' },
@@ -118,13 +131,23 @@ export default defineComponent({
         key: 'actions',
         width: 150,
         render(row: any) {
-          const handleAck = () => {
-            row.status = 'resolved'
-            window.$message.success('Alert resolved')
+          const handleAck = async () => {
+            try {
+              await resolveAlert(row.id)
+              row.status = 'resolved'
+              window.$message.success('Alert resolved')
+            } catch (e) {
+              window.$message.error('Failed to resolve alert')
+            }
           }
-          const handleSuppress = () => {
-            row.status = 'suppressed'
-            window.$message.info('Alert suppressed')
+          const handleSuppress = async () => {
+            try {
+              await suppressAlert(row.id)
+              row.status = 'suppressed'
+              window.$message.info('Alert suppressed')
+            } catch (e) {
+              window.$message.error('Failed to suppress alert')
+            }
           }
           return (
             <div class="flex gap-8px">
@@ -147,20 +170,20 @@ export default defineComponent({
 
     const handleQuery = async () => {
       loading.value = true
-      const list = await fetchAlerts({ level: selectedLevel.value as any })
-      alertData.value = list.filter((i) => {
-        const matchSearch = searchText.value ? i.message.includes(searchText.value) : true
-        // Try to parse time. Mock API usually returns formatted string like "2023-10-27 10:00:00"
-        const alertTime = dayjs(i.time).valueOf()
-        // If invalid date (mock might return relative time string like "2 mins ago"), skip time filter or handle it.
-        // Assuming standard format for now or ignoring time filter if parse fails.
-        let matchTime = true
-        if (!isNaN(alertTime)) {
-          matchTime = alertTime >= timeStore.startTime && alertTime <= timeStore.endTime
-        }
-        return matchSearch && matchTime
-      })
-      loading.value = false
+      try {
+        const list = await fetchAlerts({
+          level: selectedLevel.value,
+          serviceId: selectedService.value,
+          keyword: searchText.value,
+          startTime: timeStore.startTime,
+          endTime: timeStore.endTime
+        })
+        alertData.value = list
+      } catch (e) {
+        console.error(e)
+      } finally {
+        loading.value = false
+      }
     }
 
     const handleReset = async () => {
@@ -174,6 +197,7 @@ export default defineComponent({
 
     onMounted(() => {
       handleQuery()
+      fetchServices()
     })
 
     return () => (
@@ -191,7 +215,7 @@ export default defineComponent({
               <NInput v-model:value={searchText.value} placeholder="Search alerts..." style={{ width: '240px' }} />
               <NSelect
                 v-model:value={selectedService.value}
-                options={serviceOptions}
+                options={serviceOptions.value}
                 placeholder="Service"
                 style={{ width: '160px' }}
               />
@@ -244,6 +268,7 @@ export default defineComponent({
             loading={loading.value}
             flex-height={true}
             style={{ height: '100%' }}
+            virtual-scroll
           />
         </NCard>
       </div>

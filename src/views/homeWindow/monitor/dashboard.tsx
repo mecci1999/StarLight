@@ -1,429 +1,508 @@
+import { defineComponent, ref, reactive, onMounted, onUnmounted, watch, markRaw } from 'vue'
 import {
+  NButton,
   NCard,
   NGrid,
   NGridItem,
-  NButton,
-  NSpace,
   NModal,
   NForm,
   NFormItem,
   NInput,
-  NCheckbox,
-  NStatistic,
+  NSelect,
   NIcon,
-  NList,
-  NListItem,
-  NTag,
-  NThing,
+  NSpace,
+  NSwitch,
   NEmpty,
-  NSwitch
+  useMessage,
+  NInputNumber
 } from 'naive-ui'
-import { defineComponent, ref, onMounted, onUnmounted, watch } from 'vue'
-import { getAppKeys, getServiceStats, queryMetrics } from '@/api'
+import BaseChart from '@/components/charts/BaseChart'
+import { AddOutline, SaveOutline, CreateOutline, TrashOutline } from '@vicons/ionicons5'
+import api from '@/api'
 import { useTimeStore } from '@/store/useTimeStore'
-import GaugeChart from '@/components/charts/GaugeChart'
-import LineChart from '@/components/charts/LineChart'
-import BarChart from '@/components/charts/BarChart'
-import PieChart from '@/components/charts/PieChart'
-import SectionHeader from '@/components/common/SectionHeader'
-import { LaptopOutline, ServerOutline, PulseOutline, TimeOutline, SpeedometerOutline } from '@vicons/ionicons5'
+import { graphic } from 'echarts/core'
 
 export default defineComponent({
   name: 'CustomDashboard',
   setup() {
     const timeStore = useTimeStore()
+    const message = useMessage()
+    const isEditMode = ref(false)
     const showAddModal = ref(false)
-    const dashboardName = ref('')
-    const selectedWidgets = ref<string[]>([])
-    const loading = ref(true)
-    const realtimeData = ref<any>({})
-    const trendData = ref<any>({})
-    const alertsData = ref<any[]>([])
-    const isDemoMode = ref(false)
-    let timer: any = null
+    const loading = ref(false)
+    const timer = ref<any>(null)
+    const appKeys = ref<any[]>([])
 
-    const widgetOptions = [
-      { label: 'CPU Usage', value: 'cpu' },
-      { label: 'Memory Usage', value: 'memory' },
-      { label: 'QPS Trend', value: 'qps' },
-      { label: 'Response Time', value: 'response-time' },
-      { label: 'Error Rate', value: 'error-rate' },
-      { label: 'Active Connections', value: 'connections' }
-    ]
+    // New widget form state
+    const newWidget = reactive({
+      title: '',
+      type: 'line',
+      span: 12,
+      height: 300,
+      appKey: '',
+      metric: 'cpu'
+    })
 
-    const loadData = async () => {
+    // Dashboard widgets state
+    const widgets = reactive<any[]>([])
+
+    // Fetch available AppKeys
+    const fetchAppKeys = async () => {
       try {
-        loading.value = true
-
-        if (isDemoMode.value) {
-          // Mock Data for Demo Mode
-          await new Promise((resolve) => setTimeout(resolve, 500))
-
-          realtimeData.value = {
-            cpu: 30 + Math.random() * 40,
-            memory: 40 + Math.random() * 30,
-            qps: 500 + Math.floor(Math.random() * 200),
-            responseTime: 20 + Math.random() * 10,
-            activeInstances: 12,
-            systemLoad: (1 + Math.random()).toFixed(2),
-            healthDistribution: [
-              { name: 'Healthy', value: 80 },
-              { name: 'Warning', value: 15 },
-              { name: 'Critical', value: 5 }
-            ],
-            trafficDistribution: Array.from({ length: 24 }, (_, i) => ({
-              label: `${i}:00`,
-              value: Math.floor(Math.random() * 1000)
-            }))
-          }
-
-          // Mock Trend Data
-          const points = 30
-          trendData.value = {
-            qps: Array.from({ length: points }, (_, i) => ({
-              timestamp: Date.now() - (points - i) * 60000,
-              value: 500 + Math.random() * 200
-            })),
-            responseTime: Array.from({ length: points }, (_, i) => ({
-              timestamp: Date.now() - (points - i) * 60000,
-              value: 20 + Math.random() * 10
-            }))
-          }
-
-          // Mock Alerts
-          if (Math.random() > 0.7) {
-            alertsData.value = [
-              { id: 1, service: 'order-service', level: 'warning', time: 'Just now', message: 'High CPU usage (85%)' },
-              {
-                id: 2,
-                service: 'payment-service',
-                level: 'critical',
-                time: '2 mins ago',
-                message: 'Connection timeout'
-              }
-            ]
-          } else {
-            alertsData.value = []
-          }
-
-          loading.value = false
-          return
+        const res = await api.metrics.getAppKeys()
+        if (res && Array.isArray((res as any).appKeys)) {
+          appKeys.value = (res as any).appKeys
+        } else if (Array.isArray(res)) {
+          appKeys.value = res
         }
-
-        // Fetch AppKeys to identify which app to monitor
-        const appKeysRes = await getAppKeys()
-        let appKey = ''
-        if (appKeysRes && Array.isArray((appKeysRes as any).appKeys)) {
-          appKey = (appKeysRes as any).appKeys[0]?.appKey
-        } else if (Array.isArray(appKeysRes)) {
-          appKey = appKeysRes[0]?.appKey
-        }
-
-        const promises: Promise<any>[] = []
-
-        // 1. Service Stats (System Load etc)
-        promises.push(getServiceStats().catch(() => ({})))
-
-        // 2. Metrics (Trend)
-        if (timeStore.isLive) {
-          timeStore.setTimeRange(timeStore.timeRange)
-        }
-
-        if (appKey) {
-          promises.push(
-            queryMetrics({
-              appKey,
-              timeRange: {
-                start: timeStore.startTime,
-                end: timeStore.endTime
-              },
-              step: '1m',
-              metrics: ['cpu', 'memory', 'qps', 'responseTime']
-            }).catch(() => ({}))
-          )
-        } else {
-          promises.push(Promise.resolve({}))
-        }
-
-        const [stats, metrics] = await Promise.all(promises)
-
-        // Transform Data
-        trendData.value = metrics || {}
-
-        // Realtime data from last point of metrics + stats
-        const lastCpu = metrics?.cpu?.length > 0 ? metrics.cpu[metrics.cpu.length - 1].value : 0
-        const lastMem = metrics?.memory?.length > 0 ? metrics.memory[metrics.memory.length - 1].value : 0
-        const lastQps = metrics?.qps?.length > 0 ? metrics.qps[metrics.qps.length - 1].value : 0
-        const lastRt =
-          metrics?.responseTime?.length > 0 ? metrics.responseTime[metrics.responseTime.length - 1].value : 0
-
-        realtimeData.value = {
-          cpu: lastCpu,
-          memory: lastMem,
-          qps: lastQps,
-          responseTime: lastRt,
-          activeInstances: stats?.activeApps || 0,
-          systemLoad: `${(lastCpu / 10).toFixed(2)}`,
-          healthDistribution: [
-            { name: 'Healthy', value: 80 },
-            { name: 'Warning', value: 15 },
-            { name: 'Critical', value: 5 }
-          ],
-          trafficDistribution: []
-        }
-
-        alertsData.value = []
       } catch (error) {
-        console.error('Failed to load dashboard data:', error)
+        console.error('Failed to fetch app keys:', error)
+      }
+    }
+
+    // Load layout from localStorage
+    const loadLayout = () => {
+      const saved = localStorage.getItem('starlight_custom_dashboard_layout')
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved)
+          widgets.splice(0, widgets.length, ...parsed)
+        } catch (e) {
+          console.error('Failed to parse dashboard layout', e)
+        }
+      } else {
+        // Default widgets
+        widgets.push(
+          { id: 1, title: 'CPU Trend', type: 'line', span: 12, height: 300, metric: 'cpu', appKey: '' },
+          { id: 2, title: 'Memory Usage', type: 'bar', span: 12, height: 300, metric: 'memory', appKey: '' }
+        )
+      }
+    }
+
+    const saveLayout = () => {
+      // Only save structural config, not data/options
+      const layoutToSave = widgets.map((w) => ({
+        id: w.id,
+        title: w.title,
+        type: w.type,
+        span: w.span,
+        height: w.height,
+        metric: w.metric,
+        appKey: w.appKey
+      }))
+      localStorage.setItem('starlight_custom_dashboard_layout', JSON.stringify(layoutToSave))
+      isEditMode.value = false
+      message.success('仪表盘布局已保存')
+    }
+
+    // Load or refresh data
+    const refreshData = async () => {
+      loading.value = true
+      try {
+        // Fetch data for all widgets in parallel
+        await Promise.all(
+          widgets.map(async (widget) => {
+            // Determine appKey (widget specific or default first available)
+            const targetAppKey = widget.appKey || (appKeys.value.length > 0 ? appKeys.value[0].appKey : null)
+
+            if (!targetAppKey) {
+              widget.option = markRaw(generateEmptyOption(widget.title, 'No AppKey selected'))
+              return
+            }
+
+            const res = await api.metrics.queryMetrics({
+              appKey: targetAppKey,
+              startTime: timeStore.startTime,
+              endTime: timeStore.endTime,
+              step: '1m', // adjust based on time range
+              metrics: [widget.metric || 'cpu']
+            })
+
+            const seriesData = (res as any)[widget.metric || 'cpu'] || []
+
+            // Generate chart option with real data
+            widget.option = markRaw(generateChartOption(widget.type, widget.title, seriesData))
+          })
+        )
+      } catch (error) {
+        console.error('Failed to refresh dashboard data:', error)
       } finally {
         loading.value = false
       }
     }
 
-    watch(
-      () => timeStore.timeRange,
-      () => {
-        loadData()
-      }
-    )
+    // Generate chart options helper
+    const generateChartOption = (type: string, title: string, data: any[] = []) => {
+      const isDark = document.documentElement.dataset.theme === 'dark'
 
-    watch(
-      () => [timeStore.startTime, timeStore.endTime],
-      () => {
-        loadData()
-      }
-    )
+      // 清新配色方案
+      const colors = [
+        ['#2080f0', '#e8f3ff'], // Blue
+        ['#18a058', '#e8ffea'], // Green
+        ['#f0a020', '#fff7e8'], // Orange
+        ['#d03050', '#ffece8'], // Red
+        ['#8a2be2', '#f3e8ff'] // Purple
+      ]
 
-    watch(
-      () => timeStore.isLive,
-      (newVal) => {
-        if (newVal) {
-          loadData()
-          timer = setInterval(loadData, 5000)
-        } else {
-          if (timer) clearInterval(timer)
+      const primaryColor = '#2080f0'
+      const textColor = isDark ? '#c5c5c5' : '#4e5969'
+      const axisLineColor = isDark ? '#484849' : '#e5e6eb'
+      const splitLineColor = isDark ? '#333' : '#f2f3f5'
+
+      const base = {
+        title: {
+          text: title,
+          left: 'left',
+          textStyle: {
+            color: isDark ? '#fff' : '#1d2129',
+            fontSize: 14,
+            fontWeight: 600
+          }
+        },
+        tooltip: {
+          trigger: 'axis',
+          backgroundColor: isDark ? 'rgba(30,30,30,0.8)' : 'rgba(255,255,255,0.8)',
+          backdropFilter: 'blur(10px)',
+          borderColor: isDark ? '#444' : '#eee',
+          textStyle: {
+            color: isDark ? '#eee' : '#333'
+          },
+          padding: [10, 14],
+          extraCssText: 'box-shadow: 0 4px 12px rgba(0,0,0,0.1); border-radius: 8px;'
+        },
+        grid: { left: '2%', right: '3%', bottom: '10%', top: '18%', containLabel: true },
+        dataZoom: [
+          {
+            type: 'inside',
+            start: 0,
+            end: 100
+          },
+          {
+            type: 'slider',
+            height: 16,
+            bottom: 5,
+            borderColor: 'transparent',
+            backgroundColor: isDark ? '#333' : '#f5f5f5',
+            fillerColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(32,128,240,0.1)',
+            handleStyle: {
+              color: primaryColor
+            },
+            textStyle: { color: 'transparent' }
+          }
+        ]
+      }
+
+      const xAxisData = data.map((d) => new Date(d.timestamp).toLocaleTimeString())
+      const seriesValues = data.map((d) => d.value)
+
+      // Common Axis Style
+      const axisStyle = {
+        axisLine: { show: false },
+        axisTick: { show: false },
+        axisLabel: { color: textColor, fontSize: 11 },
+        splitLine: {
+          show: true,
+          lineStyle: { color: splitLineColor, type: 'dashed' }
         }
       }
-    )
 
-    onMounted(() => {
-      loadData()
-      if (timeStore.isLive) {
-        timer = setInterval(loadData, 5000)
+      if (type === 'line') {
+        return {
+          ...base,
+          xAxis: {
+            type: 'category',
+            data: xAxisData,
+            boundaryGap: false,
+            axisLine: { show: true, lineStyle: { color: axisLineColor } },
+            axisTick: { show: false },
+            axisLabel: { color: textColor, margin: 12 }
+          },
+          yAxis: {
+            type: 'value',
+            ...axisStyle
+          },
+          series: [
+            {
+              data: seriesValues,
+              type: 'line',
+              smooth: true,
+              symbol: 'none', // 默认不显示点，鼠标hover时显示
+              lineStyle: {
+                width: 3,
+                shadowColor: 'rgba(32,128,240,0.3)',
+                shadowBlur: 10,
+                color: new graphic.LinearGradient(0, 0, 1, 0, [
+                  { offset: 0, color: '#2080f0' },
+                  { offset: 1, color: '#00d4ff' }
+                ])
+              },
+              areaStyle: {
+                color: new graphic.LinearGradient(0, 0, 0, 1, [
+                  { offset: 0, color: 'rgba(32,128,240,0.2)' },
+                  { offset: 1, color: 'rgba(32,128,240,0)' }
+                ])
+              }
+            }
+          ]
+        }
+      } else if (type === 'bar') {
+        return {
+          ...base,
+          xAxis: {
+            type: 'category',
+            data: xAxisData,
+            axisLine: { show: false },
+            axisTick: { show: false },
+            axisLabel: { color: textColor }
+          },
+          yAxis: {
+            type: 'value',
+            ...axisStyle
+          },
+          series: [
+            {
+              data: seriesValues,
+              type: 'bar',
+              barWidth: '40%',
+              itemStyle: {
+                borderRadius: [4, 4, 0, 0],
+                color: new graphic.LinearGradient(0, 0, 0, 1, [
+                  { offset: 0, color: '#2080f0' },
+                  { offset: 1, color: '#60a5fa' }
+                ])
+              }
+            }
+          ]
+        }
+      } else if (type === 'pie') {
+        const lastValue = seriesValues.length ? seriesValues[seriesValues.length - 1] : 0
+        return {
+          title: {
+            text: title,
+            left: 'center',
+            top: 'center',
+            textStyle: {
+              fontSize: 12,
+              color: textColor,
+              fontWeight: 400
+            },
+            subtext: lastValue.toFixed(1) + '%',
+            subtextStyle: {
+              fontSize: 20,
+              color: isDark ? '#fff' : '#1d2129',
+              fontWeight: 700
+            }
+          },
+          tooltip: { trigger: 'item' },
+          series: [
+            {
+              name: title,
+              type: 'pie',
+              radius: ['60%', '75%'],
+              center: ['50%', '50%'],
+              itemStyle: {
+                borderRadius: 8,
+                borderColor: isDark ? '#1f1f1f' : '#fff',
+                borderWidth: 2
+              },
+              label: { show: false },
+              data: [
+                { value: lastValue, name: 'Used', itemStyle: { color: '#2080f0' } },
+                { value: 100 - lastValue, name: 'Free', itemStyle: { color: isDark ? '#333' : '#f0f0f0' } }
+              ]
+            }
+          ]
+        }
       }
+      return base
+    }
+
+    const generateEmptyOption = (title: string, msg: string) => {
+      return {
+        title: { text: title, left: 'center' },
+        graphic: {
+          type: 'text',
+          left: 'center',
+          top: 'middle',
+          style: {
+            text: msg,
+            fontSize: 14,
+            fill: '#999'
+          }
+        }
+      }
+    }
+
+    watch(() => [timeStore.startTime, timeStore.endTime], refreshData)
+
+    onMounted(async () => {
+      await fetchAppKeys()
+      loadLayout()
+      refreshData()
+      timer.value = setInterval(refreshData, 30000)
     })
 
     onUnmounted(() => {
-      if (timer) clearInterval(timer)
+      if (timer.value) clearInterval(timer.value)
     })
 
-    const handleAddDashboard = () => {
+    const handleAddWidget = () => {
+      widgets.push({
+        id: Date.now(),
+        title: newWidget.title || 'New Chart',
+        type: newWidget.type,
+        span: newWidget.span,
+        height: newWidget.height,
+        metric: newWidget.metric,
+        appKey: newWidget.appKey,
+        option: {}
+      })
       showAddModal.value = false
-      dashboardName.value = ''
-      selectedWidgets.value = []
+      refreshData()
+    }
+
+    const removeWidget = (id: number) => {
+      const index = widgets.findIndex((w) => w.id === id)
+      if (index > -1) widgets.splice(index, 1)
+    }
+
+    const adjustSpan = (widget: any, delta: number) => {
+      const newSpan = widget.span + delta
+      if (newSpan >= 6 && newSpan <= 24) {
+        widget.span = newSpan
+      }
     }
 
     return () => (
-      <div class="p-24px h-full overflow-auto">
-        <div class="mb-16px flex justify-between items-center">
+      <div class="p-6 h-full overflow-auto bg-[--color-bg-1]">
+        <div class="mb-4 flex justify-between items-center">
           <div>
-            <h1 class="text-20px font-600 text-[--color-text-1] m-0">Dashboard</h1>
-            <p class="text-14px text-[--color-text-3] mt-4px mb-0">
-              Real-time monitoring of system performance and health status.
-            </p>
+            <h1 class="text-2xl font-bold text-[--color-text-1]">Custom Dashboard</h1>
+            <p class="text-sm text-[--color-text-3]">Design your own monitoring view</p>
           </div>
-          <NSpace align="center">
-            <div style={{ display: 'flex', alignItems: 'center', marginRight: '12px' }}>
-              <span style={{ marginRight: '8px', fontSize: '14px', color: '#666' }}>Demo Mode</span>
-              <NSwitch v-model:value={isDemoMode.value} onUpdateValue={loadData} />
-            </div>
-            <NButton type="primary" onClick={() => (showAddModal.value = true)}>
-              + Add Widget
+          <NSpace>
+            <NButton
+              type={isEditMode.value ? 'primary' : 'default'}
+              onClick={() => {
+                if (isEditMode.value) {
+                  saveLayout()
+                } else {
+                  isEditMode.value = true
+                }
+              }}>
+              <NIcon component={isEditMode.value ? SaveOutline : CreateOutline} class="mr-2" />
+              {isEditMode.value ? 'Save Layout' : 'Edit Dashboard'}
             </NButton>
-            <NButton>Edit Layout</NButton>
-            <NButton onClick={loadData}>Refresh</NButton>
+            {isEditMode.value && (
+              <NButton type="info" onClick={() => (showAddModal.value = true)}>
+                <NIcon component={AddOutline} class="mr-2" />
+                Add Widget
+              </NButton>
+            )}
           </NSpace>
         </div>
 
-        {/* Overview Stats */}
-        <NGrid cols={4} xGap={16} yGap={16} class="mb-16px">
-          <NGridItem>
-            <NCard>
-              <NStatistic label="Total QPS">
-                {{
-                  prefix: () => <NIcon component={PulseOutline} color="#165dff" />,
-                  default: () => realtimeData.value.qps?.toLocaleString() || '-'
-                }}
-              </NStatistic>
-            </NCard>
-          </NGridItem>
-          <NGridItem>
-            <NCard>
-              <NStatistic label="Avg Response Time">
-                {{
-                  prefix: () => <NIcon component={TimeOutline} color="#ff7d00" />,
-                  default: () => (realtimeData.value.responseTime ? `${realtimeData.value.responseTime}ms` : '-'),
-                  suffix: () => <span class="text-12px text-green-500">↓ 5%</span>
-                }}
-              </NStatistic>
-            </NCard>
-          </NGridItem>
-          <NGridItem>
-            <NCard>
-              <NStatistic label="Active Instances">
-                {{
-                  prefix: () => <NIcon component={ServerOutline} color="#00b42a" />,
-                  default: () => realtimeData.value.activeInstances || '-'
-                }}
-              </NStatistic>
-            </NCard>
-          </NGridItem>
-          <NGridItem>
-            <NCard>
-              <NStatistic label="System Load">
-                {{
-                  prefix: () => <NIcon component={LaptopOutline} color="#722ed1" />,
-                  default: () => realtimeData.value.systemLoad || '-'
-                }}
-              </NStatistic>
-            </NCard>
-          </NGridItem>
-        </NGrid>
-
-        {/* Main Charts */}
-        <NGrid cols={4} xGap={16} yGap={16}>
-          {/* Gauge Charts */}
-          <NGridItem span={1}>
-            <NCard title="CPU Usage" contentStyle={{ padding: 0 }}>
-              <GaugeChart
-                value={realtimeData.value.cpu || 0}
-                title="CPU"
-                color="#165dff"
-                height="250px"
-                loading={loading.value}
-              />
-            </NCard>
-          </NGridItem>
-          <NGridItem span={1}>
-            <NCard title="Memory Usage" contentStyle={{ padding: 0 }}>
-              <GaugeChart
-                value={realtimeData.value.memory || 0}
-                title="Memory"
-                color="#ff7d00"
-                height="250px"
-                loading={loading.value}
-              />
-            </NCard>
-          </NGridItem>
-          <NGridItem span={2}>
-            <NCard title="QPS Trend" contentStyle={{ padding: 0 }}>
-              <LineChart data={trendData.value.qps || []} color="#165dff" height="250px" loading={loading.value} area />
-            </NCard>
-          </NGridItem>
-
-          {/* Row 2 */}
-          <NGridItem span={2}>
-            <NCard title="Response Time Trend" contentStyle={{ padding: 0 }}>
-              <LineChart
-                data={trendData.value.responseTime || []}
-                color="#ff7d00"
-                height="250px"
-                loading={loading.value}
-              />
-            </NCard>
-          </NGridItem>
-          <NGridItem span={2}>
-            <NCard title="Service Health Distribution" contentStyle={{ padding: 0 }}>
-              <PieChart
-                data={realtimeData.value.healthDistribution || []}
-                height="250px"
-                colors={['#00b42a', '#ff7d00', '#f53f3f']}
-                loading={loading.value}
-              />
-            </NCard>
-          </NGridItem>
-
-          {/* Row 3 */}
-          <NGridItem span={2}>
-            <NCard title="Traffic Distribution" contentStyle={{ padding: 0 }}>
-              <BarChart
-                data={realtimeData.value.trafficDistribution || []}
-                color="#722ed1"
-                height="300px"
-                loading={loading.value}
-              />
-            </NCard>
-          </NGridItem>
-
-          <NGridItem span={2}>
-            <NCard
-              title="Recent Alerts"
-              contentStyle={{ padding: '0 16px 16px 16px' }}
-              style={{ height: '358px', overflow: 'auto' }}>
-              <NList>
-                {alertsData.value.length > 0 ? (
-                  alertsData.value.map((alert) => (
-                    <NListItem key={alert.id}>
-                      <NThing title={alert.service}>
-                        {{
-                          'header-extra': () => (
-                            <NTag type={alert.level === 'critical' ? 'error' : 'warning'} size="small">
-                              {alert.level}
-                            </NTag>
-                          ),
-                          default: () => (
-                            <div>
-                              <div class="text-12px text-gray-500 mb-4px">{alert.time}</div>
-                              <div>{alert.message}</div>
-                            </div>
-                          )
-                        }}
-                      </NThing>
-                    </NListItem>
-                  ))
-                ) : (
-                  <div class="text-center py-20px text-gray-500">No active alerts</div>
-                )}
-              </NList>
-            </NCard>
-          </NGridItem>
-        </NGrid>
-
-        {/* Add Modal */}
-        <NModal v-model:show={showAddModal.value} preset="dialog" title="Add Widget">
-          <NForm>
-            <NFormItem label="Widget Name">
-              <NInput v-model:value={dashboardName.value} placeholder="Enter name" />
-            </NFormItem>
-            <NFormItem label="Select Metric">
-              <div class="grid grid-cols-2 gap-8px">
-                {widgetOptions.map((option) => (
-                  <NCheckbox
-                    key={option.value}
-                    value={option.value}
-                    checked={selectedWidgets.value.includes(option.value)}
-                    onUpdate:checked={(checked: boolean) => {
-                      if (checked) {
-                        selectedWidgets.value.push(option.value)
-                      } else {
-                        const index = selectedWidgets.value.indexOf(option.value)
-                        if (index > -1) {
-                          selectedWidgets.value.splice(index, 1)
-                        }
-                      }
+        {widgets.length === 0 ? (
+          <div class="flex justify-center items-center h-64 border-2 border-dashed border-[--color-border-2] rounded-lg">
+            <NEmpty description="No widgets yet. Click 'Edit Dashboard' then 'Add Widget' to start.">
+              {{
+                extra: () => (
+                  <NButton
+                    onClick={() => {
+                      isEditMode.value = true
+                      showAddModal.value = true
                     }}>
-                    {option.label}
-                  </NCheckbox>
-                ))}
-              </div>
+                    Create First Widget
+                  </NButton>
+                )
+              }}
+            </NEmpty>
+          </div>
+        ) : (
+          <NGrid x-gap={12} y-gap={12} cols={24}>
+            {widgets.map((widget) => (
+              <NGridItem span={widget.span} key={widget.id}>
+                <NCard
+                  title={widget.title}
+                  closable={isEditMode.value}
+                  onClose={() => removeWidget(widget.id)}
+                  size="small"
+                  class={`transition-all duration-300 ${isEditMode.value ? 'ring-2 ring-[--color-primary-1] cursor-move' : ''} shadow-sm rounded-lg`}>
+                  {{
+                    'header-extra': () =>
+                      isEditMode.value && (
+                        <NSpace size="small">
+                          <NButton size="tiny" circle onClick={() => adjustSpan(widget, -6)}>
+                            -
+                          </NButton>
+                          <span class="text-xs text-[--color-text-3]">W: {widget.span}</span>
+                          <NButton size="tiny" circle onClick={() => adjustSpan(widget, 6)}>
+                            +
+                          </NButton>
+                        </NSpace>
+                      ),
+                    default: () => (
+                      <BaseChart option={widget.option} height={`${widget.height}px`} loading={loading.value} />
+                    )
+                  }}
+                </NCard>
+              </NGridItem>
+            ))}
+          </NGrid>
+        )}
+
+        <NModal v-model:show={showAddModal.value} preset="card" title="Add Widget" style={{ width: '500px' }}>
+          <NForm labelPlacement="left" labelWidth={100}>
+            <NFormItem label="Title">
+              <NInput v-model:value={newWidget.title} placeholder="Chart Title" />
+            </NFormItem>
+            <NFormItem label="Metric">
+              <NSelect
+                v-model:value={newWidget.metric}
+                options={[
+                  { label: 'CPU Usage', value: 'cpu' },
+                  { label: 'Memory Usage', value: 'memory' },
+                  { label: 'QPS', value: 'qps' },
+                  { label: 'Response Time', value: 'responseTime' },
+                  { label: 'Error Rate', value: 'errorRate' }
+                ]}
+              />
+            </NFormItem>
+            <NFormItem label="Service (AppKey)">
+              <NSelect
+                v-model:value={newWidget.appKey}
+                options={appKeys.value.map((k) => ({ label: k.name || k.keyName || k.appKey, value: k.appKey }))}
+                placeholder="Default (First Available)"
+                clearable
+              />
+            </NFormItem>
+            <NFormItem label="Type">
+              <NSelect
+                v-model:value={newWidget.type}
+                options={[
+                  { label: 'Line Chart', value: 'line' },
+                  { label: 'Bar Chart', value: 'bar' },
+                  { label: 'Pie Chart', value: 'pie' }
+                ]}
+              />
+            </NFormItem>
+            <NFormItem label="Width (1-24)">
+              <NInputNumber v-model:value={newWidget.span} min={6} max={24} />
+            </NFormItem>
+            <NFormItem label="Height (px)">
+              <NInputNumber v-model:value={newWidget.height} step={50} />
             </NFormItem>
           </NForm>
-          <div class="flex justify-end gap-8px mt-16px">
-            <NButton onClick={() => (showAddModal.value = false)}>Cancel</NButton>
-            <NButton type="primary" onClick={handleAddDashboard}>
-              Confirm
-            </NButton>
-          </div>
+          {{
+            footer: () => (
+              <div class="flex justify-end gap-2">
+                <NButton onClick={() => (showAddModal.value = false)}>Cancel</NButton>
+                <NButton type="primary" onClick={handleAddWidget}>
+                  Add Widget
+                </NButton>
+              </div>
+            )
+          }}
         </NModal>
       </div>
     )
