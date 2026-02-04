@@ -6,7 +6,7 @@ import {
   RouteLocationNormalized
 } from 'vue-router'
 import { type } from '@tauri-apps/plugin-os'
-import { getCookie } from '@/utils/Cookie'
+import { getCookie } from '@/utils/cookie'
 
 const getIsDesktop = () => {
   try {

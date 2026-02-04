@@ -2,7 +2,7 @@ import { fetch } from '@tauri-apps/plugin-http'
 import { AppException, ErrorType } from '@/common/exception'
 import { RequestQueue } from '@/utils/RequestQueue'
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow'
-import { getCookie } from '@/utils/Cookie'
+import { getCookie } from '@/utils/cookie'
 import url from '@/api/url'
 
 // 错误信息常量

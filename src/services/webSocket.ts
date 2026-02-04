@@ -9,7 +9,7 @@ import { ConnectionState, WorkerMsgEnum, WsReqMsgContentType, WsResponseMessageT
 import { emit, listen } from '@tauri-apps/api/event'
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow'
 import { getEnhancedFingerprint } from './fingerprint'
-import { getCookie } from '@/utils/Cookie'
+import { getCookie } from '@/utils/cookie'
 
 // 创建webSocket Worker
 const worker: Worker = new Worker(new URL('../workers/webSocket.worker.ts', import.meta.url), { type: 'module' })

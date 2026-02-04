@@ -1,7 +1,7 @@
 import Http, { HttpParams } from './http'
 import { ServiceResponse } from '@/types/response'
 import { AppException, ErrorType } from '@/common/exception'
-import { getCookie } from '@/utils/Cookie'
+import { getCookie } from '@/utils/cookie'
 
 /**
  * 获取 token 并更新

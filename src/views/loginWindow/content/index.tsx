@@ -1,5 +1,5 @@
 import { useSettingStore } from '@/store/setting'
-import { getCookie } from '@/utils/Cookie'
+import { getCookie } from '@/utils/cookie'
 import { useNetwork } from '@vueuse/core'
 import { NCheckbox, NFlex } from 'naive-ui'
 import LoginWindowContentEmail from './mode/email'

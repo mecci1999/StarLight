@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import apis from '@/api'
 import { StoresEnum } from '@/types/enums'
 import { UserInfoType } from '@/types/userInfo'
-import { removeCookie } from '@/utils/Cookie'
+import { removeCookie } from '@/utils/cookie'
 
 export const useUserStore = defineStore(StoresEnum.USER, () => {
   const userInfo = ref<Partial<UserInfoType>>({})

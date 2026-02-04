@@ -4,7 +4,7 @@ import { WebviewWindow } from '@tauri-apps/api/webviewWindow'
 import { type } from '@tauri-apps/plugin-os'
 import { useSettingStore } from '@/store/setting'
 import { StoresEnum, ThemeEnum } from '@/types/enums'
-import { removeCookie } from '@/utils/Cookie'
+import { removeCookie } from '@/utils/cookie'
 
 export default defineComponent({
   name: 'App',

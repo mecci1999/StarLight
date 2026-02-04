@@ -4,7 +4,7 @@
 import { useSettingStore } from '@/store/setting'
 import { useNetwork } from '@vueuse/core'
 import { NAvatar, NButton, NCheckbox, NFlex, NInput, NQrCode, NScrollbar, NSkeleton } from 'naive-ui'
-import { getCookie, setCookie } from '@/utils/Cookie'
+import { getCookie, setCookie } from '@/utils/cookie'
 import * as api from '@/api'
 import { QrCodeStatus } from '@/types/enums'
 import { useWindow } from '@/hooks/useWindow'
