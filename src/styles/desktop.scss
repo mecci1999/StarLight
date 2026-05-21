@@ -1,12 +1,458 @@
+// ==========================================
+// StarLight 清爽设计系统 - 主样式入口
+// ==========================================
+
+@use 'fonts';
+@use 'variable';
+@use 'components';
+
+// ========================================
+// 基础重置
+// ========================================
+* {
+  font-family: var(--font-family) !important;
+  box-sizing: border-box !important;
+}
+
+html,
+body,
+svg {
+  outline: none;
+  overscroll-behavior: none;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--color-bg-1);
+  color: var(--color-text-1);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+// 输入框光标颜色
+* {
+  caret-color: var(--color-primary-6) !important;
+}
+
+// ========================================
+// 通用动画
+// ========================================
+@keyframes sl-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes sl-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes sl-slide-down {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes sl-scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes linearAnimation {
+  0% {
+    stroke-dasharray: 600;
+    stroke-dashoffset: 600;
+  }
+  100% {
+    stroke-dasharray: 600;
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes twinkle {
+  0% {
+    transform: scale(0);
+  }
+  80% {
+    transform: scale(1.2);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes come-in {
+  100% {
+    transform: translateX(0);
+  }
+}
+
+@keyframes bubble-twinkle {
+  0% {
+    transform: scale(0.1);
+  }
+  50% {
+    transform: scale(1.01);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+// ========================================
+// Naive UI 组件样式优化 - 清爽风格
+// ========================================
+
+// 遮罩层样式
+@mixin mask-style {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+}
+
+// 模糊效果开关
+html[data-blur='1'] {
+  .n-modal-mask,
+  .n-drawer-mask {
+    background-color: var(--color-mask-bg);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+  }
+}
+
+.n-modal-mask {
+  @include mask-style;
+}
+
+.n-drawer-mask {
+  @include mask-style;
+}
+
+// 复选框样式
+:deep(.n-checkbox .n-checkbox-box) {
+  border-radius: 4px;
+  width: 16px;
+  height: 16px;
+  transition: all var(--duration-fast) var(--ease-default);
+}
+
+// 滚动条优化
+:deep(
+  .n-scrollbar > .n-scrollbar-rail.n-scrollbar-rail--vertical,
+  .n-scrollbar + .n-scrollbar-rail.n-scrollbar-rail--vertical
+) {
+  right: 0;
+}
+
+// 选择器选中样式
+.n-base-select-menu .n-base-select-option.n-base-select-option--selected {
+  color: var(--color-primary-6);
+  // background: var(--color-primary-1);
+}
+
+.n-base-select-menu .n-base-select-option .n-base-select-option__check {
+  color: var(--color-primary-6);
+}
+
+// Message 组件样式
+.n-message {
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid var(--color-border-1);
+  background: var(--color-bg-5);
+  color: var(--color-text-1);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  padding: var(--spacing-3) var(--spacing-4);
+
+  &__icon--error-type i {
+    color: var(--color-danger-6) !important;
+  }
+
+  &__icon--info-type i {
+    color: var(--color-primary-6) !important;
+  }
+
+  &__icon--success-type i {
+    color: var(--color-success-6) !important;
+  }
+
+  &__icon--warning-type i {
+    color: var(--color-warning-6) !important;
+  }
+}
+
+// 按钮样式优化 - 保留原有样式
+.n-button {
+  &.n-button--primary {
+    border: 1px solid transparent;
+    &:hover {
+      border: 1px solid transparent !important;
+    }
+    &:active {
+      border: 1px solid transparent !important;
+    }
+    &:focus {
+      border: 1px solid transparent !important;
+    }
+  }
+
+  &.n-button--secondary {
+    border: 1px solid transparent;
+
+    &:hover {
+      color: var(--color-text-2) !important;
+    }
+  }
+}
+
+// 卡片样式优化
+.n-card {
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border-1);
+  box-shadow: var(--shadow-sm);
+
+  .n-card__header {
+    border-bottom: 1px solid var(--color-border-1);
+    padding: var(--spacing-4);
+  }
+
+  .n-card__content {
+    padding: var(--spacing-4);
+  }
+
+  .n-card__footer {
+    border-top: 1px solid var(--color-border-1);
+    padding: var(--spacing-4);
+  }
+}
+
+// 表格样式优化
+.n-data-table {
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  border: 1px solid var(--color-border-1);
+
+  .n-data-table-th {
+    background: var(--color-neutral-1);
+    border-bottom: 1px solid var(--color-border-2);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-2);
+    font-size: var(--font-size-body-1);
+  }
+
+  .n-data-table-td {
+    border-bottom: 1px solid var(--color-border-1);
+  }
+
+  .n-data-table-tr {
+    transition: background var(--duration-fast) var(--ease-default);
+
+    &:hover {
+      .n-data-table-td {
+        background: var(--color-neutral-1);
+      }
+    }
+  }
+}
+
+// 抽屉样式优化
+.n-drawer {
+  border-radius: var(--radius-xl) 0 0 var(--radius-xl);
+  box-shadow: var(--shadow-xl);
+
+  .n-drawer-header {
+    padding: var(--spacing-4);
+    border-bottom: 1px solid var(--color-border-1);
+  }
+
+  .n-drawer-content {
+    padding: var(--spacing-4);
+  }
+
+  .n-drawer-footer {
+    padding: var(--spacing-4);
+    border-top: 1px solid var(--color-border-1);
+  }
+}
+
+// 模态框样式优化
+.n-modal {
+  margin: 60px auto;
+
+  .n-modal-content {
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-xl);
+  }
+}
+
+// 标签页样式优化
+.n-tabs {
+  .n-tabs-tab {
+    font-weight: var(--font-weight-medium);
+    transition: all var(--duration-fast) var(--ease-default);
+  }
+
+  .n-tabs-rail {
+    border-radius: var(--radius-sm);
+  }
+}
+
+// 下拉菜单样式优化
+.n-dropdown-menu {
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--color-border-1);
+  padding: var(--spacing-2);
+
+  .n-dropdown-option {
+    border-radius: var(--radius-md);
+    margin: 2px 0;
+    transition: all var(--duration-fast) var(--ease-default);
+
+    &:hover {
+      background: var(--color-fill-2);
+    }
+
+    &.n-dropdown-option--selected {
+      background: var(--color-primary-1);
+      color: var(--color-primary-7);
+    }
+  }
+}
+
+// Popover 样式优化
+.n-popover {
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--color-border-1);
+}
+
+// ========================================
+// 通用菜单样式
+// ========================================
+@mixin menu-item-style($position: fixed) {
+  position: $position;
+  background: var(--color-bg-5);
+  color: var(--color-text-1);
+  border-radius: var(--radius-lg);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--color-border-1);
+  z-index: 999;
+  width: fit-content;
+  font-size: var(--font-size-body-2);
+  line-height: 1.6;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+@mixin menu-list() {
+  padding: var(--spacing-2);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+
+  .menu-item {
+    padding: var(--spacing-2) var(--spacing-3);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    user-select: none;
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2);
+    transition: all var(--duration-fast) var(--ease-default);
+
+    svg {
+      width: 16px;
+      height: 16px;
+    }
+
+    &:hover {
+      background-color: var(--color-fill-2);
+
+      svg {
+        animation: twinkle 0.3s ease-in-out;
+      }
+    }
+  }
+}
+
+// ========================================
+// 应用容器
+// ========================================
 #app-container {
   min-height: 100vh;
-  background-repeat: no-repeat;
-  background-size: 100% 100%;
+  background: var(--color-bg-1);
   position: fixed;
   height: 100%;
   width: 100%;
   top: 0;
   left: 0;
-  transition: all 0.9s ease;
-  border-radius: 10px;
+}
+
+// ========================================
+// 章节标题 - 兼容旧样式
+// ========================================
+.section-header {
+  margin-bottom: var(--spacing-4);
+}
+
+.section-header-main {
+  display: flex;
+  align-items: center;
+}
+
+.section-title {
+  font-size: var(--font-size-title-2);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-1);
+  margin: 0;
+}
+
+.section-subtitle {
+  font-size: var(--font-size-body-3);
+  color: var(--color-text-3);
+  margin: var(--spacing-2) 0 0 0;
+}
+
+// 状态点
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  margin-right: var(--spacing-2);
+}
+
+// 卡片工具
+.card-tools {
+  display: flex;
+  gap: var(--spacing-2);
+  align-items: center;
 }

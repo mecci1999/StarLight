@@ -1,0 +1,141 @@
+- generic [active]:
+  - generic [ref=e9]:
+    - generic [ref=e10]:
+      - generic [ref=e12]:
+        - generic [ref=e13] [cursor=pointer]:
+          - img [ref=e14]:
+            - img [ref=e15]
+          - generic [ref=e20]: 系统概览
+        - generic [ref=e21] [cursor=pointer]:
+          - img [ref=e22]:
+            - img [ref=e23]
+          - generic [ref=e29]: 服务拓扑图
+        - generic [ref=e30] [cursor=pointer]:
+          - img [ref=e31]:
+            - img [ref=e32]
+          - generic [ref=e36]: 服务目录
+        - generic [ref=e37] [cursor=pointer]:
+          - img [ref=e38]:
+            - img [ref=e39]
+          - generic [ref=e42]: 实例监控
+        - generic [ref=e43] [cursor=pointer]:
+          - img [ref=e44]:
+            - img [ref=e45]
+          - generic [ref=e50]: 实时监控
+        - generic [ref=e51] [cursor=pointer]:
+          - img [ref=e52]:
+            - img [ref=e53]
+          - generic [ref=e58]: 指标分析
+        - generic [ref=e59] [cursor=pointer]:
+          - img [ref=e60]:
+            - img [ref=e61]
+          - generic [ref=e66]: 自定义看板
+        - generic [ref=e67] [cursor=pointer]:
+          - img [ref=e68]:
+            - img [ref=e69]
+          - generic [ref=e75]: 链路追踪
+        - generic [ref=e76] [cursor=pointer]:
+          - img [ref=e77]:
+            - img [ref=e78]
+          - generic [ref=e81]: 日志中心
+        - generic [ref=e82] [cursor=pointer]:
+          - img [ref=e83]:
+            - img [ref=e84]
+          - generic [ref=e87]: 异常分析
+        - generic [ref=e88] [cursor=pointer]:
+          - img [ref=e89]:
+            - img [ref=e90]
+          - generic [ref=e93]: 告警列表
+        - generic [ref=e94] [cursor=pointer]:
+          - img [ref=e95]:
+            - img [ref=e96]
+          - generic [ref=e98]: 告警规则
+        - generic [ref=e99] [cursor=pointer]:
+          - img [ref=e100]:
+            - img [ref=e101]
+          - generic [ref=e105]: 计费
+      - generic [ref=e106]:
+        - generic [ref=e107] [cursor=pointer]:
+          - img [ref=e108]:
+            - img [ref=e109]
+          - generic [ref=e110]: 自定义排序
+        - generic [ref=e111] [cursor=pointer]:
+          - img [ref=e112]:
+            - img [ref=e113]
+          - generic [ref=e115]: 收起
+    - generic [ref=e116]:
+      - generic [ref=e121]:
+        - generic [ref=e125]:
+          - img [ref=e127]:
+            - img [ref=e128]
+          - generic [ref=e131]:
+            - textbox "搜索服务、日志或链路（示例：service:web env:prod）..." [ref=e132]
+            - generic:
+              - generic: 搜索服务、日志或链路（示例：service:web env:prod）...
+        - generic [ref=e133]:
+          - generic [ref=e135]:
+            - button [ref=e136] [cursor=pointer]:
+              - img [ref=e138]:
+                - img [ref=e139]
+            - superscript [ref=e142]
+          - generic [ref=e144] [cursor=pointer]:
+            - generic [ref=e146]: A
+            - img [ref=e147]:
+              - img [ref=e148]
+      - main [ref=e150]:
+        - generic [ref=e151]:
+          - generic [ref=e153]:
+            - heading "管理中心 / 接入管理（V2）" [level=1] [ref=e154]
+            - generic [ref=e155]: 查看 AppKey、接入状态与快速入口
+          - generic [ref=e156]:
+            - generic [ref=e159]:
+              - generic [ref=e160]: AppKey 总数
+              - generic [ref=e161]: "0"
+            - generic [ref=e164]:
+              - generic [ref=e165]: 可用凭证
+              - generic [ref=e166]: "0"
+            - generic [ref=e169]:
+              - generic [ref=e170]: 接入状态
+              - generic [ref=e171]: 待接入
+          - generic [ref=e172]:
+            - heading "接入状态概览" [ref=e173]:
+              - heading "接入状态概览" [ref=e174]
+            - generic [ref=e175]:
+              - img [ref=e178]
+              - generic [ref=e181]: 暂无接入状态数据
+          - generic [ref=e182]:
+            - heading "快速入口" [ref=e183]:
+              - heading "快速入口" [ref=e184]
+            - button "接入向导" [ref=e185] [cursor=pointer]:
+              - generic [ref=e186]: 接入向导
+            - button "生成 AppKey" [ref=e187] [cursor=pointer]:
+              - generic [ref=e188]: 生成 AppKey
+            - button "验证凭证" [ref=e189] [cursor=pointer]:
+              - generic [ref=e190]: 验证凭证
+            - button "系统概览" [ref=e191] [cursor=pointer]:
+              - generic [ref=e192]: 系统概览
+            - button "可编辑面板" [ref=e193] [cursor=pointer]:
+              - generic [ref=e194]: 可编辑面板
+          - generic [ref=e195]:
+            - heading "接入指引" [ref=e196]:
+              - heading "接入指引" [ref=e197]
+            - generic [ref=e198]:
+              - generic [ref=e199]: 复用当前 AppKey 生成接入示例，便于直接复制到服务入口初始化代码。
+              - button "复制代码" [ref=e200] [cursor=pointer]:
+                - generic [ref=e201]: 复制代码
+            - generic [ref=e202]:
+              - generic [ref=e207]:
+                - generic [ref=e210] [cursor=pointer]: Node.js
+                - generic [ref=e214] [cursor=pointer]: Go
+                - generic [ref=e218] [cursor=pointer]: Java
+              - code [ref=e222]: "const StarLight = require('@starlight/node-sdk') StarLight.init({ appKey: '请先生成 AppKey', serviceName: 'my-service', endpoint: 'https://api.your-starlight-domain.com' })"
+          - generic [ref=e223]:
+            - heading "AppKey 列表" [ref=e224]:
+              - heading "AppKey 列表" [ref=e225]
+            - img "loading" [ref=e228]:
+              - img [ref=e231]
+  - generic [ref=e1]:
+    - generic "Toggle devtools panel" [ref=e2] [cursor=pointer]:
+      - img [ref=e3]
+    - generic "Toggle Component Inspector" [ref=e235] [cursor=pointer]:
+      - img [ref=e236]

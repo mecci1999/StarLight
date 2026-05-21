@@ -1,0 +1,74 @@
+.service-identity-card {
+  border: 1px solid var(--color-border-2);
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-2);
+
+  &--compact {
+    padding: var(--spacing-3);
+  }
+
+  &--default {
+    padding: var(--spacing-4);
+  }
+
+  &__content {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--spacing-4);
+  }
+
+  &__main {
+    min-width: 0;
+    flex: 1;
+  }
+
+  &__heading {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-2);
+  }
+
+  &__title {
+    margin: 0;
+    overflow: hidden;
+    color: var(--color-text-1);
+    font-size: var(--font-size-title-1);
+    font-weight: var(--font-weight-semibold);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__name {
+    margin-top: var(--spacing-1);
+    color: var(--color-text-3);
+    font-size: var(--font-size-body-2);
+    word-break: break-all;
+  }
+
+  &__tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-2);
+    margin-top: var(--spacing-3);
+  }
+
+  &__tag-action {
+    cursor: pointer;
+  }
+
+  &__links {
+    align-items: flex-end;
+  }
+
+  &__link {
+    color: var(--color-primary-6);
+    font-size: var(--font-size-body-2);
+    text-decoration: none;
+
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+}

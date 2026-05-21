@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import apis from '@/api'
 import { StoresEnum } from '@/types/enums'
 import { UserInfoType } from '@/types/userInfo'
-import { removeCookie } from '@/utils/cookie'
+import { clearStoredAuthSession, getStoredUserInfo, persistStoredUserInfo } from '@/services/authSession'
 
 export const useUserStore = defineStore(StoresEnum.USER, () => {
   const userInfo = ref<Partial<UserInfoType>>({})
@@ -12,14 +12,18 @@ export const useUserStore = defineStore(StoresEnum.USER, () => {
     apis.user
       .getUserInfo(userId)
       .then((res) => {
-        userInfo.value = { ...userInfo.value, ...res }
-        // 获取用户信息成功后，将userInfo存储到localStorage中
-        localStorage.setItem('user', JSON.stringify(userInfo.value))
+        const storedUser = getStoredUserInfo()
+        const nextUserInfo = {
+          ...storedUser,
+          ...userInfo.value,
+          ...res,
+          isAdmin: typeof (res as any)?.isAdmin === 'boolean' ? (res as any).isAdmin : false
+        }
+        userInfo.value = nextUserInfo
+        persistStoredUserInfo(userInfo.value)
       })
       .catch(() => {
-        // 删除Cookie中的ACCESS_TOKEN和REFRESH_TOKEN
-        removeCookie('ACCESS_TOKEN')
-        removeCookie('REFRESH_TOKEN')
+        clearStoredAuthSession()
       })
   }
 

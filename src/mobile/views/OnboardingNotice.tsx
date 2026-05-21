@@ -1,11 +1,37 @@
 import { defineComponent } from 'vue'
 import { NResult, NButton } from 'naive-ui'
 import { useRouter } from 'vue-router'
+import * as api from '@/api'
+import { getStoredUserInfo, persistStoredUserInfo } from '@/services/authSession'
 
 export default defineComponent({
   name: 'MobileOnboardingNotice',
   setup() {
     const router = useRouter()
+
+    const handleContinue = async () => {
+      const storedUser = getStoredUserInfo()
+      if (storedUser?.userId) {
+        try {
+          const userInfo = await api.getUserInfo(storedUser.userId)
+          const nextUser = {
+            ...storedUser,
+            ...userInfo,
+            isAdmin:
+              typeof (userInfo as any)?.isAdmin === 'boolean' ? (userInfo as any).isAdmin : Boolean(storedUser.isAdmin)
+          }
+          persistStoredUserInfo(nextUser)
+          if ((nextUser as any)?.isOnboardingCompleted) {
+            router.push('/mobile/home')
+            return
+          }
+        } catch (error) {
+          console.warn('Failed to refresh onboarding state for mobile notice:', error)
+        }
+      }
+
+      router.push('/login')
+    }
 
     return () => (
       <div
@@ -25,7 +51,7 @@ export default defineComponent({
             footer: () => (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 <p style={{ fontSize: '12px', color: '#999' }}>已在电脑端完成接入？</p>
-                <NButton type="primary" onClick={() => router.push('/mobile/home')}>
+                <NButton type="primary" onClick={handleContinue}>
                   我已完成接入，进入首页
                 </NButton>
               </div>

@@ -1,72 +1,307 @@
-.hover-box {
-  @apply w-28px h-44px flex-center hover:bg-[--color-fill-3];
-}
+// ==========================================
+// 窗口操作栏 - 清爽简洁设计
+// ==========================================
 
-.action-close {
-  @apply w-28px h-44px flex-center cursor-pointer hover:bg-#c22b1c svg:hover:color-[#fff];
-}
+.window-action-bar {
+  display: flex;
+  align-items: center;
+  height: 44px;
+  background: var(--color-bg-white);
+  padding: 0 var(--spacing-2);
+  border-bottom: 1px solid var(--color-border-1);
+  user-select: none;
+  -webkit-app-region: drag;
 
-// 新的窗口控制按钮样式
-.window-control-btn {
-  @apply w-32px h-32px flex-center cursor-pointer transition-all duration-200;
-
-  svg {
-    @apply color-[--color-text-3] transition-colors duration-200;
+  &--with-slot {
+    justify-content: space-between;
   }
 
-  &:hover {
-    @apply bg-[--color-fill-2];
+  &--controls-only {
+    justify-content: flex-end;
+  }
 
-    svg {
-      @apply color-[--color-text-1];
+  &--fallback {
+    width: 100%;
+  }
+
+  &--plain {
+    background: transparent;
+    border-bottom: none;
+  }
+
+  &__slot {
+    display: flex;
+    flex: 1;
+    align-items: center;
+    margin-right: auto;
+  }
+
+  &__pin-icon {
+    outline: none;
+    cursor: pointer;
+    color: var(--color-fill-5);
+
+    &--active {
+      width: 14px;
+      height: 14px;
+    }
+
+    &--inactive {
+      width: 16px;
+      height: 16px;
     }
   }
 
-  &:active {
-    @apply bg-[--color-fill-4];
+  &__control-icon {
+    width: 12px;
+    height: 12px;
   }
-}
 
-// 最小化按钮
-.minimize-btn {
-  &:hover {
-    @apply bg-[--color-fill-2];
+  &__modal {
+    border-radius: var(--radius-lg);
+  }
+
+  &__modal-panel {
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    width: 360px;
+    height: 100%;
+    padding: 20px;
+    background: var(--color-bg-3);
+  }
+
+  &__modal-close {
+    width: 12px;
+    height: 12px;
+    margin-left: auto;
+    cursor: pointer;
+    user-select: none;
+    color: var(--color-text-1);
+  }
+
+  &__modal-content {
+    user-select: none;
+  }
+
+  &__modal-title {
+    font-size: 16px;
+    color: var(--color-text-1);
+  }
+
+  &__modal-option {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--color-text-3);
+    font-size: 14px;
+    line-height: 16px;
+
+    &--subtle {
+      justify-content: flex-end;
+      color: var(--color-text-4);
+      font-size: 12px;
+    }
+  }
+
+  &__modal-actions {
+    padding-top: var(--spacing-4);
+  }
+
+  &__modal-button {
+    width: 78px;
+    border-radius: 6px;
+
+    &--secondary {
+      color: var(--color-text-2);
+    }
+  }
+
+  &__close-btn--maximized {
+    border-top-right-radius: 8px;
+  }
+
+  &__shrink-icon {
+    width: 14px;
+    height: 14px;
+    cursor: pointer;
+    outline: none;
+    color: var(--color-fill-5);
+  }
+
+  // 标题区域
+  &__title {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: var(--font-size-body-2);
+    font-weight: var(--font-weight-medium);
+    color: var(--color-text-2);
+    pointer-events: none;
+  }
+
+  // 窗口控制按钮区域 - 左侧
+  &__controls-left {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-1);
+    -webkit-app-region: no-drag;
+  }
+
+  // 窗口控制按钮区域 - 右侧
+  &__controls-right {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-1);
+    -webkit-app-region: no-drag;
+  }
+
+  // 通用操作按钮
+  .action-btn {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: all var(--duration-fast) var(--ease-default);
+    color: var(--color-text-3);
+
+    &:hover {
+      background: var(--color-fill-2);
+      color: var(--color-text-1);
+    }
+
+    &:active {
+      background: var(--color-fill-3);
+    }
+  }
+
+  // macOS 风格窗口控制按钮 - 红绿灯
+  .traffic-lights {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 8px;
+
+    .traffic-light {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      cursor: pointer;
+      transition: all var(--duration-fast) var(--ease-default);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0.8;
+
+      svg {
+        width: 8px;
+        height: 8px;
+        opacity: 0;
+        transition: opacity var(--duration-fast) var(--ease-default);
+      }
+
+      &:hover {
+        opacity: 1;
+
+        svg {
+          opacity: 0.6;
+        }
+      }
+
+      &--close {
+        background: #ff5f57;
+
+        &:hover {
+          background: #ff3b30;
+        }
+      }
+
+      &--minimize {
+        background: #ffbd2e;
+
+        &:hover {
+          background: #ff9500;
+        }
+      }
+
+      &--maximize {
+        background: #28c940;
+
+        &:hover {
+          background: #34c759;
+        }
+      }
+    }
+
+    // 悬停时显示所有图标
+    &:hover .traffic-light svg {
+      opacity: 0.5;
+    }
+  }
+
+  // 简约风格窗口控制按钮
+  .window-control-btn {
+    width: 34px;
+    height: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all var(--duration-fast) var(--ease-default);
+    border-radius: var(--radius-sm);
+    color: var(--color-text-3);
 
     svg {
-      @apply color-white;
+      width: 16px;
+      height: 16px;
+      transition: color var(--duration-fast) var(--ease-default);
+    }
+
+    &:hover {
+      background: var(--color-fill-2);
+      color: var(--color-text-1);
+    }
+
+    &:active {
+      background: var(--color-fill-3);
+    }
+  }
+
+  // 最小化按钮
+  .minimize-btn {
+    &:hover {
+      background: var(--color-fill-2);
+    }
+  }
+
+  // 最大化按钮
+  .maximize-btn {
+    &:hover {
+      background: var(--color-fill-2);
+    }
+  }
+
+  // 关闭按钮 - 特殊样式
+  .close-btn {
+    &:hover {
+      background: var(--color-danger-5);
+      color: white;
+    }
+
+    &:active {
+      background: var(--color-danger-6);
     }
   }
 }
 
-// 最大化按钮
-.maximize-btn {
-  &:hover {
-    @apply bg-[--color-fill-2];
-
-    svg {
-      @apply color-white;
-    }
-  }
-}
-
-// 关闭按钮
-.close-btn {
-  &:hover {
-    @apply bg-#e81123;
-
-    svg {
-      @apply color-white;
-    }
-  }
-
-  &:active {
-    @apply bg-#c50e1f;
-  }
-}
-
+// 模态框位置微调
 .n-modal {
-  // align-self: start;
   margin: 60px auto;
+
   &-mask {
     background-color: var(--color-mask-bg) !important;
   }

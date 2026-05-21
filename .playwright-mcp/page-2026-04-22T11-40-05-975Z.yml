@@ -1,0 +1,143 @@
+- generic [active]:
+  - generic [ref=e2]:
+    - generic [ref=e6]:
+      - generic [ref=e10]:
+        - img [ref=e12]:
+          - img [ref=e13]
+        - generic [ref=e16]:
+          - textbox "搜索服务、日志或链路（示例：service:web env:prod）..." [ref=e17]
+          - generic:
+            - generic: 搜索服务、日志或链路（示例：service:web env:prod）...
+      - generic [ref=e18]:
+        - generic [ref=e20]:
+          - button [ref=e21] [cursor=pointer]:
+            - img [ref=e23]:
+              - img [ref=e24]
+          - superscript [ref=e27]
+        - generic [ref=e29] [cursor=pointer]:
+          - generic [ref=e31]: S
+          - generic [ref=e32]:
+            - generic [ref=e33]: StarLight User
+            - generic [ref=e34]: 管理员
+          - img [ref=e35]:
+            - img [ref=e36]
+    - generic [ref=e38]:
+      - generic [ref=e39]:
+        - generic [ref=e41]:
+          - generic [ref=e42] [cursor=pointer]:
+            - img [ref=e43]:
+              - img [ref=e44]
+            - generic [ref=e49]: 面板
+          - generic [ref=e50] [cursor=pointer]:
+            - img [ref=e51]:
+              - img [ref=e52]
+            - generic [ref=e58]: 服务拓扑图
+          - generic [ref=e59] [cursor=pointer]:
+            - img [ref=e60]:
+              - img [ref=e61]
+            - generic [ref=e65]: 服务目录
+          - generic [ref=e66] [cursor=pointer]:
+            - img [ref=e67]:
+              - img [ref=e68]
+            - generic [ref=e71]: 实例监控
+          - generic [ref=e72] [cursor=pointer]:
+            - img [ref=e73]:
+              - img [ref=e74]
+            - generic [ref=e79]: 实时监控
+          - generic [ref=e80] [cursor=pointer]:
+            - img [ref=e81]:
+              - img [ref=e82]
+            - generic [ref=e87]: 指标分析
+          - generic [ref=e88] [cursor=pointer]:
+            - img [ref=e89]:
+              - img [ref=e90]
+            - generic [ref=e96]: 链路追踪
+          - generic [ref=e97] [cursor=pointer]:
+            - img [ref=e98]:
+              - img [ref=e99]
+            - generic [ref=e102]: 日志中心
+          - generic [ref=e103] [cursor=pointer]:
+            - img [ref=e104]:
+              - img [ref=e105]
+            - generic [ref=e108]: 异常分析
+          - generic [ref=e109] [cursor=pointer]:
+            - img [ref=e110]:
+              - img [ref=e111]
+            - generic [ref=e114]: 告警列表
+          - generic [ref=e115] [cursor=pointer]:
+            - img [ref=e116]:
+              - img [ref=e117]
+            - generic [ref=e119]: 告警规则
+          - generic [ref=e120] [cursor=pointer]:
+            - img [ref=e121]:
+              - img [ref=e122]
+            - generic [ref=e126]: 计费
+          - generic [ref=e127] [cursor=pointer]:
+            - img [ref=e128]:
+              - img [ref=e129]
+            - generic [ref=e131]: 接入管理
+        - generic [ref=e132]:
+          - generic [ref=e133] [cursor=pointer]:
+            - img [ref=e134]:
+              - img [ref=e135]
+            - generic [ref=e136]: 自定义排序
+          - generic [ref=e137] [cursor=pointer]:
+            - img [ref=e138]:
+              - img [ref=e139]
+            - generic [ref=e141]: 收起
+      - main [ref=e143]:
+        - generic [ref=e144]:
+          - generic [ref=e145]:
+            - generic [ref=e146]:
+              - heading "面板" [level=1] [ref=e147]
+              - generic [ref=e148]: 集中查看 Darwin 系统运行状态、关键事件和排查入口。
+            - button "刷新" [ref=e149] [cursor=pointer]:
+              - generic [ref=e150]: 刷新
+          - generic [ref=e152]:
+            - text: 时间范围
+            - generic [ref=e155] [cursor=pointer]:
+              - generic "最近 1 小时" [ref=e156]:
+                - generic [ref=e157]: 最近 1 小时
+              - img "loading" [ref=e158]:
+                - img [ref=e163]
+            - text: 实时模式
+            - switch [checked] [ref=e165]
+            - button "刷新时间" [ref=e168] [cursor=pointer]:
+              - generic [ref=e169]: 刷新时间
+          - button "重置筛选" [ref=e172] [cursor=pointer]:
+            - generic [ref=e173]: 重置筛选
+          - generic [ref=e175]:
+            - generic [ref=e176]:
+              - generic [ref=e177]:
+                - generic [ref=e178]: 系统默认模板
+                - generic [ref=e180]: 系统模板
+                - generic [ref=e182]: Metrics
+                - generic [ref=e184]: Alerts
+                - generic [ref=e186]: Service Catalog
+                - generic [ref=e188]: Ingestion
+                - generic [ref=e190]: Logs
+                - generic [ref=e192]: Traces
+              - generic [ref=e193]: "展示当前接入能力下的完整默认模板，是 `/home/overview` 的默认入口。"
+            - generic [ref=e194]:
+              - generic [ref=e197] [cursor=pointer]:
+                - generic "系统 · 系统默认模板" [ref=e198]:
+                  - generic [ref=e199]: 系统 · 系统默认模板
+                - img "loading" [ref=e200]:
+                  - img [ref=e205]
+              - generic [ref=e207]:
+                - button "保存默认视角" [ref=e208] [cursor=pointer]:
+                  - generic [ref=e209]: 保存默认视角
+                - button "恢复当前面板" [ref=e210] [cursor=pointer]:
+                  - generic [ref=e211]: 恢复当前面板
+                - button "复制为用户面板" [ref=e212] [cursor=pointer]:
+                  - generic [ref=e213]: 复制为用户面板
+                - button "编辑面板" [ref=e214] [cursor=pointer]:
+                  - generic [ref=e215]: 编辑面板
+          - generic [ref=e217]:
+            - img [ref=e220]
+            - generic [ref=e223]: 当前面板没有可显示的 widget。请先接入对应 capability，或在编辑态中添加新的可用 widget。
+  - generic [ref=e224]:
+    - generic "Toggle devtools panel" [ref=e225] [cursor=pointer]:
+      - img [ref=e226]
+    - generic "Toggle Component Inspector" [ref=e231] [cursor=pointer]:
+      - img [ref=e232]

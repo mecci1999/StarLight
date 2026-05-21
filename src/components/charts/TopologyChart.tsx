@@ -2,6 +2,9 @@ import { defineComponent, computed } from 'vue'
 import BaseChart from './BaseChart'
 import type { TopologyData } from '@/types/monitor'
 
+// TODO(refactor-phase0): consolidate this legacy topology renderer with `@/components/ServiceTopology`.
+// Both currently encode similar graph styling and should converge to one implementation.
+
 export default defineComponent({
   name: 'TopologyChart',
   props: {
@@ -16,20 +19,21 @@ export default defineComponent({
     loading: Boolean
   },
   setup(props) {
+    const getNodeColor = (status: string) => {
+      if (status === 'running' || status === 'healthy') return '#00b42a'
+      if (status === 'error' || status === 'critical') return '#f53f3f'
+      if (status === 'warning') return '#ff7d00'
+      if (status === 'stopped' || status === 'idle') return '#86909c'
+      return '#86909c'
+    }
+
     const option = computed(() => {
       const nodes = props.data.nodes.map((node) => ({
         id: node.id,
         name: node.name,
         symbolSize: 50,
         itemStyle: {
-          color:
-            node.status === 'running'
-              ? '#00b42a'
-              : node.status === 'error'
-                ? '#f53f3f'
-                : node.status === 'warning'
-                  ? '#ff7d00'
-                  : '#86909c'
+          color: getNodeColor(node.status)
         },
         label: {
           show: true,
@@ -39,9 +43,9 @@ export default defineComponent({
         }
       }))
 
-      const links = props.data.edges.map((edge) => ({
-        source: edge.from,
-        target: edge.to,
+      const links = props.data.edges.map((edge: any) => ({
+        source: edge.from ?? edge.source,
+        target: edge.to ?? edge.target,
         lineStyle: {
           curveness: 0.2
         }

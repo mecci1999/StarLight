@@ -1,0 +1,208 @@
+- generic [active]:
+  - generic [ref=e9]:
+    - generic [ref=e10]:
+      - generic [ref=e12]:
+        - generic [ref=e13] [cursor=pointer]:
+          - img [ref=e14]:
+            - img [ref=e15]
+          - generic [ref=e20]: 面板
+        - generic [ref=e21] [cursor=pointer]:
+          - img [ref=e22]:
+            - img [ref=e23]
+          - generic [ref=e29]: 服务拓扑图
+        - generic [ref=e30] [cursor=pointer]:
+          - img [ref=e31]:
+            - img [ref=e32]
+          - generic [ref=e36]: 服务目录
+        - generic [ref=e37] [cursor=pointer]:
+          - img [ref=e38]:
+            - img [ref=e39]
+          - generic [ref=e42]: 实例监控
+        - generic [ref=e43] [cursor=pointer]:
+          - img [ref=e44]:
+            - img [ref=e45]
+          - generic [ref=e50]: 实时监控
+        - generic [ref=e51] [cursor=pointer]:
+          - img [ref=e52]:
+            - img [ref=e53]
+          - generic [ref=e58]: 指标分析
+        - generic [ref=e59] [cursor=pointer]:
+          - img [ref=e60]:
+            - img [ref=e61]
+          - generic [ref=e67]: 链路追踪
+        - generic [ref=e68] [cursor=pointer]:
+          - img [ref=e69]:
+            - img [ref=e70]
+          - generic [ref=e73]: 日志中心
+        - generic [ref=e74] [cursor=pointer]:
+          - img [ref=e75]:
+            - img [ref=e76]
+          - generic [ref=e79]: 异常分析
+        - generic [ref=e80] [cursor=pointer]:
+          - img [ref=e81]:
+            - img [ref=e82]
+          - generic [ref=e85]: 告警列表
+        - generic [ref=e86] [cursor=pointer]:
+          - img [ref=e87]:
+            - img [ref=e88]
+          - generic [ref=e90]: 告警规则
+      - generic [ref=e91]:
+        - generic [ref=e92] [cursor=pointer]:
+          - img [ref=e93]:
+            - img [ref=e94]
+          - generic [ref=e95]: 自定义排序
+        - generic [ref=e96] [cursor=pointer]:
+          - img [ref=e97]:
+            - img [ref=e98]
+          - generic [ref=e100]: 收起
+    - generic [ref=e101]:
+      - generic [ref=e106]:
+        - generic [ref=e110]:
+          - img [ref=e112]:
+            - img [ref=e113]
+          - generic [ref=e116]:
+            - textbox "搜索服务、日志或链路（示例：service:web env:prod）..." [ref=e117]
+            - generic:
+              - generic: 搜索服务、日志或链路（示例：service:web env:prod）...
+        - generic [ref=e118]:
+          - generic [ref=e120]:
+            - button [ref=e121] [cursor=pointer]:
+              - img [ref=e123]:
+                - img [ref=e124]
+            - superscript [ref=e127]
+          - generic [ref=e129] [cursor=pointer]:
+            - generic [ref=e131]: S
+            - generic [ref=e132]:
+              - generic [ref=e133]: StarLight User
+              - generic [ref=e134]: 普通用户
+            - img [ref=e135]:
+              - img [ref=e136]
+      - main [ref=e138]:
+        - generic [ref=e234]:
+          - generic [ref=e235]:
+            - generic [ref=e236]:
+              - heading "服务目录" [level=1] [ref=e237]
+              - generic [ref=e238]: 查看服务清单、健康状态与常用排查入口
+            - button "刷新目录" [ref=e239] [cursor=pointer]:
+              - generic [ref=e240]: 刷新目录
+          - generic [ref=e242]:
+            - text: 时间范围
+            - generic [ref=e245] [cursor=pointer]:
+              - generic "最近 1 小时" [ref=e246]:
+                - generic [ref=e247]: 最近 1 小时
+              - img "loading" [ref=e248]:
+                - img [ref=e253]
+            - text: 实时模式
+            - switch [checked] [ref=e255]
+            - button "刷新时间" [ref=e258] [cursor=pointer]:
+              - generic [ref=e259]: 刷新时间
+          - button "重置筛选" [ref=e262] [cursor=pointer]:
+            - generic [ref=e263]: 重置筛选
+          - generic [ref=e264]:
+            - generic [ref=e267]:
+              - generic [ref=e268]: 总服务数
+              - generic [ref=e269]: 未知
+            - generic [ref=e272]:
+              - generic [ref=e273]: 健康
+              - generic [ref=e274]: 未知
+            - generic [ref=e277]:
+              - generic [ref=e278]: 轻微异常
+              - generic [ref=e279]: 未知
+            - generic [ref=e282]:
+              - generic [ref=e283]: 严重异常
+              - generic [ref=e284]: 未知
+            - generic [ref=e287]:
+              - generic [ref=e288]: 已静音
+              - generic [ref=e289]: 未知
+          - generic [ref=e290]:
+            - generic [ref=e293]:
+              - textbox "搜索服务 / Owner / Team / Tag" [ref=e294]
+              - generic:
+                - generic: 搜索服务 / Owner / Team / Tag
+            - generic [ref=e299] [cursor=pointer]:
+              - generic "全部状态" [ref=e300]:
+                - generic [ref=e301]: 全部状态
+              - img "loading" [ref=e302]:
+                - img [ref=e307]
+            - generic [ref=e311] [cursor=pointer]:
+              - generic "全部环境" [ref=e312]:
+                - generic [ref=e313]: 全部环境
+              - img "loading" [ref=e314]:
+                - img [ref=e319]
+            - generic [ref=e323] [cursor=pointer]:
+              - generic "全部团队" [ref=e324]:
+                - generic [ref=e325]: 全部团队
+              - img "loading" [ref=e326]:
+                - img [ref=e331]
+            - generic [ref=e335] [cursor=pointer]:
+              - generic "按名称" [ref=e336]:
+                - generic [ref=e337]: 按名称
+              - img "loading" [ref=e338]:
+                - img [ref=e343]
+            - button "表格" [ref=e345] [cursor=pointer]:
+              - generic [ref=e346]: 表格
+            - button "卡片" [ref=e347] [cursor=pointer]:
+              - generic [ref=e348]: 卡片
+            - button "搜索" [ref=e349] [cursor=pointer]:
+              - generic [ref=e350]: 搜索
+            - button "重置" [ref=e351] [cursor=pointer]:
+              - generic [ref=e352]: 重置
+          - generic [ref=e353]:
+            - generic:
+              - generic:
+                - generic:
+                  - table:
+                    - rowgroup:
+                      - row "服务名 Owner 团队 环境 区域 健康状态 实例数 QPS 错误率 P95 告警 最近部署 操作":
+                        - columnheader "服务名":
+                          - generic:
+                            - generic: 服务名
+                        - columnheader "Owner":
+                          - generic:
+                            - generic: Owner
+                        - columnheader "团队":
+                          - generic:
+                            - generic: 团队
+                        - columnheader "环境":
+                          - generic:
+                            - generic: 环境
+                        - columnheader "区域":
+                          - generic:
+                            - generic: 区域
+                        - columnheader "健康状态":
+                          - generic:
+                            - generic: 健康状态
+                        - columnheader "实例数":
+                          - generic:
+                            - generic: 实例数
+                        - columnheader "QPS":
+                          - generic:
+                            - generic: QPS
+                        - columnheader "错误率":
+                          - generic:
+                            - generic: 错误率
+                        - columnheader "P95":
+                          - generic:
+                            - generic: P95
+                        - columnheader "告警":
+                          - generic:
+                            - generic: 告警
+                        - columnheader "最近部署":
+                          - generic:
+                            - generic: 最近部署
+                        - columnheader "操作":
+                          - generic:
+                            - generic: 操作
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic:
+                        - img
+                    - generic: 无数据
+            - img "loading" [ref=e355]:
+              - img [ref=e358]
+  - generic [ref=e1]:
+    - generic "Toggle devtools panel" [ref=e2] [cursor=pointer]:
+      - img [ref=e3]
+    - generic "Toggle Component Inspector" [ref=e220] [cursor=pointer]:
+      - img [ref=e221]

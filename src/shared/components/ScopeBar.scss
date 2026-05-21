@@ -1,0 +1,13 @@
+.scope-bar {
+  margin-bottom: var(--spacing-4);
+  border: none;
+  box-shadow: none !important;
+
+  &__content {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-3);
+  }
+}

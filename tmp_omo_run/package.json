@@ -1,0 +1,16 @@
+{
+  "name": "tmp_omo_run",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "oh-my-opencode": "^3.14.0",
+    "oh-my-opencode-darwin-arm64": "^3.14.0"
+  }
+}

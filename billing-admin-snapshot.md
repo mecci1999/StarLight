@@ -1,0 +1,94 @@
+- generic [active]:
+  - generic [ref=e3]:
+    - generic [ref=e4]:
+      - generic [ref=e6]:
+        - generic [ref=e7] [cursor=pointer]:
+          - img [ref=e8]:
+            - img [ref=e9]
+          - generic [ref=e14]: 面板
+        - generic [ref=e15] [cursor=pointer]:
+          - img [ref=e16]:
+            - img [ref=e17]
+          - generic [ref=e23]: 服务拓扑图
+        - generic [ref=e24] [cursor=pointer]:
+          - img [ref=e25]:
+            - img [ref=e26]
+          - generic [ref=e30]: 服务目录
+        - generic [ref=e31] [cursor=pointer]:
+          - img [ref=e32]:
+            - img [ref=e33]
+          - generic [ref=e36]: 实例监控
+        - generic [ref=e37] [cursor=pointer]:
+          - img [ref=e38]:
+            - img [ref=e39]
+          - generic [ref=e44]: 实时监控
+        - generic [ref=e45] [cursor=pointer]:
+          - img [ref=e46]:
+            - img [ref=e47]
+          - generic [ref=e52]: 指标分析
+        - generic [ref=e53] [cursor=pointer]:
+          - img [ref=e54]:
+            - img [ref=e55]
+          - generic [ref=e61]: 链路追踪
+        - generic [ref=e62] [cursor=pointer]:
+          - img [ref=e63]:
+            - img [ref=e64]
+          - generic [ref=e67]: 日志中心
+        - generic [ref=e68] [cursor=pointer]:
+          - img [ref=e69]:
+            - img [ref=e70]
+          - generic [ref=e73]: 异常分析
+        - generic [ref=e74] [cursor=pointer]:
+          - img [ref=e75]:
+            - img [ref=e76]
+          - generic [ref=e79]: 告警列表
+        - generic [ref=e80] [cursor=pointer]:
+          - img [ref=e81]:
+            - img [ref=e82]
+          - generic [ref=e84]: 告警规则
+        - generic [ref=e85] [cursor=pointer]:
+          - img [ref=e86]:
+            - img [ref=e87]
+          - generic [ref=e91]: 计费
+        - generic [ref=e92] [cursor=pointer]:
+          - img [ref=e93]:
+            - img [ref=e94]
+          - generic [ref=e96]: 接入管理
+      - generic [ref=e97]:
+        - generic [ref=e98] [cursor=pointer]:
+          - img [ref=e99]:
+            - img [ref=e100]
+          - generic [ref=e101]: 自定义排序
+        - generic [ref=e102] [cursor=pointer]:
+          - img [ref=e103]:
+            - img [ref=e104]
+          - generic [ref=e106]: 收起
+    - generic [ref=e107]:
+      - generic [ref=e112]:
+        - generic [ref=e116]:
+          - img [ref=e118]:
+            - img [ref=e119]
+          - generic [ref=e122]:
+            - textbox "搜索服务、日志或链路（示例：service:web env:prod）..." [ref=e123]
+            - generic
+        - generic [ref=e124]:
+          - generic [ref=e126]:
+            - button [ref=e127] [cursor=pointer]
+            - superscript [ref=e133]
+          - generic [ref=e135] [cursor=pointer]:
+            - generic [ref=e137]: S
+            - generic [ref=e138]
+            - img [ref=e141]
+      - main [ref=e144]:
+        - generic [ref=e145]:
+          - generic [ref=e147]:
+            - heading "管理中心 / 账单与订阅（V2）" [level=1] [ref=e148]
+            - generic [ref=e149]: 查看套餐、用量、支付历史与管理信息
+          - generic [ref=e151]:
+            - generic [ref=e156]
+            - generic [ref=e171]
+  - generic [ref=e192]:
+    - generic "Toggle devtools panel" [ref=e193] [cursor=pointer]:
+      - img [ref=e194]
+    - generic "Toggle Component Inspector" [ref=e199] [cursor=pointer]:
+      - img [ref=e200]

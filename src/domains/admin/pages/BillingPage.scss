@@ -1,0 +1,11 @@
+.billing-page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 16px;
+  background: var(--color-bg-1);
+
+  &__card {
+    flex: 1;
+  }
+}

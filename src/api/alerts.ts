@@ -1,46 +1,84 @@
 import request from '@/services/request'
+import url from '@/api/url'
 import type { AlertItem, AlertRuleItem, NotificationItem } from '@/types/monitor'
+import type { MetricsDatasetScope } from './metrics'
 
 // 获取告警列表
 export function fetchAlerts(params?: {
   level?: string
   status?: string
   serviceId?: string
+  assigneeUserId?: string
+  scope?: MetricsDatasetScope
   keyword?: string
   startTime?: number
   endTime?: number
 }) {
-  return request.get<AlertItem[]>('/metrics/v1/alerts', params || {})
+  return request.get<AlertItem[]>(url.metricsAlerts, params || {})
+}
+
+export function fetchAlertAssignees() {
+  return request.get<Array<{ userId: string; nickname: string; isAdmin?: boolean }>>(url.metricsAlertAssignees, {})
+}
+
+export function assignAlert(id: string, params: { assigneeUserId?: string; assigneeName?: string }) {
+  return request.post<boolean | { success?: boolean }>(url.assignAlert(id), params)
 }
 
 // 解决告警
 export function resolveAlert(id: string) {
-  return request.post<{ success: boolean }>(`/metrics/v1/alerts/${id}/resolve`, {})
+  return request.post<boolean | { success?: boolean }>(url.resolveAlert(id), {})
+}
+
+export function acknowledgeAlert(id: string) {
+  return request.post<boolean | { success?: boolean }>(url.acknowledgeAlert(id), {})
 }
 
 // 静默告警
 export function suppressAlert(id: string) {
-  return request.post<{ success: boolean }>(`/metrics/v1/alerts/${id}/suppress`, {})
+  return request.post<boolean | { success?: boolean }>(url.suppressAlert(id), {})
 }
 
 // 获取告警规则列表
-export function fetchAlertRules() {
-  return request.get<AlertRuleItem[]>('/metrics/v1/alert-rules', {})
+export function fetchAlertRules(params?: {
+  serviceId?: string
+  startTime?: number
+  endTime?: number
+  scope?: MetricsDatasetScope
+}) {
+  return request.get<AlertRuleItem[]>(url.metricsAlertRules, params || {})
 }
 
 // 保存告警规则
 export function saveAlertRule(rule: Partial<AlertRuleItem>) {
-  return request.post<AlertRuleItem>('/metrics/v1/alert-rules', rule)
+  return request.post<AlertRuleItem>(`${url.metricsAlertRules}/create`, rule)
 }
 
 // 更新告警规则
 export function updateAlertRule(rule: AlertRuleItem) {
-  return request.put<AlertRuleItem>(`/metrics/v1/alert-rules/${rule.id}`, rule)
+  return request.put<AlertRuleItem>(url.updateAlertRule(rule.id), rule)
+}
+
+export function bulkUpdateAlertRules(params: { ids: string[]; enabled: boolean }) {
+  return request.post<AlertRuleItem[]>(url.metricsAlertRulesBulkUpdate, params)
+}
+
+export function exportAlertRules(params?: {
+  serviceId?: string
+  startTime?: number
+  endTime?: number
+  scope?: MetricsDatasetScope
+}) {
+  return request.get<{ rules: AlertRuleItem[]; exportedAt: string }>(url.metricsAlertRulesExport, params || {})
+}
+
+export function importAlertRules(params: { rules: Array<Partial<AlertRuleItem>> }) {
+  return request.post<AlertRuleItem[]>(url.metricsAlertRulesImport, params)
 }
 
 // 删除告警规则
 export function deleteAlertRule(id: string) {
-  return request.delete<{ success: boolean }>(`/metrics/v1/alert-rules/${id}`, {})
+  return request.delete<boolean | { success?: boolean }>(`${url.metricsAlertRules}/${id}/delete`, {})
 }
 
 // 获取通知历史
@@ -48,13 +86,15 @@ export function fetchNotifications(params?: {
   keyword?: string
   channel?: string
   status?: string
+  serviceId?: string
+  scope?: MetricsDatasetScope
   startTime?: number
   endTime?: number
 }) {
-  return request.get<NotificationItem[]>('/metrics/v1/notifications', params || {})
+  return request.get<NotificationItem[]>(url.metricsNotifications, params || {})
 }
 
 // 重发通知
 export function resendNotification(id: string) {
-  return request.post<{ success: boolean }>(`/metrics/v1/notifications/${id}/resend`, {})
+  return request.post<boolean | { success?: boolean }>(url.resendNotification(id), {})
 }

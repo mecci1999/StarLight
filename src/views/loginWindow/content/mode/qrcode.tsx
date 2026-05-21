@@ -4,15 +4,25 @@
 import { useSettingStore } from '@/store/setting'
 import { useNetwork } from '@vueuse/core'
 import { NAvatar, NButton, NCheckbox, NFlex, NInput, NQrCode, NScrollbar, NSkeleton } from 'naive-ui'
-import { getCookie, setCookie } from '@/utils/cookie'
+import {
+  getStoredAuthTokens,
+  persistAuthTokens,
+  syncAuthTokensToTauri,
+  persistStoredUserInfo,
+  resolveAuthLandingRoute
+} from '@/services/authSession'
+
 import * as api from '@/api'
 import { QrCodeStatus } from '@/types/enums'
 import { useWindow } from '@/hooks/useWindow'
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
+import { emit as emitTauri, listen } from '@tauri-apps/api/event'
 import { type } from '@tauri-apps/plugin-os'
 import { useRouter } from 'vue-router'
 // 在文件顶部添加导入语句
 import RefreshIcon from '@/assets/icons/refresh.svg'
+import { useTauriListener } from '@/hooks/useTauriListener'
+import './qrcode.scss'
 
 export default defineComponent({
   name: 'LoginWindowContentQRCode',
@@ -28,6 +38,7 @@ export default defineComponent({
     const settingStore = useSettingStore()
     const { login } = storeToRefs(settingStore)
     const { createWebviewWindow } = useWindow()
+    const tauriListener = useTauriListener()
 
     const getIsDesktop = () => {
       try {
@@ -38,8 +49,9 @@ export default defineComponent({
       }
     }
 
-    const TOKEN = ref(getCookie('ACCESS_TOKEN'))
-    const REFRESH_TOKEN = ref(getCookie('REFRESH_TOKEN'))
+    const storedTokens = getStoredAuthTokens()
+    const TOKEN = ref(storedTokens.accessToken)
+    const REFRESH_TOKEN = ref(storedTokens.refreshToken)
 
     const router = useRouter()
 
@@ -127,30 +139,34 @@ export default defineComponent({
               stopPolling()
 
               // 手动保存 Token
-              if (response.token) {
-                setCookie('ACCESS_TOKEN', response.token, 7)
-              } else if (response.accessToken) {
-                setCookie('ACCESS_TOKEN', response.accessToken, 7)
-              }
-              if (response.refreshToken) {
-                setCookie('REFRESH_TOKEN', response.refreshToken, 30)
+              const accessToken =
+                response.token || response.accessToken || response.access_token || getStoredAuthTokens().accessToken
+              const refreshToken = response.refreshToken || response.refresh_token || getStoredAuthTokens().refreshToken
+
+              persistAuthTokens({ accessToken, refreshToken })
+
+              if (accessToken || refreshToken) {
+                await syncAuthTokensToTauri({ accessToken, refreshToken })
               }
 
               // 处理登录成功逻辑
               if (response.userInfo?.userId) {
-                // 这里可以根据需要处理用户信息
-                // 可能需要调用其他API获取完整的登录token
+                const storedUser = {
+                  userId: response.userInfo?.userId || response.userId || '',
+                  email: response.userInfo?.email || '',
+                  avatar: response.userInfo?.avatar || 'star_1',
+                  nickName: response.userInfo?.nickName || response.userInfo?.email || '',
+                  client: response.userInfo?.client || 'desktop',
+                  isAdmin: response.userInfo?.isAdmin || false,
+                  status: response.userInfo?.status || 'active',
+                  lastActiveAt: response.userInfo?.lastActiveAt || new Date().toISOString(),
+                  isOnboardingCompleted: response.userInfo?.isOnboardingCompleted
+                }
+                persistStoredUserInfo(storedUser)
 
                 // 跳转到主页面或关闭登录窗口
-                const isOnboardingCompleted = localStorage.getItem('onboarding_completed') === 'true'
                 const isDesktop = getIsDesktop()
-
-                let targetRoute = 'home'
-                if (isDesktop) {
-                  targetRoute = isOnboardingCompleted ? 'home' : 'onboarding'
-                } else {
-                  targetRoute = isOnboardingCompleted ? 'mobile-home' : 'mobile-onboarding-notice'
-                }
+                const targetRoute = resolveAuthLandingRoute(isDesktop, response.userInfo)
 
                 setTimeout(async () => {
                   if (isDesktop) {
@@ -159,7 +175,10 @@ export default defineComponent({
                     if (win.label === 'StarLight' || win.label === 'home' || win.label === 'onboarding') {
                       router.push({ name: targetRoute })
                     } else {
-                      await createWebviewWindow('StarLight', targetRoute, 1080, 720, 'login', true)
+                      const nextWin = await createWebviewWindow('StarLight', targetRoute, 1080, 720, 'login', true)
+                      if (accessToken || refreshToken) {
+                        await nextWin.emit('auth-token', { accessToken, refreshToken })
+                      }
                     }
                   } else {
                     router.push({ name: targetRoute })
@@ -256,8 +275,8 @@ export default defineComponent({
       switch (state.qrStatus) {
         case 'loading':
           return (
-            <div class="flex items-center justify-center w-16 h-16 rounded-full bg-blue-50 mb-3">
-              <svg class="w-8 h-8 animate-spin text-blue-500" viewBox="0 0 24 24" fill="none">
+            <div class="login-qrcode__status-icon login-qrcode__status-icon--loading">
+              <svg viewBox="0 0 24 24" fill="none">
                 <circle
                   cx="12"
                   cy="12"
@@ -283,36 +302,32 @@ export default defineComponent({
           )
         case 'scanned':
           return (
-            <div class="flex items-center justify-center w-16 h-16 rounded-full bg-green-50 mb-3 animate-pulse">
-              <svg class="w-8 h-8 text-green-500" viewBox="0 0 24 24" fill="currentColor">
+            <div class="login-qrcode__status-icon login-qrcode__status-icon--scanned">
+              <svg viewBox="0 0 24 24" fill="currentColor">
                 <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
               </svg>
             </div>
           )
         case 'expired':
           return (
-            <div
-              class="flex items-center justify-center w-16 h-16 rounded-full bg-orange-50 mb-3 cursor-pointer hover:bg-orange-100 transition-colors"
-              onClick={refreshQRCode}>
-              <svg class="w-8 h-8 text-orange-500" viewBox="0 0 24 24" fill="currentColor">
+            <div class="login-qrcode__status-icon login-qrcode__status-icon--expired" onClick={refreshQRCode}>
+              <svg viewBox="0 0 24 24" fill="currentColor">
                 <path d="M12 6v3l4-4-4-4v3c-4.42 0-8 3.58-8 8 0 1.57.46 3.03 1.24 4.26L6.7 14.8c-.45-.83-.7-1.79-.7-2.8 0-3.31 2.69-6 6-6zm6.76 1.74L17.3 9.2c.44.84.7 1.79.7 2.8 0 3.31-2.69 6-6 6v-3l-4 4 4 4v-3c4.42 0 8-3.58 8-8 0-1.57-.46-3.03-1.24-4.26z" />
               </svg>
             </div>
           )
         case 'error':
           return (
-            <div
-              class="flex items-center justify-center w-16 h-16 rounded-full bg-red-50 mb-3 cursor-pointer hover:bg-red-100 transition-colors"
-              onClick={refreshQRCode}>
-              <svg class="w-8 h-8 text-red-500" viewBox="0 0 24 24" fill="currentColor">
+            <div class="login-qrcode__status-icon login-qrcode__status-icon--error" onClick={refreshQRCode}>
+              <svg viewBox="0 0 24 24" fill="currentColor">
                 <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 11H7v-2h10v2z" />
               </svg>
             </div>
           )
         case 'success':
           return (
-            <div class="flex items-center justify-center w-16 h-16 rounded-full bg-green-50 mb-3 animate-bounce">
-              <svg class="w-8 h-8 text-green-500" viewBox="0 0 24 24" fill="currentColor">
+            <div class="login-qrcode__status-icon login-qrcode__status-icon--success">
+              <svg viewBox="0 0 24 24" fill="currentColor">
                 <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
               </svg>
             </div>
@@ -326,17 +341,17 @@ export default defineComponent({
     const getStatusClass = () => {
       switch (state.qrStatus) {
         case 'loading':
-          return 'bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200'
+          return 'login-qrcode__overlay--loading'
         case 'scanned':
-          return 'bg-gradient-to-br from-green-50 to-green-100 border-green-200'
+          return 'login-qrcode__overlay--scanned'
         case 'expired':
-          return 'bg-gradient-to-br from-orange-50 to-orange-100 border-orange-200'
+          return 'login-qrcode__overlay--expired'
         case 'error':
-          return 'bg-gradient-to-br from-red-50 to-red-100 border-red-200'
+          return 'login-qrcode__overlay--error'
         case 'success':
-          return 'bg-gradient-to-br from-green-50 to-green-100 border-green-200'
+          return 'login-qrcode__overlay--success'
         default:
-          return 'bg-white'
+          return 'login-qrcode__overlay--waiting'
       }
     }
 
@@ -344,17 +359,17 @@ export default defineComponent({
     const getStatusTextColor = () => {
       switch (state.qrStatus) {
         case 'loading':
-          return 'text-blue-600'
+          return 'login-qrcode__overlay-text--loading'
         case 'scanned':
-          return 'text-green-600'
+          return 'login-qrcode__overlay-text--scanned'
         case 'expired':
-          return 'text-orange-600'
+          return 'login-qrcode__overlay-text--expired'
         case 'error':
-          return 'text-red-600'
+          return 'login-qrcode__overlay-text--error'
         case 'success':
-          return 'text-green-600'
+          return 'login-qrcode__overlay-text--success'
         default:
-          return 'text-gray-600'
+          return 'login-qrcode__overlay-text--waiting'
       }
     }
 
@@ -364,6 +379,14 @@ export default defineComponent({
     })
 
     onMounted(async () => {
+      tauriListener.addListener(
+        listen('auth-token-request', async () => {
+          const { accessToken, refreshToken } = getStoredAuthTokens()
+          if (accessToken || refreshToken) {
+            await syncAuthTokensToTauri({ accessToken, refreshToken })
+          }
+        })
+      )
       // 检查网络连接
       if (!isOnline.value) {
         state.qrStatus = 'error'
@@ -376,24 +399,22 @@ export default defineComponent({
     })
 
     return () => (
-      <NFlex class="ma text-center h-full" size={0} vertical={true} data-tauri-drag-region>
+      <NFlex class="login-qrcode" size={0} vertical={true} data-tauri-drag-region>
         {/* 二维码 */}
-        <div class="title text-14px color-[--color-text-1] mt-4px">
+        <div class="title login-qrcode__title">
           请打开
-          <span class={'color-[--color-primary-6] hover:color-[--color-primary-5] cursor-pointer ml-6px mr-6px'}>
-            星光 App
-          </span>
+          <span class="login-qrcode__title-link">星光 App</span>
           扫一扫
         </div>
         {/* 二维码容器 */}
-        <NFlex justify={'center'} class={'qrcode mt-20px relative'}>
-          <div class="relative">
+        <NFlex justify={'center'} class={'qrcode login-qrcode__panel'}>
+          <div class="login-qrcode__panel-inner">
             {state.loading ? (
               // 占位图
-              <div class="flex items-center justify-center w-[224px] h-[224px] rounded-xl bg-gray-50">
-                <div class="text-center">
-                  <div class="flex items-center justify-center w-12 h-12 mx-auto mb-3 rounded-full bg-blue-50">
-                    <svg class="w-6 h-6 animate-spin text-blue-500" viewBox="0 0 24 24" fill="none">
+              <div class="login-qrcode__placeholder">
+                <div class="login-qrcode__placeholder-content">
+                  <div class="login-qrcode__placeholder-spinner">
+                    <svg class="login-qrcode__placeholder-spinner-icon" viewBox="0 0 24 24" fill="none">
                       <circle
                         cx="12"
                         cy="12"
@@ -416,86 +437,58 @@ export default defineComponent({
                       />
                     </svg>
                   </div>
-                  <span class="text-sm text-gray-500">正在生成二维码...</span>
+                  <span class="login-qrcode__placeholder-text">正在生成二维码...</span>
                 </div>
               </div>
             ) : (
               // 二维码
               <div
-                class={`relative rounded-xl overflow-hidden border-2 transition-all duration-300 w-[224px] h-[224px] ${
-                  state.qrStatus === 'expired' || state.qrStatus === 'error' ? 'filter blur-sm opacity-60' : ''
-                }`}>
+                class={[
+                  'login-qrcode__canvas',
+                  state.qrStatus === 'expired' || state.qrStatus === 'error' ? 'is-dimmed' : ''
+                ]}>
                 <NQrCode
                   size={200}
                   value={state.QRCode}
                   iconSrc="/logo.png"
                   errorCorrectionLevel={'H'}
-                  class="rounded-xl"
+                  class="login-qrcode__qr"
                 />
                 {/* 二维码边框装饰 */}
-                <div class="absolute inset-0 rounded-xl border-2 border-white shadow-lg pointer-events-none"></div>
+                <div class="login-qrcode__canvas-frame"></div>
               </div>
             )}
 
             {/* 二维码状态覆盖层 */}
             {state.qrStatus !== 'waiting' && !state.loading && (
-              <div
-                class={`absolute inset-0 flex items-center justify-center rounded-xl border-2 backdrop-blur-sm transition-all duration-300 ${getStatusClass()}`}>
-                <div class="text-center flex flex-col items-center justify-center max-w-xs">
+              <div class={['login-qrcode__overlay', getStatusClass()]}>
+                <div class="login-qrcode__overlay-content">
                   {getStatusIcon()}
                   {state.statusText && (
-                    <div class={`text-sm font-medium mb-3 ${getStatusTextColor()}`}>{state.statusText}</div>
+                    <div class={['login-qrcode__overlay-text', getStatusTextColor()]}>{state.statusText}</div>
                   )}
                   {(state.qrStatus === 'expired' || state.qrStatus === 'error') && (
-                    // 然后在刷新按钮处使用
-                    <div
-                      onClick={refreshQRCode}
-                      class="flex items-center justify-center rounded-full bg-primary hover:bg-primary-hover cursor-pointer transition-colors">
-                      <img src={RefreshIcon} class="size-32px animate-pulse filter invert brightness-200" />
+                    <div onClick={refreshQRCode} class="login-qrcode__refresh">
+                      <img src={RefreshIcon} class="login-qrcode__refresh-icon" />
                     </div>
                   )}
                 </div>
               </div>
             )}
-
-            {/* 扫描状态指示器 */}
-            {/* {state.qrStatus === 'waiting' && !state.loading && (
-              <div class="absolute -bottom-2 left-1/2 transform -translate-x-1/2">
-                <div class="flex items-center space-x-1 px-3 py-1 bg-white rounded-full shadow-md border">
-                  <div class="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-                  <span class="text-xs text-gray-600">等待扫描</span>
-                </div>
-              </div>
-            )} */}
           </div>
         </NFlex>
 
         {/* 网络状态提示 */}
         {!isOnline.value && (
-          <div class="mt-4 px-4 py-2 bg-red-50 border border-red-200 rounded-lg">
-            <div class="flex items-center justify-center text-red-600">
-              <svg class="w-4 h-4 mr-2" viewBox="0 0 24 24" fill="currentColor">
+          <div class="login-qrcode__network-error">
+            <div class="login-qrcode__network-error-content">
+              <svg class="login-qrcode__network-error-icon" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" />
               </svg>
-              <span class="text-sm">网络连接异常，请检查网络设置</span>
+              <span class="login-qrcode__network-error-text">网络连接异常，请检查网络设置</span>
             </div>
           </div>
         )}
-
-        {/* 提示信息 */}
-        {/* <div class="mt-6 px-4">
-          <div class="text-xs text-gray-500 leading-relaxed bg-gray-50 rounded-lg p-3">
-            <div class="flex items-center justify-center mb-2">
-              <svg class="w-4 h-4 mr-1 text-gray-400" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
-              </svg>
-              <span>使用星光App扫描二维码即可快速登录</span>
-            </div>
-            <div class="text-center text-gray-400">
-              二维码有效期为5分钟
-            </div>
-          </div>
-        </div> */}
       </NFlex>
     )
   }

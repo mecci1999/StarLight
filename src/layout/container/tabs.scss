@@ -1,55 +1,62 @@
-// 页签组件样式 - 谷歌浏览器风格
+// ==========================================
+// 标签页组件 - 清爽简洁设计
+// ==========================================
+
 .container-tabs {
-  background: var(--color-fill-2);
+  background: var(--color-fill-1);
   position: relative;
   flex: 1;
   height: 100%;
-  padding-top: 7px;
-  // overflow: visible;
+  padding-top: 8px;
+  display: flex;
+  flex-direction: column;
 }
 
-// 自定义页签容器
+// 标签页导航栏
+.tabs-nav {
+  display: flex;
+  align-items: flex-end;
+  padding: 0 var(--spacing-3);
+  background: var(--color-fill-1);
+  border-bottom: 1px solid var(--color-border-2);
+  min-height: 40px;
+}
+
+// 自定义标签容器
 .custom-tabs {
   display: flex;
+  align-items: flex-end;
   height: 100%;
   position: relative;
+  gap: 2px;
+  flex: 1;
+  overflow: hidden;
 }
 
-// 自定义页签样式
+// 自定义标签样式
 .custom-tab {
   position: relative;
   display: flex;
   align-items: center;
-  padding: 8px 12px;
-  margin: 0 1px;
+  padding: var(--spacing-2) var(--spacing-3);
   border: none;
-  border-radius: 8px 8px 0 0;
-  background: var(--color-fill-2);
-  color: var(--color-text-1);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  background: transparent;
+  color: var(--color-text-3);
   cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all var(--duration-fast) var(--ease-default);
   min-width: 80px;
-  max-width: 150px;
-  font-size: 13px;
-  font-weight: 400;
+  max-width: 200px;
+  font-size: var(--font-size-body-2);
+  font-weight: var(--font-weight-medium);
   user-select: none;
-  // overflow: hidden;
-  flex-shrink: 1;
-
-  &:first-child {
-    &.active {
-      border-left: 0.5px solid var(--color-border-2);
-    }
-    // border-left: 0.5px solid var(--color-border-2);
-    &:before {
-      display: none;
-    }
-  }
+  flex-shrink: 0;
+  height: 40px;
 
   .tab-content {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: var(--spacing-2);
     width: 100%;
     overflow: hidden;
   }
@@ -58,6 +65,8 @@
     flex-shrink: 0;
     display: flex;
     align-items: center;
+    color: inherit;
+    opacity: 0.7;
   }
 
   .tab-label {
@@ -68,99 +77,154 @@
     min-width: 0;
   }
 
-  // 悬停效果
-  &:hover {
-    background: var(--color-fill-3);
-    color: var(--color-primary-5);
-    z-index: 2;
+  .tab-close {
+    flex-shrink: 0;
+    width: 20px;
+    height: 20px;
+    border-radius: var(--radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: all var(--duration-fast) var(--ease-default);
+    margin-left: var(--spacing-1);
 
-    .tab-icon .n-icon {
-      color: var(--color-primary-5);
+    svg {
+      width: 14px;
+      height: 14px;
+    }
+
+    &:hover {
+      background: var(--color-fill-3);
     }
   }
 
-  // 激活状态
+  // 悬停效果
+  &:hover {
+    color: var(--color-text-2);
+    background: var(--color-fill-2);
+
+    .tab-icon {
+      opacity: 1;
+    }
+
+    .tab-close {
+      opacity: 1;
+    }
+  }
+
+  // 激活状态 - 清爽简洁
   &.active {
-    background: var(--color-bg-1);
-    color: var(--color-text-1);
-    z-index: 3;
-    margin: 0;
-    // transform: translateY(-1px);
+    background: var(--color-bg-white);
+    color: var(--color-primary-6);
 
-    // 左侧圆弧
-    &:before {
-      content: '';
-      position: absolute;
-      left: -10px;
-      bottom: 0;
-      width: 10px;
-      height: 10px;
-      background: radial-gradient(circle at 0 0, transparent 10px, var(--color-bg-1) 10px);
-      z-index: 1;
-    }
-
-    // 右侧圆弧
-    &:after {
-      content: '';
-      position: absolute;
-      right: -10px;
-      bottom: 0;
-      width: 10px;
-      height: 10px;
-      background: radial-gradient(circle at 100% 0, transparent 10px, var(--color-bg-1) 10px);
-      z-index: 1;
-    }
-
-    .tab-icon .n-icon {
+    .tab-icon {
+      opacity: 1;
       color: var(--color-primary-6);
     }
 
     .tab-label {
-      color: var(--color-primary-6);
-      font-weight: 600;
+      font-weight: 500;
+    }
+
+    .tab-close {
+      opacity: 1;
+
+      &:hover {
+        background: var(--color-fill-2);
+      }
     }
   }
 
   // 拖拽状态
   &.dragging {
-    // opacity: 0.5;
-    // transform: rotate(5deg) scale(1.05);
-    // z-index: 1000;
-    // box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+    opacity: 0.8;
+    background: var(--color-primary-1);
+    z-index: 1000;
   }
 
   // 拖拽悬停状态
   &.drag-over {
-    transform: translateX(10px);
-
-    &:before {
+    &::before {
       content: '';
       position: absolute;
-      left: -5px;
+      left: 0;
       top: 0;
       bottom: 0;
       width: 3px;
-      background: var(--color-primary-6);
+      background: var(--color-primary-5);
       border-radius: 2px;
       z-index: 10;
     }
   }
+}
 
-  // 动画效果
-  &:not(.dragging) {
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+// 更多tab按钮 - 始终显示
+.custom-tab.more-tab {
+  min-width: 48px;
+  max-width: 48px;
+  padding: var(--spacing-2) var(--spacing-2);
+  justify-content: center;
+  flex-shrink: 0;
+
+  .tab-content {
+    justify-content: center;
   }
 
-  // 页签分隔线
-  &:not(.active):not(:hover) + .custom-tab:not(.active):not(:hover):before {
-    content: '';
-    position: absolute;
-    left: 0;
-    top: 25%;
-    bottom: 25%;
-    width: 1px;
-    background: var(--color-border-4);
-    opacity: 0.3;
-    z-index: 1;
+  // 始终显示hover效果，提示用户有更多功能
+  &:hover {
+    color: var(--color-text-2);
+    background: var(--color-fill-2);
+  }
+
+  // 当有隐藏tab时的样式
+  &.has-hidden-tabs {
+    color: var(--color-text-2);
+  }
+}
+
+// 添加标签按钮
+.add-tab-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-text-3);
+  cursor: pointer;
+  transition: all var(--duration-fast) var(--ease-default);
+  margin-left: var(--spacing-2);
+  margin-bottom: 4px;
+
+  &:hover {
+    background: var(--color-fill-2);
+    color: var(--color-text-1);
+  }
+}
+
+// 标签页内容区域
+.tabs-content {
+  flex: 1;
+  background: var(--color-bg-white);
+  overflow: hidden;
+  position: relative;
+}
+
+// 标签页面板
+.tab-panel {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  overflow: auto;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity var(--duration-fast) var(--ease-default);
+
+  &.is-active {
+    opacity: 1;
+    visibility: visible;
   }
 }

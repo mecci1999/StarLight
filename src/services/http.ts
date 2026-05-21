@@ -2,7 +2,7 @@ import { fetch } from '@tauri-apps/plugin-http'
 import { AppException, ErrorType } from '@/common/exception'
 import { RequestQueue } from '@/utils/RequestQueue'
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow'
-import { getCookie } from '@/utils/cookie'
+import { getCookie, setCookie, removeCookie } from '@/utils/Cookie'
 import url from '@/api/url'
 
 // 错误信息常量
@@ -13,6 +13,9 @@ const ERROR_MESSAGES = {
   ABORTED: '请求已取消',
   UNKNOWN: '请求失败，请稍后重试'
 } as const
+
+const ACCESS_TOKEN_EXPIRE_DAYS = 7
+const REFRESH_TOKEN_EXPIRE_DAYS = 30
 
 /**
  * @description 重试选项
@@ -32,6 +35,7 @@ export type RetryOptions = {
  * @property {boolean} [isBlob] 是否为Blob
  * @property {RetryOptions} [retry] 重试选项
  * @property {boolean} [noRetry] 是否禁用重试
+ * @property {boolean} [suppressErrorLog] 是否抑制预期失败的控制台错误日志
  * @return HttpParams
  */
 export type HttpParams = {
@@ -42,6 +46,7 @@ export type HttpParams = {
   isBlob?: boolean // 是否二进制流
   retry?: RetryOptions // 重试选项
   noRetry?: boolean // 是否禁用重试
+  suppressErrorLog?: boolean // 是否抑制预期失败的错误日志
 }
 
 /**
@@ -51,6 +56,50 @@ export type HttpParams = {
  */
 function wait(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+const getStoredToken = (name: 'ACCESS_TOKEN' | 'REFRESH_TOKEN') => {
+  const cookie = getCookie(name)
+  if (cookie) return cookie
+  if (typeof localStorage === 'undefined') return null
+  const stored = localStorage.getItem(name)
+  if (stored) {
+    const expires = name === 'ACCESS_TOKEN' ? ACCESS_TOKEN_EXPIRE_DAYS : REFRESH_TOKEN_EXPIRE_DAYS
+    setCookie(name, stored, expires)
+  }
+  return stored
+}
+
+const setStoredToken = (name: 'ACCESS_TOKEN' | 'REFRESH_TOKEN', value: string) => {
+  if (typeof localStorage === 'undefined') return
+  localStorage.setItem(name, value)
+}
+
+const clearStoredTokens = () => {
+  removeCookie('ACCESS_TOKEN')
+  removeCookie('REFRESH_TOKEN')
+  if (typeof localStorage === 'undefined') return
+  localStorage.removeItem('ACCESS_TOKEN')
+  localStorage.removeItem('REFRESH_TOKEN')
+}
+
+const extractTokenFromSetCookie = (header: string | null, key: 'ACCESS_TOKEN' | 'REFRESH_TOKEN') => {
+  if (!header) return null
+  const match = header.match(new RegExp(`${key}=([^;]+)`))
+  return match ? match[1] : null
+}
+
+const persistTokens = (accessToken?: string | null, refreshToken?: string | null) => {
+  if (accessToken) {
+    const safeAccessToken = accessToken.replace(/[\r\n]/g, '')
+    setCookie('ACCESS_TOKEN', safeAccessToken, ACCESS_TOKEN_EXPIRE_DAYS)
+    setStoredToken('ACCESS_TOKEN', safeAccessToken)
+  }
+  if (refreshToken) {
+    const safeRefreshToken = refreshToken.replace(/[\r\n]/g, '')
+    setCookie('REFRESH_TOKEN', safeRefreshToken, REFRESH_TOKEN_EXPIRE_DAYS)
+    setStoredToken('REFRESH_TOKEN', safeRefreshToken)
+  }
 }
 
 /**
@@ -88,8 +137,8 @@ const shouldBlockRequest = async (url: string) => {
       return false
 
     // 检查是否已登录成功(有双token)，仅依赖 Cookie
-    const hasToken = getCookie('ACCESS_TOKEN')
-    const hasRefreshToken = getCookie('REFRESH_TOKEN')
+    const hasToken = getStoredToken('ACCESS_TOKEN')
+    const hasRefreshToken = getStoredToken('REFRESH_TOKEN')
     const isLoggedIn = hasToken && hasRefreshToken
 
     // 在登录窗口但已登录成功的情况下不阻止请求
@@ -109,56 +158,139 @@ async function refreshTokenAndRetry(): Promise<string> {
   if (isRefreshing) {
     console.log('🔄 已有刷新请求在进行中，加入等待队列')
 
-    return new Promise((resolve) => {
-      requestQueue.enqueue(resolve, 1)
+    return new Promise((resolve, reject) => {
+      requestQueue.enqueue(resolve, reject, 1)
     })
   }
 
   isRefreshing = true
 
   try {
-    const refreshToken = getCookie('REFRESH_TOKEN')
+    const refreshToken = getStoredToken('REFRESH_TOKEN')
+    const refreshUrl = url.refreshToken
+    const serviceUrl = import.meta.env.VITE_SERVICE_URL
+    const accessToken = getStoredToken('ACCESS_TOKEN')
 
-    if (!refreshToken) {
-      console.error('❌ 无刷新令牌')
-      throw new AppException('无刷新令牌')
+    const refreshHeaders: Record<string, string> = {
+      'Content-Type': 'application/json'
+    }
+    const refreshBody = refreshToken ? JSON.stringify({ refreshToken }) : undefined
+
+    if (refreshToken) {
+      refreshHeaders.Cookie = `REFRESH_TOKEN=${refreshToken}`
     }
 
-    console.log('📤 正在使用refreshToken获取新的token')
-    const response = await fetch(url.refreshToken, {
+    console.log('📤 正在使用refreshToken获取新的token', {
+      refreshUrl,
+      serviceUrl,
+      hasRefreshToken: Boolean(refreshToken),
+      hasAccessToken: Boolean(accessToken)
+    })
+    if (!serviceUrl || refreshUrl.includes('undefined')) {
+      throw new AppException('服务端地址未配置', {
+        type: ErrorType.Network,
+        showError: true
+      })
+    }
+    if (!refreshToken) {
+      clearStoredTokens()
+      window.dispatchEvent(new Event('needReLogin'))
+      throw new AppException('无刷新令牌', {
+        type: ErrorType.TokenExpired,
+        showError: true
+      })
+    }
+    const response = await fetch(refreshUrl, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Cookie: `REFRESH_TOKEN=${refreshToken}`
-      },
-      body: JSON.stringify({ refreshToken })
+      headers: refreshHeaders,
+      body: refreshBody
     })
 
-    const data = await response.json()
+    const data = await response.json().catch(() => null)
+    const businessStatus = data?.status ?? data?.data?.status
+    const businessCode = data?.code ?? data?.data?.code
+    const businessSuccess = data?.data?.success ?? data?.success
+    const hasExplicitBusinessFailure =
+      (typeof businessStatus === 'number' && businessStatus >= 400) ||
+      businessSuccess === false ||
+      businessCode === 10003 ||
+      businessCode === 40000 ||
+      businessCode === 40001
 
-    if (!response.ok || data.status !== 200) {
-      // 重新登录
+    const isSuccess =
+      (typeof businessStatus === 'number' && businessStatus >= 200 && businessStatus < 300) ||
+      businessSuccess === true ||
+      businessCode === 0 ||
+      businessCode === 200
+
+    console.log('🔄 Token刷新响应', {
+      status: response.status,
+      ok: response.ok,
+      businessStatus,
+      businessCode,
+      businessSuccess,
+      fullData: data
+    })
+
+    if (!response.ok || !isSuccess || hasExplicitBusinessFailure) {
+      clearStoredTokens()
       window.dispatchEvent(new Event('needReLogin'))
-      throw new Error('刷新令牌失败')
+      throw new AppException(data?.data?.message || data?.message || '登录已过期，请重新登录', {
+        type: ErrorType.TokenExpired,
+        code: businessCode ?? businessStatus ?? response.status,
+        details: data,
+        showError: true
+      })
     }
 
-    // 获取新的token和refreshToken（由服务端设置 Cookie）
-    const token = getCookie('ACCESS_TOKEN')
+    const content = data?.data?.content || data?.content || data?.data || data || {}
+    console.log('🔍 提取token的content对象:', content)
 
-    console.log('🔑 Token刷新成功', `token: ${token}`)
+    const nextAccessToken = content.accessToken || content.token || content.access_token || getCookie('ACCESS_TOKEN')
+    const nextRefreshToken = content.refreshToken || content.refresh_token || getCookie('REFRESH_TOKEN')
 
-    if (token) {
-      await requestQueue.processQueue(token)
+    console.log('🔑 提取到的token:', {
+      hasAccessToken: !!nextAccessToken,
+      accessTokenLength: nextAccessToken?.length || 0,
+      hasRefreshToken: !!nextRefreshToken,
+      refreshTokenLength: nextRefreshToken?.length || 0
+    })
 
-      return token
+    if (nextAccessToken) {
+      const safeAccessToken = nextAccessToken.replace(/[\r\n]/g, '')
+      setCookie('ACCESS_TOKEN', safeAccessToken, ACCESS_TOKEN_EXPIRE_DAYS)
+      setStoredToken('ACCESS_TOKEN', safeAccessToken)
+    }
+    if (nextRefreshToken) {
+      const safeRefreshToken = nextRefreshToken.replace(/[\r\n]/g, '')
+      setCookie('REFRESH_TOKEN', safeRefreshToken, REFRESH_TOKEN_EXPIRE_DAYS)
+      setStoredToken('REFRESH_TOKEN', safeRefreshToken)
+    }
+
+    if (nextAccessToken) {
+      console.log('🔑 Token刷新成功')
+      const safeAccessToken = nextAccessToken.replace(/[\r\n]/g, '')
+      await requestQueue.processQueue(safeAccessToken)
+
+      return safeAccessToken
     }
 
     window.dispatchEvent(new Event('needReLogin'))
     throw new Error('刷新令牌失败')
-  } catch (error) {
+  } catch (error: any) {
     console.error('❌ 刷新Token过程出错:', error)
-    requestQueue.clear() // 发生错误时清空队列
-    window.dispatchEvent(new Event('needReLogin'))
+    requestQueue.clear(error) // 发生错误时清空队列并拒绝等待请求
+
+    // 如果是网络错误，不触发强制登出
+    const isNetworkError =
+      error instanceof TypeError ||
+      error.name === 'AbortError' ||
+      !navigator.onLine ||
+      error.message?.toLowerCase().includes('network')
+
+    if (!isNetworkError && !(error instanceof AppException && error.message === '无刷新令牌')) {
+      window.dispatchEvent(new Event('needReLogin'))
+    }
     throw error
   } finally {
     isRefreshing = false
@@ -211,7 +343,7 @@ async function Http<T = any>(
   const { retries = 3, retryDelay } = retryOptions
 
   // 获取token和指纹
-  const token = getCookie('ACCESS_TOKEN')
+  const token = getStoredToken('ACCESS_TOKEN')
   //const fingerprint = await getEnhancedFingerprint()
 
   // 构建请求头
@@ -223,39 +355,34 @@ async function Http<T = any>(
   }
 
   // 设置Cookie
-  if (token) {
-    httpHeaders.set('Cookie', `ACCESS_TOKEN=${token}`)
+  // 对于认证相关的接口（登录、注册、验证码等），不需要携带 Access Token
+  // 避免因旧 Token 过期或格式错误导致无法进行登录操作
+  const isAuthRequest = /\/(login|register|verifyCode|refresh|publicKey)/i.test(url)
+
+  if (token && !isAuthRequest) {
+    try {
+      // 移除可能导致 header 错误的非 ASCII 字符或控制字符
+      const safeToken = token.replace(/[^\x20-\x7E]/g, '')
+      httpHeaders.set('Cookie', `ACCESS_TOKEN=${safeToken}`)
+    } catch (e) {
+      console.error('❌ 设置 Cookie 失败，Token 可能已损坏', e)
+      // 如果 Token 格式严重错误导致无法设置 Header，应该清除它
+      clearStoredTokens()
+    }
   }
 
-  // 设置浏览器指纹
-  //if (fingerprint) {
-  //httpHeaders.set('X-Device-Fingerprint', fingerprint)
-  //}
+  // 处理请求体
+  let body = options.body
+  if (body && !(body instanceof FormData || body instanceof URLSearchParams)) {
+    body = JSON.stringify(body)
+  }
 
-  // 构建fetch请求选项
+  // 确保 httpHeaders 可以在闭包中被引用和修改
   const fetchOptions: RequestInit = {
     method: options.method,
     headers: httpHeaders,
-    signal: abort?.signal
-  }
-
-  // 获取代理设置
-  // const proxySettings = JSON.parse(localStorage.getItem('proxySettings') || '{}')
-  // 如果设置了代理，添加代理配置 (BETA)
-  // if (proxySettings.type && proxySettings.ip && proxySettings.port) {
-  //   // 使用 Rust 后端的代理客户端
-  //   fetchOptions.proxy = {
-  //     url: `${proxySettings.type}://${proxySettings.ip}:${proxySettings.port}`
-  //   }
-  // }
-
-  // 判断是否需要添加请求体
-  if (options.body) {
-    if (!(options.body instanceof FormData || options.body instanceof URLSearchParams)) {
-      fetchOptions.body = JSON.stringify(options.body)
-    } else {
-      fetchOptions.body = options.body // 如果是 FormData 或 URLSearchParams 直接使用
-    }
+    signal: abort?.signal,
+    body
   }
 
   // 添加查询参数
@@ -263,6 +390,11 @@ async function Http<T = any>(
     const queryString = new URLSearchParams(options.query).toString()
     url += `?${queryString}`
   }
+
+  console.log('🌐 实际请求路径', {
+    method: options.method,
+    url
+  })
 
   // 添加获取网络错误信息的辅助函数
   function getNetworkErrorMessage(error: any): string {
@@ -287,66 +419,133 @@ async function Http<T = any>(
   async function attemptFetch(currentAttempt: number): Promise<{ data: T; response: Response } | T> {
     try {
       const response = await fetch(url, fetchOptions)
-
-      // 先判断是否连接到服务器，fetch请求是否成功，如果不成功那么就是本地客户端网络异常
-      if (!response.ok) {
-        throw new AppException(`HTTP error! status: ${response.status}`, {
-          type: ErrorType.Network,
-          code: response.status,
-          details: { url, method: options.method }
-        })
+      const setCookieHeader = response.headers.get('set-cookie')
+      if (setCookieHeader) {
+        const headerAccessToken = extractTokenFromSetCookie(setCookieHeader, 'ACCESS_TOKEN')
+        const headerRefreshToken = extractTokenFromSetCookie(setCookieHeader, 'REFRESH_TOKEN')
+        if (headerAccessToken || headerRefreshToken) {
+          persistTokens(headerAccessToken, headerRefreshToken)
+        }
       }
 
       // 解析响应数据
       const responseData = options.isBlob ? await response.arrayBuffer() : await response.json()
 
-      // 判断服务器返回的错误码进行操作
-      switch (responseData.status) {
-        case 401: {
-          console.log('🔄 Token无效，清除token并重新登录...')
-          // 触发重新登录事件
+      const businessStatus = responseData?.status ?? responseData?.data?.status
+      const businessCode = responseData?.code ?? responseData?.data?.code
+      const businessSuccess = responseData?.data?.success ?? responseData?.success
+
+      console.log('🔎 响应诊断', {
+        url,
+        method: options.method,
+        status: response.status,
+        ok: response.ok,
+        businessStatus,
+        businessCode,
+        businessSuccess,
+        tokenRefreshCount,
+        responseData
+      })
+
+      if (response.status === 401 || businessCode === 40001) {
+        console.log('🔄 Token无效，尝试刷新Token...', {
+          status: response.status,
+          businessCode,
+          businessStatus,
+          url,
+          method: options.method,
+          tokenRefreshCount
+        })
+
+        // 限制token刷新重试次数，最多重试一次，避免无限循环
+        if (tokenRefreshCount >= 1) {
+          console.log('🚫 Token刷新重试次数超过限制，清除token并重新登录')
+          clearStoredTokens()
           window.dispatchEvent(new Event('needReLogin'))
-          break
+          throw new AppException('登录已过期，请重新登录', {
+            type: ErrorType.TokenExpired,
+            showError: true
+          })
         }
-        case 403: {
-          console.log('🤯 权限不足')
-          break
-        }
-        case 422: {
-          break
-        }
-        case 40001: {
-          // 限制token刷新重试次数，最多重试一次
-          if (tokenRefreshCount >= 1) {
-            console.log('🚫 Token刷新重试次数超过限制，退出重试')
-            window.dispatchEvent(new Event('needReLogin'))
-            throw new AppException('Token刷新失败', {
-              type: ErrorType.TokenExpired,
-              showError: true
-            })
+
+        try {
+          console.log('🔄 开始尝试刷新Token并重试请求', { url, method: options.method })
+          // 刷新token
+          const token = await refreshTokenAndRetry()
+          console.log('🔄 使用新Token重试原请求', `token length: ${token?.length}`)
+
+          if (token && typeof token === 'string') {
+            // 移除可能导致 header 错误的字符（如换行符）
+            const safeToken = token.replace(/[\r\n]/g, '')
+            // 更新 fetchOptions.headers，确保下一次 fetch 使用新 token
+            if (fetchOptions.headers instanceof Headers) {
+              fetchOptions.headers.set('Cookie', `ACCESS_TOKEN=${safeToken}`)
+            } else if (Array.isArray(fetchOptions.headers)) {
+              // 如果是数组格式 (例如 [['Content-Type', '...']])
+              const existing = fetchOptions.headers.find((h) => h[0].toLowerCase() === 'cookie')
+              if (existing) {
+                existing[1] = `ACCESS_TOKEN=${safeToken}`
+              } else {
+                fetchOptions.headers.push(['Cookie', `ACCESS_TOKEN=${safeToken}`])
+              }
+            } else {
+              // 如果是对象格式
+              fetchOptions.headers = { ...fetchOptions.headers, Cookie: `ACCESS_TOKEN=${safeToken}` }
+            }
           }
 
-          try {
-            console.log('🔄 开始尝试刷新Token并重试请求')
-            // 刷新token
-            const token = await refreshTokenAndRetry()
-            console.log('🔄 使用新Token重试原请求', `token: ${token}`)
-            // 增加计数器
-            tokenRefreshCount++
-            return attemptFetch(currentAttempt)
-          } catch (refreshError) {
-            // 续签出错也触发重新登录
+          // 增加计数器
+          tokenRefreshCount++
+          return attemptFetch(currentAttempt)
+        } catch (refreshError: any) {
+          // 续签出错
+          console.error('❌ Token续签失败:', refreshError)
+
+          // 修改逻辑：无论何种错误，都不强制登出，而是抛出异常
+          // 让调用方（组件/页面）决定如何处理错误（例如显示错误提示）
+          // 只有当明确收到 "无刷新令牌" 错误时（意味着 refreshToken 也过期了），才考虑是否需要登出，
+          // 但即便是这种情况，对于非关键请求，强制登出也可能体验不好。
+          // 这里我们选择最保守的策略：只抛出错误，绝不主动触发 needReLogin。
+
+          /*
+          const isNetworkError = 
+            refreshError instanceof TypeError || 
+            refreshError.name === 'AbortError' || 
+            !navigator.onLine ||
+            refreshError.message?.toLowerCase().includes('network')
+
+          if (!isNetworkError && !(refreshError instanceof AppException && refreshError.message === '无刷新令牌')) {
             window.dispatchEvent(new Event('needReLogin'))
-            throw refreshError
           }
+          */
+
+          throw refreshError
         }
       }
 
-      // 如果fetch请求成功，但是服务器请求不成功并且返回了错误，那就抛出错误
-      if (responseData && (responseData.status !== 200 || !responseData?.data?.success)) {
-        throw new AppException(responseData?.data?.message || '服务端返回错误', {
+      if (response.status === 403) {
+        console.log('🤯 权限不足')
+      }
+
+      if (!response.ok && response.status !== 401 && response.status !== 403 && businessCode !== 40001) {
+        throw new AppException(`HTTP error! status: ${response.status}`, {
+          type: ErrorType.Network,
+          code: response.status,
+          details: { url, method: options.method, response: responseData }
+        })
+      }
+
+      const isSuccess =
+        (typeof businessStatus === 'number' && businessStatus >= 200 && businessStatus < 300) ||
+        businessSuccess === true ||
+        businessCode === 0 ||
+        businessCode === 200 ||
+        response.ok
+
+      if (responseData && !isSuccess) {
+        throw new AppException(responseData?.data?.message || responseData?.message || '服务端返回错误', {
           type: ErrorType.Server,
-          code: responseData.status,
+          code: businessStatus ?? response.status,
           details: responseData,
           showError: true
         })
@@ -366,7 +565,7 @@ async function Http<T = any>(
       return responseData
     } catch (error: any) {
       // 优化错误日志，仅在开发环境打印详细信息
-      if (import.meta.env.DEV) {
+      if (import.meta.env.DEV && !options.suppressErrorLog) {
         console.error(`尝试 ${currentAttempt + 1} 失败 →`, error)
       }
 
@@ -374,8 +573,12 @@ async function Http<T = any>(
       if (
         error instanceof TypeError || // fetch 的网络错误会抛出 TypeError
         error.name === 'AbortError' || // 请求中断
+        error.name === 'SyntaxError' || // Header 格式错误
         !navigator.onLine // 浏览器离线
       ) {
+        // 移除 SyntaxError 的特殊处理，避免误删 Token 导致无法续期
+        // 让错误自然抛出或进入重试逻辑
+
         // 获取友好的错误信息
         const errorMessage = getNetworkErrorMessage(error)
 
@@ -396,6 +599,10 @@ async function Http<T = any>(
           details: { attempts: currentAttempt + 1 },
           showError: true
         })
+      }
+
+      if (error instanceof AppException) {
+        throw error
       }
 
       // 未知错误，使用友好的错误提示

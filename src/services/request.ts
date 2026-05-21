@@ -1,7 +1,8 @@
 import Http, { HttpParams } from './http'
 import { ServiceResponse } from '@/types/response'
 import { AppException, ErrorType } from '@/common/exception'
-import { getCookie } from '@/utils/cookie'
+import { getCookie } from '@/utils/Cookie'
+import urls from '@/api/url'
 
 /**
  * 获取 token 并更新
@@ -42,11 +43,13 @@ const responseInterceptor = async <T>(
   query: any,
   body: any,
   abort?: AbortController,
-  noRetry?: boolean
+  noRetry?: boolean,
+  requestOptions?: Partial<HttpParams>
 ): Promise<T> => {
   let httpParams: HttpParams = {
     method,
-    noRetry
+    noRetry,
+    ...(requestOptions || {})
   }
 
   if (method === 'GET') {
@@ -66,33 +69,37 @@ const responseInterceptor = async <T>(
     const data = await Http(url, httpParams, true, abort)
     const serviceData = (await data.data) as ServiceResponse
 
-    // 检查服务端返回是否成功，并且中断请求
-    if (serviceData.status !== 200) {
+    const businessStatus = (serviceData as any)?.status ?? (serviceData as any)?.data?.status
+    const businessCode = (serviceData as any)?.code ?? (serviceData as any)?.data?.code
+    const businessSuccess = (serviceData as any)?.data?.success ?? (serviceData as any)?.success
+
+    let isSuccess = false
+    if (typeof businessSuccess === 'boolean') {
+      isSuccess = businessSuccess
+    } else if (typeof businessCode === 'number') {
+      isSuccess = businessCode === 0 || businessCode === 200
+    } else {
+      isSuccess = typeof businessStatus === 'number' && businessStatus >= 200 && businessStatus < 300
+    }
+
+    if (!isSuccess) {
+      const message = (serviceData as any)?.data?.message || (serviceData as any)?.message
       return Promise.reject(
-        new AppException(serviceData.data.message, {
+        new AppException(message, {
           type: ErrorType.Server,
           showError: true
         })
       )
     }
 
-    // 检查接口返回是否成功
-    // if (!serviceData.data.success) {
-    //   // 展示错误信息
-    //   return Promise.reject(
-    //     new AppException(serviceData.data.message, {
-    //       type: ErrorType.Server,
-    //       showError: true
-    //     })
-    //   )
-    // }
-
     // 除了二维码登录接口，其他接口都需要展示成功信息
-    if (serviceData.data.message && !url.includes('/qrcode')) {
-      window.$message.success(serviceData.data.message)
+    const responseMessage = (serviceData as any)?.data?.message || (serviceData as any)?.message
+    if (responseMessage && !url.includes('/qrcode') && url !== urls.metricsStats) {
+      window.$message.success(responseMessage)
     }
 
-    return Promise.resolve(serviceData.data.content)
+    const content = (serviceData as any)?.data?.content ?? (serviceData as any)?.content
+    return Promise.resolve(content)
   } catch (error) {
     return Promise.reject(error)
   }
@@ -108,6 +115,14 @@ const responseInterceptor = async <T>(
  */
 const get = async <T>(url: string, query: any, abort?: AbortController, noRetry?: boolean): Promise<T> => {
   return responseInterceptor(url, 'GET', query, {}, abort, noRetry)
+}
+
+const getWithOptions = async <T>(
+  url: string,
+  query: any,
+  options?: { abort?: AbortController; noRetry?: boolean } & Partial<HttpParams>
+): Promise<T> => {
+  return responseInterceptor(url, 'GET', query, {}, options?.abort, options?.noRetry, options)
 }
 
 /**
@@ -148,6 +163,7 @@ const del = async <T>(url: string, params: any, abort?: AbortController, noRetry
 
 export default {
   get,
+  getWithOptions,
   post,
   put,
   delete: del

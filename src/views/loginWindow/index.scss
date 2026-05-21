@@ -1,4 +1,6 @@
 .login-window {
+  height: 100%;
+
   &__container {
     width: 100%;
     height: calc(100% - 24px) !important;

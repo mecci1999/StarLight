@@ -3,7 +3,17 @@ import { useSettingStore } from '@/store/setting'
 import { useNetwork } from '@vueuse/core'
 import { NAvatar, NButton, NCheckbox, NFlex, NInput, NScrollbar } from 'naive-ui'
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
-import { getCookie, setCookie } from '@/utils/cookie'
+import { emit as emitTauri, listen } from '@tauri-apps/api/event'
+import {
+  clearStoredAuthSession,
+  syncAuthTokensToTauri,
+  getStoredAuthTokens,
+  persistAuthTokens,
+  getStoredUserInfo,
+  persistStoredUserInfo,
+  resolveAuthLandingRoute
+} from '@/services/authSession'
+
 import * as api from '@/api'
 import { useRouter } from 'vue-router'
 import { UserInfoType } from '@/types/userInfo'
@@ -11,6 +21,11 @@ import { useWindow } from '@/hooks/useWindow'
 import { encryptPassword } from '@/utils/Crypto'
 import { throttle } from 'lodash-es'
 import { type } from '@tauri-apps/plugin-os'
+import { useTauriListener } from '@/hooks/useTauriListener'
+import './email.scss'
+
+const ACCESS_TOKEN_EXPIRE_DAYS = 7
+const REFRESH_TOKEN_EXPIRE_DAYS = 30
 
 const getIsDesktop = () => {
   try {
@@ -39,9 +54,11 @@ export default defineComponent({
     const { login } = storeToRefs(settingStore)
     const router = useRouter()
     const { createWebviewWindow } = useWindow()
+    const tauriListener = useTauriListener()
 
-    const TOKEN = ref(getCookie('ACCESS_TOKEN'))
-    const REFRESH_TOKEN = ref(getCookie('REFRESH_TOKEN'))
+    const storedTokens = getStoredAuthTokens()
+    const TOKEN = ref(storedTokens.accessToken)
+    const REFRESH_TOKEN = ref(storedTokens.refreshToken)
     const isAutoLogin = ref(login.value.autoLogin && TOKEN.value && REFRESH_TOKEN.value)
 
     const state = reactive({
@@ -187,37 +204,31 @@ export default defineComponent({
         // 尝试提取 Token (如果后端在Body中也返回了)
         const token = res.token || res.accessToken || res.access_token
         const refreshTokenVal = res.refreshToken || res.refresh_token
+        const accessToken = token || getStoredAuthTokens().accessToken
+        const refreshToken = refreshTokenVal || getStoredAuthTokens().refreshToken
 
-        // 手动保存 Token 到 Cookie，解决 Tauri 插件不自动同步 Cookie 到 WebView 的问题
-        if (token) {
-          if (state.info.remember) {
-            setCookie('ACCESS_TOKEN', token, 7)
-          } else {
-            setCookie('ACCESS_TOKEN', token)
-          }
+        persistAuthTokens({ accessToken, refreshToken })
+
+        if (accessToken || refreshToken) {
+          await syncAuthTokensToTauri({ accessToken, refreshToken })
         }
 
-        if (refreshTokenVal) {
-          if (state.info.remember) {
-            setCookie('REFRESH_TOKEN', refreshTokenVal, 30)
-          } else {
-            setCookie('REFRESH_TOKEN', refreshTokenVal)
-          }
+        const userInfo: UserInfoType = {
+          userId: res.userId || state.info.userId,
+          email: state.info.email,
+          hash: state.info.remember ? state.info.password : undefined,
+          avatar: res.userInfo?.avatar || state.info.avatar || 'star_1',
+          nickName: res.userInfo?.nickName || state.info.nickname || state.info.email,
+          client: res.userInfo?.client || 'desktop',
+          isAdmin: res.userInfo?.isAdmin || false,
+          status: res.userInfo?.status || 'active',
+          lastActiveAt: res.userInfo?.lastActiveAt || new Date().toISOString(),
+          isOnboardingCompleted: res.userInfo?.isOnboardingCompleted
         }
+        persistStoredUserInfo(userInfo)
 
         // 如果记住密码，保存登录信息到历史记录
         if (state.info.remember) {
-          const userInfo: UserInfoType = {
-            userId: res.userId || state.info.userId,
-            email: state.info.email,
-            hash: state.info.remember ? state.info.password : undefined,
-            avatar: res.userInfo?.avatar || state.info.avatar || 'star_1',
-            nickName: res.userInfo?.nickName || state.info.nickname || state.info.email,
-            client: res.userInfo?.client || 'desktop',
-            isAdmin: res.userInfo?.isAdmin || false,
-            status: res.userInfo?.status || 'active',
-            lastActiveAt: res.userInfo?.lastActiveAt || new Date().toISOString()
-          }
           addLoginHistory(userInfo)
         }
 
@@ -225,18 +236,9 @@ export default defineComponent({
         settingStore.login.autoLogin = state.info.remember
 
         // 跳转到主界面
-        const isOnboardingCompleted = localStorage.getItem('onboarding_completed') === 'true'
+        // 优先使用服务端返回的 isOnboardingCompleted 字段，兼容旧逻辑作为兜底
         const isDesktop = getIsDesktop()
-
-        let targetRoute = 'home'
-        if (isDesktop) {
-          targetRoute = isOnboardingCompleted ? 'home' : 'onboarding'
-        } else {
-          // Mobile logic:
-          // If NOT onboarded -> Onboarding Notice (Please use PC)
-          // If Onboarded -> Mobile Home
-          targetRoute = isOnboardingCompleted ? 'mobile-home' : 'mobile-onboarding-notice'
-        }
+        const targetRoute = resolveAuthLandingRoute(isDesktop, res.userInfo)
 
         setTimeout(async () => {
           if (isDesktop) {
@@ -245,7 +247,10 @@ export default defineComponent({
             if (win.label === 'StarLight' || win.label === 'home' || win.label === 'onboarding') {
               router.push({ name: targetRoute })
             } else {
-              await createWebviewWindow('StarLight', targetRoute, 1080, 720, 'login', true)
+              const nextWin = await createWebviewWindow('StarLight', targetRoute, 1080, 720, 'login', true)
+              if (accessToken || refreshToken) {
+                await nextWin.emit('auth-token', { accessToken, refreshToken })
+              }
             }
           } else {
             // Mobile navigation
@@ -316,17 +321,28 @@ export default defineComponent({
       if (isAutoLogin.value) {
         try {
           state.loading = true
-          // 这里可以添加自动登录的逻辑
-          // 例如使用保存的token直接登录
 
-          const isOnboardingCompleted = localStorage.getItem('onboarding_completed') === 'true'
-          const targetRoute = isOnboardingCompleted ? 'home' : 'onboarding'
+          const savedUser = getStoredUserInfo()
+          if (!savedUser?.userId) {
+            throw new Error('missing cached user info')
+          }
+
+          const freshUser = (await api.getUserInfo(savedUser.userId)) as Partial<UserInfoType>
+          const nextUser = {
+            ...savedUser,
+            ...freshUser,
+            isAdmin:
+              typeof (freshUser as any)?.isAdmin === 'boolean' ? (freshUser as any).isAdmin : Boolean(savedUser.isAdmin)
+          }
+          persistStoredUserInfo(nextUser)
+          const targetRoute = resolveAuthLandingRoute(true, nextUser)
 
           setTimeout(async () => {
             await createWebviewWindow('StarLight', targetRoute, 1080, 720, 'login', true)
             state.loading = false
           }, 1000)
         } catch (error) {
+          clearStoredAuthSession()
           state.loading = false
           isAutoLogin.value = false
         }
@@ -350,6 +366,14 @@ export default defineComponent({
       }
       // 绑定键盘事件监听
       document.addEventListener('keydown', handleKeyDown)
+      tauriListener.addListener(
+        listen('auth-token-request', async () => {
+          const { accessToken, refreshToken } = getStoredAuthTokens()
+          if (accessToken || refreshToken) {
+            await syncAuthTokensToTauri({ accessToken, refreshToken })
+          }
+        })
+      )
     })
 
     // 处理回车键事件
@@ -360,96 +384,87 @@ export default defineComponent({
     }
 
     return () => (
-      <NFlex class="ma text-center h-full" size={0} vertical={true}>
+      <NFlex class="login-email" size={0} vertical={true}>
         {/* 邮箱账号 */}
-        <NInput
-          class={{ 'email-input': true, 'mb-22px': true }}
-          size={'large'}
-          maxlength={32}
-          minlength={6}
-          value={state.info.email}
-          onUpdateValue={(value) => {
-            state.info.email = value
-            state.emailValid = false
-          }}
-          type={'text'}
-          placeholder={state.emailPH}
-          clearable={true}
-          // 添加 IME 输入法模式为禁用
-          inputProps={{ inputmode: 'email' }}
-          onBlur={() => {
-            // 判断邮箱是否有效
-            if (state.info.email.length > 0) {
-              // 使用正则判断邮箱
-              const reg = /^[a-zA-Z0-9_.-]+@[a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)*\.[a-zA-Z0-9]{2,6}$/
+        <div class="email-input">
+          <NInput
+            size={'large'}
+            maxlength={32}
+            minlength={6}
+            value={state.info.email}
+            onUpdateValue={(value) => {
+              state.info.email = value
+              state.emailValid = false
+            }}
+            type={'text'}
+            placeholder={state.emailPH}
+            clearable={true}
+            // 添加 IME 输入法模式为禁用
+            inputProps={{ inputmode: 'email' }}
+            onBlur={() => {
+              // 判断邮箱是否有效
+              if (state.info.email.length > 0) {
+                // 使用正则判断邮箱
+                const reg = /^[a-zA-Z0-9_.-]+@[a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)*\.[a-zA-Z0-9]{2,6}$/
 
-              if (!reg.test(state.info.email)) {
-                state.emailValid = true
+                if (!reg.test(state.info.email)) {
+                  state.emailValid = true
+                } else {
+                  state.emailValid = false
+                }
               } else {
                 state.emailValid = false
               }
-            } else {
-              state.emailValid = false
-            }
-          }}>
-          {{
-            suffix: () =>
-              loginHistories.length > 0 ? (
-                <div
-                  class="flex items-center justify-between"
-                  onClick={() => {
-                    state.arrowStatus = !state.arrowStatus
-                  }}>
-                  {!state.arrowStatus ? (
-                    <svg class="down w-16px h-16px color-#505050 cursor-pointer">
-                      <use href="#down"></use>
-                    </svg>
-                  ) : (
-                    <svg class="down w-16px h-16px color-#505050 cursor-pointer">
-                      <use href="#up"></use>
-                    </svg>
-                  )}
-                </div>
-              ) : null
-          }}
-        </NInput>
+            }}>
+            {{
+              suffix: () =>
+                loginHistories.length > 0 ? (
+                  <div
+                    class="login-email__history-toggle"
+                    onClick={() => {
+                      state.arrowStatus = !state.arrowStatus
+                    }}>
+                    {!state.arrowStatus ? (
+                      <svg class="down login-email__history-arrow">
+                        <use href="#down"></use>
+                      </svg>
+                    ) : (
+                      <svg class="down login-email__history-arrow">
+                        <use href="#up"></use>
+                      </svg>
+                    )}
+                  </div>
+                ) : null
+            }}
+          </NInput>
+        </div>
         {/* 邮箱无效错误提示 */}
         {state.emailValid ? (
-          <div class="text-12px text-left absolute top-46px">
-            <span class={'color-[--color-danger-6]'}>请输入有效的邮箱账号</span>
+          <div class="login-email__error login-email__error--email">
+            <span>请输入有效的邮箱账号</span>
           </div>
         ) : null}
 
         {/* 账号选择框 */}
         {loginHistories.length > 0 && state.arrowStatus ? (
-          <div class="account-box absolute w-full min-h-60px  bg-#fdfdfd mt-45px z-99 rounded-4px p-8px box-border shadow-lg border border-solid border-[--color-border-2]">
+          <div class="account-box login-email__history-box">
             <NScrollbar style={{ maxHeight: '176px' }} trigger={'hover'}>
               {loginHistories.map((item, index) => (
-                <NFlex
-                  key={item.userId || index}
-                  vertical
-                  class={
-                    'login-history-item p-8px cursor-pointer hover:bg-[--color-bg-white] rounded-8px transition-all mb-4px last:mb-0'
-                  }>
+                <NFlex key={item.userId || index} vertical class="login-history-item login-email__history-item">
                   <div
-                    class="account-item flex items-center w-full"
+                    class="account-item login-email__account-row"
                     onClick={() => {
                       giveAccount(item)
                     }}>
-                    <div class="flex items-center flex-1 min-w-0">
-                      <NAvatar
-                        class="size-32px bg-[--color-fill-3] rounded-50% mr-12px flex-shrink-0"
-                        src={item.avatar}
-                      />
-                      <div class="flex-1 min-w-0 text-left">
-                        <p class="text-14px color-[--color-neutral-8] font-medium truncate mb-2px">
-                          {item.nickName || item.email}
-                        </p>
-                        <p class="text-12px color-[--color-text-3] truncate">{item.email}</p>
+                    <div class="login-email__account-main">
+                      <NAvatar class="login-email__account-avatar" src={item.avatar} />
+                      <div class="login-email__account-text">
+                        <p class="login-email__account-name">{item.nickName || item.email}</p>
+                        <p class="login-email__account-email">{item.email}</p>
                       </div>
                     </div>
                     <svg
-                      class="w-14px h-14px color-[--color-text-3] hover:color-[--color-danger-6] flex-shrink-0 ml-8px"
+                      class="login-email__account-delete"
                       onClick={(e) => {
                         deleteAccount(item, e)
                       }}>
@@ -463,61 +478,62 @@ export default defineComponent({
         ) : null}
 
         {/* 邮箱密码 */}
-        <NInput
-          class={'password-input mb-22px'}
-          size={'large'}
-          maxlength={32}
-          minlength={6}
-          value={state.info.password}
-          onUpdateValue={(value) => {
-            state.info.password = value
-            state.passwordValid = false
-          }}
-          showPasswordOn={'click'}
-          type={'password'}
-          placeholder={state.passwordPH}
-          clearable={true}></NInput>
+        <div class="password-input password-input--spaced">
+          <NInput
+            size={'large'}
+            maxlength={32}
+            minlength={6}
+            value={state.info.password}
+            onUpdateValue={(value) => {
+              state.info.password = value
+              state.passwordValid = false
+            }}
+            showPasswordOn={'click'}
+            type={'password'}
+            placeholder={state.passwordPH}
+            clearable={true}></NInput>
+        </div>
 
         {/* 密码错误提示 */}
         {state.passwordValid ? (
-          <div class="text-12px text-left absolute" style="top: 110px;">
-            <span class={'color-[--color-danger-6]'}>{state.passwordErrorMsg}</span>
+          <div class="login-email__error login-email__error--password">
+            <span>{state.passwordErrorMsg}</span>
           </div>
         ) : null}
 
         {/* 验证码 */}
-        <NInput
-          class={'password-input mb-12px'}
-          size={'large'}
-          maxlength={6}
-          value={state.validCode}
-          onUpdateValue={(value) => {
-            state.validCode = value
-            state.validCodeValid = false
-          }}
-          type={'text'}
-          placeholder={'请输入验证码'}
-          clearable={true}>
-          {{
-            suffix: () => (
-              <div onClick={handleValidCode}>
-                <span
-                  class={`text-14px ${state.countdown > 0 ? 'color-[--color-text-3]' : 'color-[--color-primary-6] cursor-pointer'}`}>
-                  {validCodeText.value}
-                </span>
-              </div>
-            )
-          }}
-        </NInput>
+        <div class="password-input password-input--compact">
+          <NInput
+            size={'large'}
+            maxlength={6}
+            value={state.validCode}
+            onUpdateValue={(value) => {
+              state.validCode = value
+              state.validCodeValid = false
+            }}
+            type={'text'}
+            placeholder={'请输入验证码'}
+            clearable={true}>
+            {{
+              suffix: () => (
+                <div class="login-email__code-action-wrap" onClick={handleValidCode}>
+                  <span class={['login-email__code-action', state.countdown > 0 ? 'is-waiting' : 'is-ready']}>
+                    {validCodeText.value}
+                  </span>
+                </div>
+              )
+            }}
+          </NInput>
+        </div>
 
         {/* 验证码错误提示 */}
         {state.validCodeValid ? (
-          <div class="text-12px text-left absolute" style="top: 170px;">
-            <span class={'color-[--color-danger-6]'}>{state.validCodeErrorMsg}</span>
+          <div class="login-email__error login-email__error--code">
+            <span>{state.validCodeErrorMsg}</span>
           </div>
         ) : null}
 
-        <NFlex justify={'space-between'} class={{ 'mb-12px': true, 'mt-12px': state.validCodeValid }}>
+        <NFlex justify={'space-between'} class={['login-email__options', state.validCodeValid ? 'has-code-error' : '']}>
           {/* 记住密码 */}
           <NFlex justify={'left'} size={6}>
             <NCheckbox
@@ -526,27 +542,20 @@ export default defineComponent({
                 state.info.remember = value
               }}
             />
-            <div class="text-12px lh-16px">
-              <span class={'color-[--color-primary-6] cursor-pointer'}>记住密码</span>
+            <div class="login-email__option-text">
+              <span class="login-email__option-link">记住密码</span>
             </div>
           </NFlex>
           {/* 忘记密码 */}
-          <div class="text-12px lh-16px" onClick={handleForget}>
-            <span class={'color-[--color-primary-6] hover:color-[--color-primary-5] cursor-pointer'}>忘记密码</span>
+          <div class="login-email__option-text" onClick={handleForget}>
+            <span class="login-email__option-link">忘记密码</span>
           </div>
         </NFlex>
-
-        {/* 登录错误提示 */}
-        {/* {state.showLoginError ? (
-          <div class="text-12px text-center mb-8px">
-            <span class={'color-[--color-danger-6]'}>{state.loginErrorMsg}</span>
-          </div>
-        ) : null} */}
 
         {/* 按钮 */}
         <NButton
           loading={state.loading}
-          class="w-full h-40px mt-8px mb-24px"
+          class="login-email__submit"
           onClick={normalLogin}
           type={'primary'}
           disabled={state.loginDisabled}>

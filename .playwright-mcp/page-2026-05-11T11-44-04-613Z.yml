@@ -1,0 +1,117 @@
+- generic [active]:
+  - generic [ref=e8]:
+    - generic [ref=e12]:
+      - generic [ref=e16]:
+        - img [ref=e18]:
+          - img [ref=e19]
+        - generic [ref=e22]:
+          - textbox "搜索服务、日志或链路（示例：service:web env:prod）..." [ref=e23]
+          - generic:
+            - generic: 搜索服务、日志或链路（示例：service:web env:prod）...
+      - generic [ref=e24]:
+        - generic [ref=e26]:
+          - button [ref=e27] [cursor=pointer]:
+            - img [ref=e29]:
+              - img [ref=e30]
+          - superscript [ref=e33]
+        - generic [ref=e35] [cursor=pointer]:
+          - generic [ref=e37]: S
+          - generic [ref=e38]:
+            - generic [ref=e39]: StarLight User
+            - generic [ref=e40]: 管理员
+          - img [ref=e41]:
+            - img [ref=e42]
+    - generic [ref=e44]:
+      - generic [ref=e45]:
+        - generic [ref=e47]:
+          - img [ref=e50] [cursor=pointer]:
+            - img [ref=e51]
+          - img [ref=e58] [cursor=pointer]:
+            - img [ref=e59]
+          - img [ref=e67] [cursor=pointer]:
+            - img [ref=e68]
+          - img [ref=e74] [cursor=pointer]:
+            - img [ref=e75]
+          - img [ref=e80] [cursor=pointer]:
+            - img [ref=e81]
+          - img [ref=e88] [cursor=pointer]:
+            - img [ref=e89]
+          - img [ref=e96] [cursor=pointer]:
+            - img [ref=e97]
+          - img [ref=e105] [cursor=pointer]:
+            - img [ref=e106]
+          - img [ref=e111] [cursor=pointer]:
+            - img [ref=e112]
+          - img [ref=e117] [cursor=pointer]:
+            - img [ref=e118]
+          - img [ref=e123] [cursor=pointer]:
+            - img [ref=e124]
+          - img [ref=e128] [cursor=pointer]:
+            - img [ref=e129]
+          - img [ref=e135] [cursor=pointer]:
+            - img [ref=e136]
+        - generic [ref=e138]:
+          - img [ref=e140] [cursor=pointer]:
+            - img [ref=e141]
+          - img [ref=e143] [cursor=pointer]:
+            - img [ref=e144]
+      - main [ref=e147]:
+        - generic [ref=e148]:
+          - generic [ref=e149]:
+            - generic [ref=e150]:
+              - heading "面板" [level=1] [ref=e151]
+              - generic [ref=e152]: 集中查看 Darwin 系统运行状态、关键事件和排查入口。
+            - button "刷新" [ref=e153] [cursor=pointer]:
+              - generic [ref=e154]: 刷新
+          - generic [ref=e156]:
+            - text: 时间范围
+            - generic [ref=e159] [cursor=pointer]:
+              - generic "最近 1 小时" [ref=e160]:
+                - generic [ref=e161]: 最近 1 小时
+              - img "loading" [ref=e162]:
+                - img [ref=e167]
+            - text: 实时模式
+            - switch [checked] [ref=e169]
+            - text: 自动刷新
+            - generic [ref=e174] [cursor=pointer]:
+              - generic "关闭" [ref=e175]:
+                - generic [ref=e176]: 关闭
+              - img "loading" [ref=e177]:
+                - img [ref=e182]
+            - button "刷新时间" [ref=e184] [cursor=pointer]:
+              - generic [ref=e185]: 刷新时间
+            - generic [ref=e186]: 自动刷新已关闭，可继续使用手动刷新。
+          - generic [ref=e188]:
+            - generic [ref=e191]:
+              - textbox "搜索服务名称，筛选当前可添加和可查询的服务范围" [ref=e192]
+              - generic:
+                - generic: 搜索服务名称，筛选当前可添加和可查询的服务范围
+            - button "搜索" [ref=e193] [cursor=pointer]:
+              - generic [ref=e194]: 搜索
+          - generic [ref=e196]:
+            - generic [ref=e197]:
+              - generic [ref=e198]:
+                - generic [ref=e199]: 我的面板
+                - generic [ref=e201]: Metrics
+                - generic [ref=e203]: Service Catalog
+                - generic [ref=e205]: Alerts
+                - generic [ref=e207]: Ingestion
+              - generic [ref=e208]: 从空白面板开始，按需新增指标卡片。
+            - generic [ref=e210]:
+              - button "保存默认视角" [ref=e211] [cursor=pointer]:
+                - generic [ref=e212]: 保存默认视角
+              - button "编辑面板" [ref=e213] [cursor=pointer]:
+                - generic [ref=e214]: 编辑面板
+          - generic [ref=e216]:
+            - img [ref=e219]
+            - generic [ref=e222]: 当前面板还是空的，请新增第一张指标卡片。
+            - button "添加第一张卡片" [ref=e224] [cursor=pointer]:
+              - generic [ref=e225]: 添加第一张卡片
+  - generic [ref=e1]:
+    - generic "Toggle devtools panel" [ref=e2] [cursor=pointer]:
+      - img [ref=e3]
+    - generic "Toggle Component Inspector" [ref=e227] [cursor=pointer]:
+      - img [ref=e228]
+  - generic [ref=e233]:
+    - img [ref=e236]
+    - generic [ref=e240]: 网络异常

@@ -1,4 +1,5 @@
 import { NIcon } from 'naive-ui'
+import './SectionHeader.scss'
 
 export default defineComponent({
   name: 'SectionHeader',
@@ -12,7 +13,7 @@ export default defineComponent({
       <div class="section-header">
         <div class="section-header-main">
           {props.icon ? (
-            <NIcon size={22} class="mr-8px">
+            <NIcon size={22} class="section-header__icon">
               {h(props.icon as any)}
             </NIcon>
           ) : null}

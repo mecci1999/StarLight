@@ -7,6 +7,7 @@ import * as api from '@/api'
 import { RegisterUserReq } from '@/types/login'
 import { encryptPassword } from '@/utils/Crypto'
 import { throttle } from 'lodash-es'
+import './register.scss'
 
 export default defineComponent({
   name: 'LoginWindowContentRegister',
@@ -210,10 +211,10 @@ export default defineComponent({
     })
 
     return () => (
-      <NFlex class="ma text-center h-full" size={0} vertical={true}>
+      <NFlex class="login-register" size={0} vertical={true}>
         {/* 邮箱账号 */}
         <NInput
-          class={'email-input mb-22px'}
+          class="email-input"
           size={'large'}
           maxlength={32}
           minlength={6}
@@ -242,14 +243,14 @@ export default defineComponent({
         />
         {/* 邮箱无效错误提示 */}
         {state.emailValid ? (
-          <div class="text-12px text-left absolute top-46px">
-            <span class={'color-[--color-danger-6]'}>请输入有效的邮箱账号</span>
+          <div class="login-register__error login-register__error--email">
+            <span>请输入有效的邮箱账号</span>
           </div>
         ) : null}
 
         {/* 密码 */}
         <NInput
-          class={'password-input mb-22px'}
+          class="password-input password-input--spaced"
           size={'large'}
           maxlength={32}
           minlength={6}
@@ -266,14 +267,14 @@ export default defineComponent({
 
         {/* 密码错误提示 */}
         {state.passwordValid ? (
-          <div class="text-12px text-left absolute" style="top: 110px;">
-            <span class={'color-[--color-danger-6]'}>{state.passwordErrorMsg}</span>
+          <div class="login-register__error login-register__error--password">
+            <span>{state.passwordErrorMsg}</span>
           </div>
         ) : null}
 
         {/* 确认密码 */}
         <NInput
-          class={'password-input mb-22px'}
+          class="password-input password-input--spaced"
           size={'large'}
           maxlength={32}
           minlength={6}
@@ -290,14 +291,14 @@ export default defineComponent({
 
         {/* 确认密码错误提示 */}
         {state.confirmPasswordValid ? (
-          <div class="text-12px text-left absolute" style="top: 174px;">
-            <span class={'color-[--color-danger-6]'}>{state.confirmPasswordErrorMsg}</span>
+          <div class="login-register__error login-register__error--confirm">
+            <span>{state.confirmPasswordErrorMsg}</span>
           </div>
         ) : null}
 
         {/* 验证码 */}
         <NInput
-          class={'password-input mb-12px'}
+          class="password-input password-input--compact"
           size={'large'}
           maxlength={6}
           value={state.validCode}
@@ -311,10 +312,7 @@ export default defineComponent({
           {{
             suffix: () => (
               <div onClick={handleValidCode}>
-                <span
-                  class={`text-14px ${
-                    state.countdown > 0 ? 'color-[--color-text-3]' : 'color-[--color-primary-6] cursor-pointer'
-                  }`}>
+                <span class={['login-register__code-action', state.countdown > 0 ? 'is-waiting' : 'is-ready']}>
                   {validCodeText.value}
                 </span>
               </div>
@@ -324,15 +322,15 @@ export default defineComponent({
 
         {/* 验证码错误提示 */}
         {state.validCodeValid ? (
-          <div class="text-12px text-left absolute" style="top: 238px;">
-            <span class={'color-[--color-danger-6]'}>{state.validCodeErrorMsg}</span>
+          <div class="login-register__error login-register__error--code">
+            <span>{state.validCodeErrorMsg}</span>
           </div>
         ) : null}
 
         {/* 按钮 */}
         <NButton
           loading={state.loading}
-          class="w-full h-40px mt-8px mb-24px"
+          class="login-register__submit"
           onClick={handleRegister}
           type={'primary'}
           disabled={state.registerDisabled}>

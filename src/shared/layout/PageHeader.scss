@@ -1,0 +1,33 @@
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  &--compact {
+    margin-bottom: 12px;
+  }
+
+  &--default {
+    margin-bottom: 16px;
+  }
+
+  &--sticky {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: var(--color-bg-1);
+    backdrop-filter: blur(8px);
+  }
+
+  &__title {
+    margin: 0;
+    color: var(--color-text-1);
+    font-size: var(--font-size-title-3);
+    font-weight: var(--font-weight-semibold);
+  }
+
+  &__subtitle {
+    display: block;
+    margin-top: 4px;
+  }
+}

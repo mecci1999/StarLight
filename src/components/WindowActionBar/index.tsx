@@ -21,7 +21,8 @@ export default defineComponent({
     shrinkStatus: { type: Boolean, default: false },
     topWinLable: { type: String },
     currentLable: { type: String },
-    showSlot: { type: Boolean, default: false }
+    showSlot: { type: Boolean, default: false },
+    plain: { type: Boolean, default: false }
   },
   setup(props, { slots }) {
     let appWindow: any = null
@@ -233,15 +234,16 @@ export default defineComponent({
     return () => (
       <div
         class={{
-          'action-bar h-44px': true,
-          'flex justify-end select-none': isCompatibility.value,
-          'select-none w-full flex': !isCompatibility.value,
-          'bg-[--color-fill-2]': props.showSlot
+          'window-action-bar action-bar': true,
+          'window-action-bar--with-slot': isCompatibility.value && props.showSlot,
+          'window-action-bar--controls-only': isCompatibility.value && !props.showSlot,
+          'window-action-bar--fallback': !isCompatibility.value,
+          'window-action-bar--plain': props.plain
         }}
         data-tauri-drag-region>
         {/* 插槽内容 */}
         {props.showSlot && slots.default ? (
-          <div class="flex flex-1 items-center mr-auto" data-tauri-drag-region>
+          <div class="window-action-bar__slot" data-tauri-drag-region>
             {slots.default()}
           </div>
         ) : null}
@@ -254,11 +256,11 @@ export default defineComponent({
                   {{
                     trigger: () =>
                       alwaysOnTopStatus.value ? (
-                        <svg class={'size-14px color-[--color-fill-5] outline-none cursor-pointer'}>
+                        <svg class="window-action-bar__pin-icon window-action-bar__pin-icon--active">
                           <use href="#onTop" />
                         </svg>
                       ) : (
-                        <svg class={'size-16px color-[--color-fill-5] outline-none cursor-pointer'}>
+                        <svg class="window-action-bar__pin-icon window-action-bar__pin-icon--inactive">
                           <use href="#notonTop" />
                         </svg>
                       ),
@@ -274,7 +276,7 @@ export default defineComponent({
                 <NPopover trigger="hover">
                   {{
                     trigger: () => (
-                      <svg class={'size-14px color-[--color-fill-5] outline-none cursor-pointer'}>
+                      <svg class="window-action-bar__shrink-icon">
                         <use href={props.shrinkStatus ? '#shrink' : '#expand'} />
                       </svg>
                     ),
@@ -287,7 +289,7 @@ export default defineComponent({
             {/* 最小化 */}
             {props.minW ? (
               <div class="window-control-btn minimize-btn" onClick={() => appWindow.minimize()}>
-                <svg class={'size-12px'}>
+                <svg class="window-action-bar__control-icon">
                   <use href="#maximize" />
                 </svg>
               </div>
@@ -297,11 +299,11 @@ export default defineComponent({
             {props.maxW ? (
               <div class="window-control-btn maximize-btn" onClick={restoreWindow}>
                 {!state.windowMaxmized ? (
-                  <svg class={'size-12px'}>
+                  <svg class="window-action-bar__control-icon">
                     <use href="#rectangle-small" />
                   </svg>
                 ) : (
-                  <svg class={'size-12px'}>
+                  <svg class="window-action-bar__control-icon">
                     <use href="#internal-reduction" />
                   </svg>
                 )}
@@ -310,9 +312,12 @@ export default defineComponent({
             {/* 关闭 */}
             {props.closeW ? (
               <div
-                class={{ 'window-control-btn close-btn': true, 'rounded-rt-8px': state.windowMaxmized }}
+                class={{
+                  'window-control-btn close-btn': true,
+                  'window-action-bar__close-btn--maximized': state.windowMaxmized
+                }}
                 onClick={handleCloseWin}>
-                <svg class={'size-12px'}>
+                <svg class="window-action-bar__control-icon">
                   <use href="#close" />
                 </svg>
               </div>
@@ -321,18 +326,18 @@ export default defineComponent({
         ) : null}
         {/* 是否退到托盘提示框 */}
         {!tips.value.notTips && isCompatibility.value ? (
-          <NModal show={state.tipsRef.show} class={'rounded-8px'}>
-            <div class="bg-[--color-bg-3] w-360px h-full p-20px box-border flex flex-col">
+          <NModal show={state.tipsRef.show} class="window-action-bar__modal">
+            <div class="window-action-bar__modal-panel">
               <svg
                 onClick={() => {
                   state.tipsRef.show = false
                 }}
-                class="size-12px color-[--color-text-1] ml-a cursor-pointer select-none">
+                class="window-action-bar__modal-close">
                 <use href="#close"></use>
               </svg>
-              <NFlex vertical size={20} class={' select-none'}>
-                <span class="text-16px color-[--color-text-1]">最小化还是直接退出程序?</span>
-                <label class="text-14px color-[--color-text-3] flex gap-6px lh-16px items-center">
+              <NFlex vertical size={20} class="window-action-bar__modal-content">
+                <span class="window-action-bar__modal-title">最小化还是直接退出程序?</span>
+                <label class="window-action-bar__modal-option">
                   <NRadio
                     checked={state.tipsRef.type === CloseBxEnum.HIDE}
                     onUpdateChecked={() => {
@@ -341,7 +346,7 @@ export default defineComponent({
                   />
                   <span>最小化到系统托盘</span>
                 </label>
-                <label class="text-14px color-[--color-text-3] flex gap-6px lh-16px items-center">
+                <label class="window-action-bar__modal-option">
                   <NRadio
                     checked={state.tipsRef.type === CloseBxEnum.CLOSE}
                     onUpdateChecked={() => {
@@ -350,20 +355,20 @@ export default defineComponent({
                   />
                   <span>直接退出程序</span>
                 </label>
-                <label class="text-12px color-[--color-text-4] flex gap-6px justify-end items-center">
+                <label class="window-action-bar__modal-option window-action-bar__modal-option--subtle">
                   <NCheckbox size={'small'} checked={state.tipsRef.notTips} />
                   <span>下次不出现此提示</span>
                 </label>
               </NFlex>
-              <NFlex justify="end" class={'p-t-16px'}>
-                <NButton onClick={handleConfirm} class="w-78px rounded-6px" type={'primary'}>
+              <NFlex justify="end" class="window-action-bar__modal-actions">
+                <NButton onClick={handleConfirm} class="window-action-bar__modal-button" type={'primary'}>
                   确定
                 </NButton>
                 <NButton
                   onClick={() => {
                     state.tipsRef.show = false
                   }}
-                  class="w-78px rounded-6px color-[--color-text-2]"
+                  class="window-action-bar__modal-button window-action-bar__modal-button--secondary"
                   secondary={true}>
                   取消
                 </NButton>

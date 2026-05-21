@@ -1,0 +1,116 @@
+.realtime-monitor-page {
+  height: 100%;
+  overflow: auto;
+  padding: 24px;
+  background: var(--color-bg-1);
+
+  &__loading,
+  &__empty-state {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 0;
+  }
+
+  &__metrics-grid,
+  &__stats-grid {
+    margin-bottom: 16px;
+  }
+
+  &__hero-card {
+    border-radius: var(--radius-lg);
+    background: linear-gradient(to bottom right, var(--color-bg-1), var(--color-fill-1));
+    transition: all var(--duration-normal) var(--ease-default);
+    box-shadow: var(--shadow-sm);
+
+    &:hover {
+      transform: translateY(-4px);
+      box-shadow: var(--shadow-md);
+    }
+  }
+
+  &__hero-card-content {
+    text-align: center;
+
+    &--error-rate {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      height: 100%;
+    }
+  }
+
+  &__hero-label {
+    margin-bottom: 8px;
+    color: var(--color-text-3);
+    font-size: 14px;
+    font-weight: var(--font-weight-medium);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+
+    &--wide {
+      margin-bottom: 16px;
+    }
+  }
+
+  &__hero-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 120px;
+    color: var(--color-text-3);
+  }
+
+  &__hero-value {
+    margin-top: 8px;
+    color: var(--color-text-1);
+    font-family: var(--font-family-mono);
+    font-size: 24px;
+    font-weight: var(--font-weight-bold);
+  }
+
+  &__error-rate-value {
+    font-family: var(--font-family-mono);
+    font-size: 56px;
+    font-weight: var(--font-weight-bold);
+    letter-spacing: -0.04em;
+  }
+
+  &__error-rate-badge {
+    align-self: center;
+    margin-top: 8px;
+    padding: 4px 8px;
+    border-radius: 999px;
+    background: var(--color-fill-2);
+    color: var(--color-text-4);
+    font-size: 12px;
+  }
+
+  &__qps-panel {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 240px;
+    color: var(--color-text-1);
+  }
+
+  &__qps-panel-content {
+    text-align: center;
+  }
+
+  &__qps-panel-value {
+    font-family: var(--font-family-mono);
+    font-size: 48px;
+    font-weight: var(--font-weight-bold);
+  }
+
+  &__qps-panel-label {
+    margin-top: 8px;
+    color: var(--color-text-3);
+    font-size: 13px;
+  }
+
+  &__system-card {
+    margin-top: 16px;
+  }
+}

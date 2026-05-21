@@ -1,0 +1,13 @@
+.billing-usage-tab {
+  padding: 16px;
+
+  &__stack {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+
+  &__chart {
+    height: 300px;
+  }
+}

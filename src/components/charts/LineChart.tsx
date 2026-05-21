@@ -2,10 +2,77 @@ import { defineComponent, computed } from 'vue'
 import BaseChart from './BaseChart'
 import { graphic } from 'echarts'
 
+const resolveCssColor = (value: string | undefined, fallback: string) => {
+  if (!value) return fallback
+
+  const match = value.match(/var\((--[^)]+)\)/u)
+  if (match && typeof window !== 'undefined') {
+    return getComputedStyle(document.documentElement).getPropertyValue(match[1]).trim() || fallback
+  }
+
+  return value
+}
+
+const toRgba = (color: string, alpha: number) => {
+  if (!color) return `rgba(0, 0, 0, ${alpha})`
+
+  if (color.startsWith('rgba(')) {
+    return color.replace(/rgba\(([^)]+),\s*[^,]+\)$/u, `rgba($1, ${alpha})`)
+  }
+
+  if (color.startsWith('rgb(')) {
+    const values = color
+      .replace('rgb(', '')
+      .replace(')', '')
+      .split(',')
+      .map((item) => item.trim())
+    return `rgba(${values.join(', ')}, ${alpha})`
+  }
+
+  const normalized = color.replace('#', '')
+  const isShortHex = normalized.length === 3
+  const isLongHex = normalized.length === 6
+
+  if (!isShortHex && !isLongHex) return color
+
+  const hex = isShortHex
+    ? normalized
+        .split('')
+        .map((char) => `${char}${char}`)
+        .join('')
+    : normalized
+
+  const red = Number.parseInt(hex.slice(0, 2), 16)
+  const green = Number.parseInt(hex.slice(2, 4), 16)
+  const blue = Number.parseInt(hex.slice(4, 6), 16)
+
+  return `rgba(${red}, ${green}, ${blue}, ${alpha})`
+}
+
+const formatNumber = (value: number) => {
+  if (!Number.isFinite(value)) return '0'
+
+  const absoluteValue = Math.abs(value)
+  if (absoluteValue >= 1000000) {
+    return `${Number((value / 1000000).toFixed(absoluteValue >= 10000000 ? 0 : 1))}M`
+  }
+
+  if (absoluteValue >= 1000) {
+    return `${Number((value / 1000).toFixed(absoluteValue >= 10000 ? 0 : 1))}k`
+  }
+
+  if (Number.isInteger(value)) return value.toLocaleString()
+  return Number(value.toFixed(absoluteValue >= 10 ? 1 : 2)).toLocaleString()
+}
+
 export default defineComponent({
   name: 'LineChart',
   props: {
     title: String,
+    series: {
+      type: Array as () => { name: string; color?: string; data: { timestamp: number; value: number }[] }[],
+      default: undefined
+    },
     data: {
       type: Array as () => { timestamp: number; value: number }[],
       default: () => []
@@ -19,90 +86,282 @@ export default defineComponent({
       default: '200px'
     },
     loading: Boolean,
-    area: Boolean
+    area: Boolean,
+    variant: {
+      type: String,
+      default: 'default'
+    },
+    showLegend: {
+      type: Boolean,
+      default: undefined
+    },
+    showDataZoom: {
+      type: Boolean,
+      default: false
+    }
   },
   setup(props) {
+    const isMonitor = computed(() => props.variant === 'monitor')
+    const chartTitleColor = computed(() => resolveCssColor('var(--color-text-2)', '#4e5969'))
+    const chartTextColor = computed(() => resolveCssColor('var(--color-text-3)', '#86909c'))
+    const chartMutedColor = computed(() => resolveCssColor('var(--color-text-4)', '#c9cdd4'))
+    const softBorderColor = computed(() => resolveCssColor('var(--color-border-1)', '#f2f3f5'))
+    const surfaceColor = computed(() => resolveCssColor('var(--color-bg-2)', '#ffffff'))
+
+    const resolvedSeries = computed(() =>
+      props.series && props.series.length > 0
+        ? props.series.map((seriesItem) => ({
+            ...seriesItem,
+            color: resolveCssColor(seriesItem.color || props.color, '#165dff')
+          }))
+        : [
+            {
+              name: props.title || 'Value',
+              color: resolveCssColor(props.color, '#165dff'),
+              data: props.data
+            }
+          ]
+    )
+
+    const timestamps = computed(() => resolvedSeries.value[0]?.data.map((item) => item.timestamp) || [])
+    const spansMultipleDays = computed(() => {
+      if (timestamps.value.length < 2) return false
+      return timestamps.value[timestamps.value.length - 1] - timestamps.value[0] >= 24 * 60 * 60 * 1000
+    })
+
+    const axisTimeFormatter = computed(
+      () =>
+        new Intl.DateTimeFormat(undefined, {
+          ...(spansMultipleDays.value ? { month: '2-digit', day: '2-digit' } : { hour: '2-digit', minute: '2-digit' })
+        })
+    )
+
+    const tooltipTimeFormatter = computed(
+      () =>
+        new Intl.DateTimeFormat(undefined, {
+          month: spansMultipleDays.value ? '2-digit' : undefined,
+          day: spansMultipleDays.value ? '2-digit' : undefined,
+          hour: '2-digit',
+          minute: '2-digit'
+        })
+    )
+
+    const hasMultipleSeries = computed(() => resolvedSeries.value.length > 1)
+    const baseFillOpacity = computed(() => {
+      if (props.area) {
+        return isMonitor.value ? 0.2 : 0.145
+      }
+
+      return hasMultipleSeries.value ? (isMonitor.value ? 0.11 : 0.085) : isMonitor.value ? 0.13 : 0.095
+    })
+    const fadeFillOpacity = computed(() => (props.area ? 0.02 : isMonitor.value ? 0.018 : 0.015))
+
     const option = computed(() => ({
       title: {
         text: props.title,
-        left: 'left',
+        left: 0,
+        top: 0,
+        show: Boolean(props.title),
         textStyle: {
-          fontSize: 14,
-          color: 'var(--color-text-2)'
+          fontSize: 12,
+          fontWeight: 500,
+          color: chartTitleColor.value
         }
       },
       tooltip: {
         trigger: 'axis',
         axisPointer: {
-          type: 'cross',
-          label: {
-            backgroundColor: '#6a7985'
-          }
+          type: 'line',
+          snap: true,
+          lineStyle: {
+            color: toRgba(chartTextColor.value, isMonitor.value ? 0.28 : 0.16),
+            width: 1
+          },
+          label: { show: false }
+        },
+        formatter: (params: any) => {
+          const items = Array.isArray(params) ? params : [params]
+          const firstPoint = items[0]
+          const timestamp = firstPoint?.data?.timestamp ?? timestamps.value[firstPoint?.dataIndex ?? 0]
+          const heading = timestamp ? tooltipTimeFormatter.value.format(new Date(timestamp)) : ''
+
+          return [
+            `<div style="min-width: 136px;">`,
+            heading
+              ? `<div style="margin-bottom: 6px; color: ${chartTitleColor.value}; font-weight: 500;">${heading}</div>`
+              : '',
+            ...items.map((item: any) => {
+              const seriesColor = resolveCssColor(item.color, '#165dff')
+              const numericValue = Number(item.data?.value ?? item.value?.value ?? item.value ?? 0)
+              return [
+                `<div style="display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-top: 3px;">`,
+                `<div style="display: flex; align-items: center; gap: 8px; min-width: 0; color: ${chartTextColor.value};">`,
+                `<span style="width: 6px; height: 6px; border-radius: 999px; background: ${seriesColor}; flex-shrink: 0;"></span>`,
+                `<span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${item.seriesName}</span>`,
+                `</div>`,
+                `<strong style="color: ${chartTitleColor.value}; font-weight: 500;">${formatNumber(numericValue)}</strong>`,
+                `</div>`
+              ].join('')
+            }),
+            `</div>`
+          ].join('')
         }
       },
+      legend: hasMultipleSeries.value
+        ? {
+            show: props.showLegend !== false,
+            top: props.title ? 4 : 0,
+            left: 'left',
+            textStyle: {
+              color: chartTextColor.value,
+              fontSize: 11
+            },
+            itemGap: 12
+          }
+        : undefined,
       grid: {
-        left: '3%',
-        right: '4%',
-        bottom: '3%',
+        left: isMonitor.value ? 12 : 8,
+        right: isMonitor.value ? 12 : 8,
+        bottom: props.showDataZoom ? 24 : isMonitor.value ? 8 : 4,
         containLabel: true,
-        top: props.title ? 40 : 20
+        top: props.title ? (hasMultipleSeries.value ? 44 : 28) : hasMultipleSeries.value ? 20 : 8
       },
+      dataZoom: props.showDataZoom
+        ? [
+            {
+              type: 'inside',
+              start: 0,
+              end: 100
+            },
+            {
+              type: 'slider',
+              height: 10,
+              bottom: 0,
+              start: 0,
+              end: 100,
+              borderColor: 'transparent',
+              backgroundColor: softBorderColor.value,
+              fillerColor: toRgba(resolveCssColor(props.color, '#165dff'), isMonitor.value ? 0.16 : 0.1),
+              handleSize: 0,
+              moveHandleSize: 0,
+              showDetail: false,
+              brushSelect: false,
+              dataBackground: {
+                lineStyle: {
+                  color: toRgba(chartTextColor.value, 0.22)
+                },
+                areaStyle: {
+                  color: toRgba(softBorderColor.value, isMonitor.value ? 0.88 : 1)
+                }
+              },
+              selectedDataBackground: {
+                lineStyle: {
+                  color: resolveCssColor(props.color, '#165dff')
+                },
+                areaStyle: {
+                  color: toRgba(resolveCssColor(props.color, '#165dff'), isMonitor.value ? 0.12 : 0.08)
+                }
+              }
+            }
+          ]
+        : [],
       xAxis: {
         type: 'category',
         boundaryGap: false,
-        data: props.data.map((item) => new Date(item.timestamp).toLocaleTimeString()),
+        data: timestamps.value.map((timestamp) => axisTimeFormatter.value.format(new Date(timestamp))),
         axisLine: {
+          show: false,
           lineStyle: {
-            color: 'var(--color-border-3)'
+            color: softBorderColor.value
           }
         },
+        axisTick: {
+          show: false
+        },
         axisLabel: {
-          color: 'var(--color-text-3)'
+          color: isMonitor.value ? chartMutedColor.value : chartTextColor.value,
+          fontSize: 10,
+          margin: 8,
+          hideOverlap: true
+        },
+        splitLine: {
+          show: false
         }
       },
       yAxis: {
         type: 'value',
+        splitNumber: 4,
+        axisLine: {
+          show: false
+        },
+        axisTick: {
+          show: false
+        },
         splitLine: {
           lineStyle: {
-            color: 'var(--color-border-1)',
-            type: 'dashed'
+            color: toRgba(softBorderColor.value, isMonitor.value ? 0.4 : 0.58),
+            width: 1,
+            type: 'dashed',
+            dashOffset: 1.5
           }
         },
         axisLabel: {
-          color: 'var(--color-text-3)'
+          color: isMonitor.value ? chartMutedColor.value : chartTextColor.value,
+          fontSize: 10,
+          margin: 8,
+          formatter: (value: number) => formatNumber(value)
         }
       },
-      series: [
-        {
-          name: props.title || 'Value',
-          type: 'line',
-          smooth: true,
+      series: resolvedSeries.value.map((seriesItem) => ({
+        name: seriesItem.name,
+        type: 'line',
+        smooth: 0.22,
+        connectNulls: true,
+        lineStyle: {
+          width: 1.75,
+          cap: 'round',
+          join: 'round',
+          color: seriesItem.color,
+          opacity: 0.92
+        },
+        showSymbol: false,
+        symbol: 'circle',
+        symbolSize: 5,
+        areaStyle: {
+          opacity: 1,
+          color: new graphic.LinearGradient(0, 0, 0, 1, [
+            {
+              offset: 0,
+              color: toRgba(seriesItem.color, baseFillOpacity.value)
+            },
+            {
+              offset: 0.72,
+              color: toRgba(seriesItem.color, props.area ? baseFillOpacity.value * 0.46 : baseFillOpacity.value * 0.32)
+            },
+            {
+              offset: 1,
+              color: toRgba(seriesItem.color, fadeFillOpacity.value)
+            }
+          ])
+        },
+        emphasis: {
+          focus: 'series',
+          scale: false,
           lineStyle: {
-            width: 2,
-            color: props.color
-          },
-          showSymbol: false,
-          areaStyle: props.area
-            ? {
-                opacity: 0.8,
-                color: new graphic.LinearGradient(0, 0, 0, 1, [
-                  {
-                    offset: 0,
-                    color: props.color
-                  },
-                  {
-                    offset: 1,
-                    color: 'rgba(255, 255, 255, 0.1)'
-                  }
-                ])
-              }
-            : undefined,
-          emphasis: {
-            focus: 'series'
-          },
-          data: props.data.map((item) => item.value)
-        }
-      ]
+            width: 2.25,
+            opacity: 1
+          }
+        },
+        itemStyle: {
+          color: seriesItem.color,
+          borderWidth: 1.5,
+          borderColor: surfaceColor.value
+        },
+        data: seriesItem.data.map((item) => ({
+          value: item.value,
+          timestamp: item.timestamp
+        }))
+      }))
     }))
 
     return () => <BaseChart option={option.value} height={props.height} loading={props.loading} />

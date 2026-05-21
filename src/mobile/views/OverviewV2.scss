@@ -1,0 +1,76 @@
+.mobile-overview-v2 {
+  min-height: 100vh;
+  padding: 20px 16px;
+  background: var(--color-bg-1);
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+
+  &__title {
+    margin: 0;
+    color: var(--color-text-1);
+    font-size: 18px;
+    font-weight: var(--font-weight-semibold);
+  }
+
+  &__subtitle {
+    margin-top: 4px;
+    color: var(--color-text-3);
+    font-size: 12px;
+  }
+
+  &__loading,
+  &__empty-state {
+    display: flex;
+    justify-content: center;
+    padding: 40px 0;
+  }
+
+  &__stats-grid,
+  &__risk-card,
+  &__footer-actions {
+    margin-bottom: 16px;
+  }
+
+  &__summary-card,
+  &__risk-card {
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+  }
+
+  &__risk-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  &__risk-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    border-radius: var(--radius-lg);
+    background: var(--color-fill-1);
+  }
+
+  &__risk-name {
+    color: var(--color-text-1);
+    font-size: 14px;
+    font-weight: var(--font-weight-medium);
+  }
+
+  &__risk-meta {
+    margin-top: 4px;
+    color: var(--color-text-3);
+    font-size: 12px;
+  }
+
+  &__footer-actions {
+    display: flex;
+    gap: 8px;
+  }
+}

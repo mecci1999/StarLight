@@ -1,5 +1,4 @@
 import { useSettingStore } from '@/store/setting'
-import { getCookie } from '@/utils/cookie'
 import { useNetwork } from '@vueuse/core'
 import { NCheckbox, NFlex } from 'naive-ui'
 import LoginWindowContentEmail from './mode/email'
@@ -15,10 +14,6 @@ export default defineComponent({
     const { isOnline } = useNetwork()
     const settingStore = useSettingStore()
     const { login } = storeToRefs(settingStore)
-
-    const TOKEN = ref(getCookie('ACCESS_TOKEN'))
-    const REFRESH_TOKEN = ref(getCookie('REFRESH_TOKEN'))
-    const isAutoLogin = ref(login.value.autoLogin && TOKEN.value && REFRESH_TOKEN.value)
 
     const state = reactive({
       mode: 'login', // 页面模式 login 账号登录 scan 扫码登录 forget 忘记密码 register 注册账号
@@ -57,11 +52,11 @@ export default defineComponent({
     }
 
     return () => (
-      <div class={'login-window-content rounded-25px'}>
+      <div class="login-window-content">
         {/* 头部 */}
         <div class="header">
-          <div class="title flex-center">{loginText.value}</div>
-          <div class="sub-title flex-center">还有永不落幕的星光✨，给你宇宙级别的浪漫～</div>
+          <div class="title">{loginText.value}</div>
+          <div class="sub-title">还有永不落幕的星光✨，给你宇宙级别的浪漫～</div>
         </div>
         {/* 内容 */}
         <div class="content">
@@ -78,10 +73,10 @@ export default defineComponent({
         </div>
         {/* 底部 */}
         <div class="footer">
-          <NFlex justify={'center'} class="mb-24px" size={10}>
+          <NFlex justify={'center'} class="footer-switches" size={10}>
             {/* 注册账号 */}
             <div
-              class="text-14px "
+              class="footer-switch-item"
               onClick={() => {
                 if (state.mode === 'forget') {
                   state.mode = 'login'
@@ -91,15 +86,15 @@ export default defineComponent({
                   state.mode = 'login'
                 }
               }}>
-              <span class={'color-[--color-primary-6] hover:color-[--color-primary-5] cursor-pointer'}>
+              <span class="footer-switch-link">
                 {' '}
                 {state.mode === 'register' ? '返回登录' : state.mode === 'forget' ? '账号登录' : '注册账号'}
               </span>
             </div>
-            <div class="w-1px bg-[--color-text-3]"></div>
+            <div class="footer-switch-divider"></div>
             {/* 扫码登录 */}
             <div
-              class="text-14px"
+              class="footer-switch-item"
               onClick={() => {
                 if (state.mode !== 'scan') {
                   state.mode = 'scan'
@@ -107,9 +102,7 @@ export default defineComponent({
                   state.mode = 'login'
                 }
               }}>
-              <span class={'color-[--color-primary-6] hover:color-[--color-primary-5] cursor-pointer'}>
-                {state.mode === 'scan' ? '账号登录' : '扫码登录'}
-              </span>
+              <span class="footer-switch-link">{state.mode === 'scan' ? '账号登录' : '扫码登录'}</span>
             </div>
           </NFlex>
           {/* 协议 */}
@@ -120,11 +113,11 @@ export default defineComponent({
                 state.protocol = value
               }}
             />
-            <div class="text-12px color-[--color-text-3] cursor-default lh-14px">
+            <div class="footer-agreement">
               <span>已阅读并同意</span>
-              <span class={'color-[--color-primary-6] cursor-pointer'}>服务协议</span>
+              <span class="footer-agreement__link">服务协议</span>
               <span>和</span>
-              <span class={'color-[--color-primary-6] cursor-pointer'}>StarLight隐私保护指引</span>
+              <span class="footer-agreement__link">StarLight隐私保护指引</span>
             </div>
           </NFlex>
         </div>

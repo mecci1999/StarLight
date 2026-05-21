@@ -1,0 +1,117 @@
+- generic [active]:
+  - generic [ref=e9]:
+    - generic [ref=e10]:
+      - generic [ref=e12]:
+        - generic [ref=e13] [cursor=pointer]:
+          - img [ref=e14]:
+            - img [ref=e15]
+          - generic [ref=e20]: 面板
+        - generic [ref=e21] [cursor=pointer]:
+          - img [ref=e22]:
+            - img [ref=e23]
+          - generic [ref=e29]: 服务拓扑图
+        - generic [ref=e30] [cursor=pointer]:
+          - img [ref=e31]:
+            - img [ref=e32]
+          - generic [ref=e36]: 服务目录
+        - generic [ref=e37] [cursor=pointer]:
+          - img [ref=e38]:
+            - img [ref=e39]
+          - generic [ref=e42]: 实例监控
+        - generic [ref=e43] [cursor=pointer]:
+          - img [ref=e44]:
+            - img [ref=e45]
+          - generic [ref=e50]: 实时监控
+        - generic [ref=e51] [cursor=pointer]:
+          - img [ref=e52]:
+            - img [ref=e53]
+          - generic [ref=e58]: 指标分析
+        - generic [ref=e59] [cursor=pointer]:
+          - img [ref=e60]:
+            - img [ref=e61]
+          - generic [ref=e67]: 链路追踪
+        - generic [ref=e68] [cursor=pointer]:
+          - img [ref=e69]:
+            - img [ref=e70]
+          - generic [ref=e73]: 日志中心
+        - generic [ref=e74] [cursor=pointer]:
+          - img [ref=e75]:
+            - img [ref=e76]
+          - generic [ref=e79]: 异常分析
+        - generic [ref=e80] [cursor=pointer]:
+          - img [ref=e81]:
+            - img [ref=e82]
+          - generic [ref=e85]: 告警列表
+        - generic [ref=e86] [cursor=pointer]:
+          - img [ref=e87]:
+            - img [ref=e88]
+          - generic [ref=e90]: 告警规则
+      - generic [ref=e91]:
+        - generic [ref=e92] [cursor=pointer]:
+          - img [ref=e93]:
+            - img [ref=e94]
+          - generic [ref=e95]: 自定义排序
+        - generic [ref=e96] [cursor=pointer]:
+          - img [ref=e97]:
+            - img [ref=e98]
+          - generic [ref=e100]: 收起
+    - generic [ref=e101]:
+      - generic [ref=e106]:
+        - generic [ref=e110]:
+          - img [ref=e112]:
+            - img [ref=e113]
+          - generic [ref=e116]:
+            - textbox "搜索服务、日志或链路（示例：service:web env:prod）..." [ref=e117]
+            - generic
+        - generic [ref=e118]:
+          - generic [ref=e120]:
+            - button [ref=e121] [cursor=pointer]
+            - superscript [ref=e127]
+          - generic [ref=e129] [cursor=pointer]:
+            - generic [ref=e131]: S
+            - generic [ref=e132]
+            - img [ref=e135]
+      - main [ref=e138]:
+        - generic [ref=e234]:
+          - generic [ref=e235]:
+            - generic [ref=e236]
+            - button "刷新目录" [ref=e239] [cursor=pointer]
+          - generic [ref=e242]:
+            - text: 时间范围
+            - generic [ref=e245] [cursor=pointer]
+            - text: 实时模式
+            - switch [checked] [ref=e255]
+            - button "刷新时间" [ref=e258] [cursor=pointer]
+          - button "重置筛选" [ref=e262] [cursor=pointer]:
+            - generic [ref=e263]: 重置筛选
+          - generic [ref=e264]:
+            - generic [ref=e267]
+            - generic [ref=e272]
+            - generic [ref=e277]
+            - generic [ref=e282]
+            - generic [ref=e287]
+          - generic [ref=e290]:
+            - generic [ref=e293]
+            - generic [ref=e299] [cursor=pointer]
+            - generic [ref=e311] [cursor=pointer]
+            - generic [ref=e323] [cursor=pointer]
+            - generic [ref=e335] [cursor=pointer]
+            - button "表格" [ref=e345] [cursor=pointer]
+            - button "卡片" [ref=e347] [cursor=pointer]
+            - button "搜索" [ref=e349] [cursor=pointer]
+            - button "重置" [ref=e351] [cursor=pointer]
+          - generic [ref=e361]:
+            - img [ref=e364]
+            - generic [ref=e367]: 暂无服务数据
+  - generic [ref=e1]:
+    - generic "Toggle devtools panel" [ref=e2] [cursor=pointer]:
+      - img [ref=e3]
+    - generic "Toggle Component Inspector" [ref=e220] [cursor=pointer]:
+      - img [ref=e221]
+  - generic:
+    - generic [ref=e369]:
+      - img [ref=e372]
+      - generic [ref=e376]: 网络异常
+    - generic [ref=e378]:
+      - img [ref=e381]
+      - generic [ref=e385]: 加载服务目录失败

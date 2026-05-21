@@ -3,6 +3,8 @@ import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
 import { isPermissionGranted, requestPermission } from '@tauri-apps/plugin-notification'
 import { Suspense, KeepAlive } from 'vue'
 import WindowActionBar from '@/components/WindowActionBar'
+import Header from '@/layout/container/header/index'
+import './index.scss'
 
 export default defineComponent({
   name: 'Layout',
@@ -49,14 +51,18 @@ export default defineComponent({
     })
 
     return () => (
-      <div
-        id="layout"
-        class="bg-[--color-bg-1] rounded-[var(--border-radius-large)] select-none size-full"
-        data-tauri-drag-region>
+      <div id="layout" class="layout-root" data-tauri-drag-region>
+        <div class="layout-root__action-bar" data-tauri-drag-region>
+          <WindowActionBar maxW={true} shrink={false} showSlot plain>
+            {{
+              default: () => <Header />
+            }}
+          </WindowActionBar>
+        </div>
         <Suspense>
           {{
             default: () => (
-              <div class="flex size-full">
+              <div class="layout-root__body">
                 {/* 使用keep-alive包裹异步组件 */}
                 <KeepAlive>
                   <AsyncLeft />
@@ -68,7 +74,7 @@ export default defineComponent({
               </div>
             ),
             fallback: () => (
-              <div class="flex items-center justify-center size-full">
+              <div class="layout-root__fallback">
                 <LoadingSpinner loadingText={loadingText.value} percentage={loadingPercentage.value} />
               </div>
             )

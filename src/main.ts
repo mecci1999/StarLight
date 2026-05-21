@@ -17,10 +17,23 @@ app.config.errorHandler = (error) => {
     return
   }
 
+  // Suppress ResizeObserver loop errors which are often benign in complex layouts
+  if (error instanceof Error && error.message.includes('ResizeObserver loop')) {
+    return
+  }
+
   throw error
 }
 
+// Global error handler for unhandled promise rejections and other errors
+window.addEventListener('error', (event) => {
+  if (event.message.includes('ResizeObserver loop')) {
+    event.stopImmediatePropagation()
+    return
+  }
+})
+
 if (process.env.NODE_ENV === 'development') {
   // 打印项目版本信息
-  import('@/utils/console').then((module) => module.consolePrint())
+  import('@/utils/Console').then((module) => module.consolePrint())
 }

@@ -1,0 +1,4044 @@
+{
+  "content": [
+    {
+      "type": "counter",
+      "name": "universe.metrics.common.collect.total",
+      "description": "所有搜集的指标数量",
+      "labelNames": [],
+      "unit": "",
+      "values": []
+    },
+    {
+      "type": "gauge",
+      "name": "universe.metrics.common.collect.time",
+      "description": "搜集指标所需要的时间",
+      "labelNames": [],
+      "unit": "millisecond",
+      "values": []
+    },
+    {
+      "type": "info",
+      "name": "process.arguments",
+      "description": "",
+      "labelNames": ["index"],
+      "unit": "",
+      "values": [
+        {
+          "key": "0",
+          "value": "/Users/darwin/.nvm/versions/node/v22.14.0/bin/node",
+          "labels": {
+            "index": 0
+          },
+          "timestamp": 1772071325687
+        },
+        {
+          "key": "1",
+          "value": "/Users/darwin/项目/darwin-app/src/core/gateway/index.ts",
+          "labels": {
+            "index": 1
+          },
+          "timestamp": 1772071325687
+        }
+      ]
+    },
+    {
+      "type": "info",
+      "name": "process.pid",
+      "description": "进程的PID",
+      "labelNames": [],
+      "unit": "",
+      "values": [
+        {
+          "key": "",
+          "value": 2222,
+          "labels": {},
+          "timestamp": 1772071325687
+        }
+      ]
+    },
+    {
+      "type": "info",
+      "name": "process.ppid",
+      "description": "进程的PPID",
+      "labelNames": [],
+      "unit": "",
+      "values": [
+        {
+          "key": "",
+          "value": 2200,
+          "labels": {},
+          "timestamp": 1772071325687
+        }
+      ]
+    },
+    {
+      "type": "gauge",
+      "name": "process.memory.heap.size.total",
+      "description": "进程堆内存大小",
+      "labelNames": [],
+      "unit": "byte",
+      "values": [
+        {
+          "key": "",
+          "value": 281051136,
+          "labels": {},
+          "timestamp": 1772260801295
+        }
+      ]
+    },
+    {
+      "type": "gauge",
+      "name": "process.memory.heap.size.used",
+      "description": "进程已使用堆内存大小",
+      "labelNames": [],
+      "unit": "byte",
+      "values": [
+        {
+          "key": "",
+          "value": 238755816,
+          "labels": {},
+          "timestamp": 1772260801295
+        }
+      ]
+    },
+    {
+      "type": "gauge",
+      "name": "process.memory.rss",
+      "description": "进程真正被加载到的物理内存大小",
+      "labelNames": [],
+      "unit": "byte",
+      "values": [
+        {
+          "key": "",
+          "value": 127926272,
+          "labels": {},
+          "timestamp": 1772260801295
+        }
+      ]
+    },
+    {
+      "type": "gauge",
+      "name": "process.memory.external",
+      "description": "进程拓展内存大小",
+      "labelNames": [],
+      "unit": "byte",
+      "values": [
+        {
+          "key": "",
+          "value": 13268688,
+          "labels": {},
+          "timestamp": 1772260801295
+        }
+      ]
+    },
+    {
+      "type": "gauge",
+      "name": "process.memory.heap.space.size.total",
+      "description": "进程所有的堆空间大小",
+      "labelNames": ["space"],
+      "unit": "byte",
+      "values": [
+        {
+          "key": "\"read_only_space\"",
+          "value": 0,
+          "labels": {
+            "space": "read_only_space"
+          },
+          "timestamp": 1772071325690
+        },
+        {
+          "key": "\"new_space\"",
+          "value": 33554432,
+          "labels": {
+            "space": "new_space"
+          },
+          "timestamp": 1772257835971
+        },
+        {
+          "key": "\"old_space\"",
+          "value": 211795968,
+          "labels": {
+            "space": "old_space"
+          },
+          "timestamp": 1772260801295
+        },
+        {
+          "key": "\"code_space\"",
+          "value": 14417920,
+          "labels": {
+            "space": "code_space"
+          },
+          "timestamp": 1772250082530
+        },
+        {
+          "key": "\"shared_space\"",
+          "value": 0,
+          "labels": {
+            "space": "shared_space"
+          },
+          "timestamp": 1772071325690
+        },
+        {
+          "key": "\"trusted_space\"",
+          "value": 6111232,
+          "labels": {
+            "space": "trusted_space"
+          },
+          "timestamp": 1772244898226
+        },
+        {
+          "key": "\"new_large_object_space\"",
+          "value": 0,
+          "labels": {
+            "space": "new_large_object_space"
+          },
+          "timestamp": 1772071325690
+        },
+        {
+          "key": "\"large_object_space\"",
+          "value": 14958592,
+          "labels": {
+            "space": "large_object_space"
+          },
+          "timestamp": 1772085516331
+        },
+        {
+          "key": "\"code_large_object_space\"",
+          "value": 212992,
+          "labels": {
+            "space": "code_large_object_space"
+          },
+          "timestamp": 1772071330886
+        },
+        {
+          "key": "\"shared_large_object_space\"",
+          "value": 0,
+          "labels": {
+            "space": "shared_large_object_space"
+          },
+          "timestamp": 1772071325690
+        },
+        {
+          "key": "\"trusted_large_object_space\"",
+          "value": 0,
+          "labels": {
+            "space": "trusted_large_object_space"
+          },
+          "timestamp": 1772071485946
+        }
+      ]
+    },
+    {
+      "type": "gauge",
+      "name": "process.memory.heap.space.size.used",
+      "description": "进程已使用的堆空间大小",
+      "labelNames": ["space"],
+      "unit": "byte",
+      "values": [
+        {
+          "key": "\"read_only_space\"",
+          "value": 0,
+          "labels": {
+            "space": "read_only_space"
+          },
+          "timestamp": 1772071325690
+        },
+        {
+          "key": "\"new_space\"",
+          "value": 6020072,
+          "labels": {
+            "space": "new_space"
+          },
+          "timestamp": 1772260801295
+        },
+        {
+          "key": "\"old_space\"",
+          "value": 201254208,
+          "labels": {
+            "space": "old_space"
+          },
+          "timestamp": 1772260801295
+        },
+        {
+          "key": "\"code_space\"",
+          "value": 10986400,
+          "labels": {
+            "space": "code_space"
+          },
+          "timestamp": 1772260776293
+        },
+        {
+          "key": "\"shared_space\"",
+          "value": 0,
+          "labels": {
+            "space": "shared_space"
+          },
+          "timestamp": 1772071325690
+        },
+        {
+          "key": "\"trusted_space\"",
+          "value": 5700488,
+          "labels": {
+            "space": "trusted_space"
+          },
+          "timestamp": 1772260776293
+        },
+        {
+          "key": "\"new_large_object_space\"",
+          "value": 0,
+          "labels": {
+            "space": "new_large_object_space"
+          },
+          "timestamp": 1772071325690
+        },
+        {
+          "key": "\"large_object_space\"",
+          "value": 14641016,
+          "labels": {
+            "space": "large_object_space"
+          },
+          "timestamp": 1772085516331
+        },
+        {
+          "key": "\"code_large_object_space\"",
+          "value": 155328,
+          "labels": {
+            "space": "code_large_object_space"
+          },
+          "timestamp": 1772071330886
+        },
+        {
+          "key": "\"shared_large_object_space\"",
+          "value": 0,
+          "labels": {
+            "space": "shared_large_object_space"
+          },
+          "timestamp": 1772071325690
+        },
+        {
+          "key": "\"trusted_large_object_space\"",
+          "value": 0,
+          "labels": {
+            "space": "trusted_large_object_space"
+          },
+          "timestamp": 1772071485946
+        }
+      ]
+    },
+    {
+      "type": "gauge",
+      "name": "process.memory.heap.space.size.available",
+      "description": "进程可用的堆空间大小",
+      "labelNames": ["space"],
+      "unit": "byte",
+      "values": [
+        {
+          "key": "\"read_only_space\"",
+          "value": 0,
+          "labels": {
+            "space": "read_only_space"
+          },
+          "timestamp": 1772071325690
+        },
+        {
+          "key": "\"new_space\"",
+          "value": 10474520,
+          "labels": {
+            "space": "new_space"
+          },
+          "timestamp": 1772260801295
+        },
+        {
+          "key": "\"old_space\"",
+          "value": 6693008,
+          "labels": {
+            "space": "old_space"
+          },
+          "timestamp": 1772260801295
+        },
+        {
+          "key": "\"code_space\"",
+          "value": 728160,
+          "labels": {
+            "space": "code_space"
+          },
+          "timestamp": 1772260776293
+        },
+        {
+          "key": "\"shared_space\"",
+          "value": 0,
+          "labels": {
+            "space": "shared_space"
+          },
+          "timestamp": 1772071325690
+        },
+        {
+          "key": "\"trusted_space\"",
+          "value": 299840,
+          "labels": {
+            "space": "trusted_space"
+          },
+          "timestamp": 1772260776293
+        },
+        {
+          "key": "\"new_large_object_space\"",
+          "value": 16777216,
+          "labels": {
+            "space": "new_large_object_space"
+          },
+          "timestamp": 1772257835971
+        },
+        {
+          "key": "\"large_object_space\"",
+          "value": 0,
+          "labels": {
+            "space": "large_object_space"
+          },
+          "timestamp": 1772071325690
+        },
+        {
+          "key": "\"code_large_object_space\"",
+          "value": 0,
+          "labels": {
+            "space": "code_large_object_space"
+          },
+          "timestamp": 1772071325690
+        },
+        {
+          "key": "\"shared_large_object_space\"",
+          "value": 0,
+          "labels": {
+            "space": "shared_large_object_space"
+          },
+          "timestamp": 1772071325690
+        },
+        {
+          "key": "\"trusted_large_object_space\"",
+          "value": 0,
+          "labels": {
+            "space": "trusted_large_object_space"
+          },
+          "timestamp": 1772071325690
+        }
+      ]
+    },
+    {
+      "type": "gauge",
+      "name": "process.memory.heap.space.size.physical",
+      "description": "进程物理的堆空间大小",
+      "labelNames": ["space"],
+      "unit": "byte",
+      "values": [
+        {
+          "key": "\"read_only_space\"",
+          "value": 0,
+          "labels": {
+            "space": "read_only_space"
+          },
+          "timestamp": 1772071325690
+        },
+        {
+          "key": "\"new_space\"",
+          "value": 33554432,
+          "labels": {
+            "space": "new_space"
+          },
+          "timestamp": 1772260781293
+        },
+        {
+          "key": "\"old_space\"",
+          "value": 211795968,
+          "labels": {
+            "space": "old_space"
+          },
+          "timestamp": 1772260801295
+        },
+        {
+          "key": "\"code_space\"",
+          "value": 12615680,
+          "labels": {
+            "space": "code_space"
+          },
+          "timestamp": 1772250082530
+        },
+        {
+          "key": "\"shared_space\"",
+          "value": 0,
+          "labels": {
+            "space": "shared_space"
+          },
+          "timestamp": 1772071325690
+        },
+        {
+          "key": "\"trusted_space\"",
+          "value": 6111232,
+          "labels": {
+            "space": "trusted_space"
+          },
+          "timestamp": 1772244898226
+        },
+        {
+          "key": "\"new_large_object_space\"",
+          "value": 0,
+          "labels": {
+            "space": "new_large_object_space"
+          },
+          "timestamp": 1772071325690
+        },
+        {
+          "key": "\"large_object_space\"",
+          "value": 14958592,
+          "labels": {
+            "space": "large_object_space"
+          },
+          "timestamp": 1772085516331
+        },
+        {
+          "key": "\"code_large_object_space\"",
+          "value": 212992,
+          "labels": {
+            "space": "code_large_object_space"
+          },
+          "timestamp": 1772071330886
+        },
+        {
+          "key": "\"shared_large_object_space\"",
+          "value": 0,
+          "labels": {
+            "space": "shared_large_object_space"
+          },
+          "timestamp": 1772071325690
+        },
+        {
+          "key": "\"trusted_large_object_space\"",
+          "value": 0,
+          "labels": {
+            "space": "trusted_large_object_space"
+          },
+          "timestamp": 1772071485946
+        }
+      ]
+    },
+    {
+      "type": "gauge",
+      "name": "process.memory.heap.stat.heap.size.total",
+      "description": "进程内存堆静态堆大小",
+      "labelNames": [],
+      "unit": "byte",
+      "values": [
+        {
+          "key": "",
+          "value": 281051136,
+          "labels": {},
+          "timestamp": 1772260801295
+        }
+      ]
+    },
+    {
+      "type": "gauge",
+      "name": "process.memory.heap.stat.executable.size.total",
+      "description": "进程内存堆静态可执行大小",
+      "labelNames": [],
+      "unit": "byte",
+      "values": [
+        {
+          "key": "",
+          "value": 14630912,
+          "labels": {},
+          "timestamp": 1772250082530
+        }
+      ]
+    },
+    {
+      "type": "gauge",
+      "name": "process.memory.heap.stat.physical.size.total",
+      "description": "进程内存堆静态物理大小",
+      "labelNames": [],
+      "unit": "byte",
+      "values": [
+        {
+          "key": "",
+          "value": 279248896,
+          "labels": {},
+          "timestamp": 1772260801295
+        }
+      ]
+    },
+    {
+      "type": "gauge",
+      "name": "process.memory.heap.stat.available.size.total",
+      "description": "进程内存堆静态可使用大小",
+      "labelNames": [],
+      "unit": "byte",
+      "values": [
+        {
+          "key": "",
+          "value": 4099202304,
+          "labels": {},
+          "timestamp": 1772260801295
+        }
+      ]
+    },
+    {
+      "type": "gauge",
+      "name": "process.memory.heap.stat.used.heap.size",
+      "description": "进程堆状态使用的大小",
+      "labelNames": [],
+      "unit": "byte",
+      "values": [
+        {
+          "key": "",
+          "value": 238775760,
+          "labels": {},
+          "timestamp": 1772260801295
+        }
+      ]
+    },
+    {
+      "type": "gauge",
+      "name": "process.memory.heap.stat.heap.size.limit",
+      "description": "进程堆状态大小限制",
+      "labelNames": [],
+      "unit": "byte",
+      "values": [
+        {
+          "key": "",
+          "value": 4345298944,
+          "labels": {},
+          "timestamp": 1772071325690
+        }
+      ]
+    },
+    {
+      "type": "gauge",
+      "name": "process.memory.heap.stat.mallocated.memory",
+      "description": "进程堆统计错误定位的大小",
+      "labelNames": [],
+      "unit": "byte",
+      "values": [
+        {
+          "key": "",
+          "value": 1073256,
+          "labels": {},
+          "timestamp": 1772260466225
+        }
+      ]
+    },
+    {
+      "type": "gauge",
+      "name": "process.memory.heap.stat.peak.mallocated.memory",
+      "description": "进程堆状态错置大小的峰值",
+      "labelNames": [],
+      "unit": "byte",
+      "values": [
+        {
+          "key": "",
+          "value": 18359808,
+          "labels": {},
+          "timestamp": 1772071325690
+        }
+      ]
+    },
+    {
+      "type": "gauge",
+      "name": "process.memory.heap.stat.zap.garbage",
+      "description": "进程堆静态垃圾回收",
+      "labelNames": [],
+      "unit": "",
+      "values": [
+        {
+          "key": "",
+          "value": 0,
+          "labels": {},
+          "timestamp": 1772071325690
+        }
+      ]
+    },
+    {
+      "type": "gauge",
+      "name": "process.uptime",
+      "description": "进程更新时间",
+      "labelNames": [],
+      "unit": "second",
+      "values": [
+        {
+          "key": "",
+          "value": 189476.41752875,
+          "labels": {},
+          "timestamp": 1772260801295
+        }
+      ]
+    },
+    {
+      "type": "gauge",
+      "name": "process.internal.active.handles",
+      "description": "正在活动的程序数量",
+      "labelNames": [],
+      "unit": "handle",
+      "values": [
+        {
+          "key": "",
+          "value": 8,
+          "labels": {},
+          "timestamp": 1772260801295
+        }
+      ]
+    },
+    {
+      "type": "gauge",
+      "name": "process.internal.active.requests",
+      "description": "正在活动的请求数量",
+      "labelNames": [],
+      "unit": "request",
+      "values": [
+        {
+          "key": "",
+          "value": 0,
+          "labels": {},
+          "timestamp": 1772257805983
+        }
+      ]
+    },
+    {
+      "type": "info",
+      "name": "process.versions.node",
+      "description": "节点版本号",
+      "labelNames": [],
+      "unit": "",
+      "values": [
+        {
+          "key": "",
+          "value": "22.14.0",
+          "labels": {},
+          "timestamp": 1772071325687
+        }
+      ]
+    },
+    {
+      "type": "gauge",
+      "name": "os.memory.free",
+      "description": "系统闲置内存大小",
+      "labelNames": [],
+      "unit": "byte",
+      "values": [
+        {
+          "key": "",
+          "value": 97533952,
+          "labels": {},
+          "timestamp": 1772260801295
+        }
+      ]
+    },
+    {
+      "type": "gauge",
+      "name": "os.memory.used",
+      "description": "系统已使用内存大小",
+      "labelNames": [],
+      "unit": "byte",
+      "values": [
+        {
+          "key": "",
+          "value": 17082335232,
+          "labels": {},
+          "timestamp": 1772260801295
+        }
+      ]
+    },
+    {
+      "type": "gauge",
+      "name": "os.memory.total",
+      "description": "系统总内存大小",
+      "labelNames": [],
+      "unit": "byte",
+      "values": [
+        {
+          "key": "",
+          "value": 17179869184,
+          "labels": {},
+          "timestamp": 1772071325690
+        }
+      ]
+    },
+    {
+      "type": "gauge",
+      "name": "os.uptime",
+      "description": "系统更新时间",
+      "labelNames": [],
+      "unit": "second",
+      "values": [
+        {
+          "key": "",
+          "value": 2140870,
+          "labels": {},
+          "timestamp": 1772260801295
+        }
+      ]
+    },
+    {
+      "type": "info",
+      "name": "os.type",
+      "description": "系统类型",
+      "labelNames": [],
+      "unit": "",
+      "values": [
+        {
+          "key": "",
+          "value": "Darwin",
+          "labels": {},
+          "timestamp": 1772071325688
+        }
+      ]
+    },
+    {
+      "type": "info",
+      "name": "os.release",
+      "description": "操作系统版本",
+      "labelNames": [],
+      "unit": "",
+      "values": [
+        {
+          "key": "",
+          "value": "24.3.0",
+          "labels": {},
+          "timestamp": 1772071325688
+        }
+      ]
+    },
+    {
+      "type": "info",
+      "name": "os.hostname",
+      "description": "系统主机名",
+      "labelNames": [],
+      "unit": "",
+      "values": [
+        {
+          "key": "",
+          "value": "chenchengdeMacBook-Pro.local",
+          "labels": {},
+          "timestamp": 1772071325688
+        }
+      ]
+    },
+    {
+      "type": "info",
+      "name": "os.arch",
+      "description": "系统线程架构",
+      "labelNames": [],
+      "unit": "",
+      "values": [
+        {
+          "key": "",
+          "value": "arm64",
+          "labels": {},
+          "timestamp": 1772071325688
+        }
+      ]
+    },
+    {
+      "type": "info",
+      "name": "os.platform",
+      "description": "操作系统平台",
+      "labelNames": [],
+      "unit": "",
+      "values": [
+        {
+          "key": "",
+          "value": "darwin",
+          "labels": {},
+          "timestamp": 1772071325688
+        }
+      ]
+    },
+    {
+      "type": "info",
+      "name": "os.user.uid",
+      "description": "UID",
+      "labelNames": [],
+      "unit": "",
+      "values": [
+        {
+          "key": "",
+          "value": 501,
+          "labels": {},
+          "timestamp": 1772071325689
+        }
+      ]
+    },
+    {
+      "type": "info",
+      "name": "os.user.gid",
+      "description": "GID",
+      "labelNames": [],
+      "unit": "",
+      "values": [
+        {
+          "key": "",
+          "value": 20,
+          "labels": {},
+          "timestamp": 1772071325689
+        }
+      ]
+    },
+    {
+      "type": "info",
+      "name": "os.user.username",
+      "description": "用户名",
+      "labelNames": [],
+      "unit": "",
+      "values": [
+        {
+          "key": "",
+          "value": "darwin",
+          "labels": {},
+          "timestamp": 1772071325689
+        }
+      ]
+    },
+    {
+      "type": "info",
+      "name": "os.user.homedir",
+      "description": "根目录",
+      "labelNames": [],
+      "unit": "",
+      "values": [
+        {
+          "key": "",
+          "value": "/Users/darwin",
+          "labels": {},
+          "timestamp": 1772071325689
+        }
+      ]
+    },
+    {
+      "type": "info",
+      "name": "os.network.address",
+      "description": "网络地址",
+      "labelNames": ["interface", "family"],
+      "unit": "",
+      "values": [
+        {
+          "key": "\"utun0\"|\"IPv6\"",
+          "value": "fe80::443c:637:5878:fdc0",
+          "labels": {
+            "interface": "utun0",
+            "family": "IPv6"
+          },
+          "timestamp": 1772071325690
+        },
+        {
+          "key": "\"utun1\"|\"IPv6\"",
+          "value": "fe80::27ba:a84e:bc20:9c1d",
+          "labels": {
+            "interface": "utun1",
+            "family": "IPv6"
+          },
+          "timestamp": 1772071325690
+        },
+        {
+          "key": "\"utun2\"|\"IPv6\"",
+          "value": "fe80::9729:7ecf:b997:cdbd",
+          "labels": {
+            "interface": "utun2",
+            "family": "IPv6"
+          },
+          "timestamp": 1772071325690
+        },
+        {
+          "key": "\"utun3\"|\"IPv6\"",
+          "value": "fe80::ce81:b1c:bd2c:69e",
+          "labels": {
+            "interface": "utun3",
+            "family": "IPv6"
+          },
+          "timestamp": 1772071325690
+        },
+        {
+          "key": "\"awdl0\"|\"IPv6\"",
+          "value": "fe80::80c:e5ff:fe65:2b8a",
+          "labels": {
+            "interface": "awdl0",
+            "family": "IPv6"
+          },
+          "timestamp": 1772260796294
+        },
+        {
+          "key": "\"llw0\"|\"IPv6\"",
+          "value": "fe80::80c:e5ff:fe65:2b8a",
+          "labels": {
+            "interface": "llw0",
+            "family": "IPv6"
+          },
+          "timestamp": 1772260796294
+        },
+        {
+          "key": "\"utun4\"|\"IPv6\"",
+          "value": "fe80::fe5:cd88:22f0:7ddf",
+          "labels": {
+            "interface": "utun4",
+            "family": "IPv6"
+          },
+          "timestamp": 1772071325690
+        },
+        {
+          "key": "\"utun5\"|\"IPv6\"",
+          "value": "fe80::bc:a30c:af05:37dc",
+          "labels": {
+            "interface": "utun5",
+            "family": "IPv6"
+          },
+          "timestamp": 1772071325690
+        },
+        {
+          "key": "\"utun6\"|\"IPv6\"",
+          "value": "fe80::8ad5:a69:8230:766f",
+          "labels": {
+            "interface": "utun6",
+            "family": "IPv6"
+          },
+          "timestamp": 1772071325690
+        },
+        {
+          "key": "\"utun7\"|\"IPv6\"",
+          "value": "fe80::19a3:9aef:784b:f95c",
+          "labels": {
+            "interface": "utun7",
+            "family": "IPv6"
+          },
+          "timestamp": 1772071325690
+        },
+        {
+          "key": "\"en0\"|\"IPv6\"",
+          "value": "2408:8459:3220:102b:cc7:c7b:5c96:b44a",
+          "labels": {
+            "interface": "en0",
+            "family": "IPv6"
+          },
+          "timestamp": 1772260801295
+        },
+        {
+          "key": "\"en0\"|\"IPv4\"",
+          "value": "192.168.78.157",
+          "labels": {
+            "interface": "en0",
+            "family": "IPv4"
+          },
+          "timestamp": 1772245710975
+        }
+      ]
+    },
+    {
+      "type": "info",
+      "name": "os.network.mac",
+      "description": "MAC地址",
+      "labelNames": ["interface", "family"],
+      "unit": "",
+      "values": [
+        {
+          "key": "\"utun0\"|\"IPv6\"",
+          "value": "00:00:00:00:00:00",
+          "labels": {
+            "interface": "utun0",
+            "family": "IPv6"
+          },
+          "timestamp": 1772071325690
+        },
+        {
+          "key": "\"utun1\"|\"IPv6\"",
+          "value": "00:00:00:00:00:00",
+          "labels": {
+            "interface": "utun1",
+            "family": "IPv6"
+          },
+          "timestamp": 1772071325690
+        },
+        {
+          "key": "\"utun2\"|\"IPv6\"",
+          "value": "00:00:00:00:00:00",
+          "labels": {
+            "interface": "utun2",
+            "family": "IPv6"
+          },
+          "timestamp": 1772071325690
+        },
+        {
+          "key": "\"utun3\"|\"IPv6\"",
+          "value": "00:00:00:00:00:00",
+          "labels": {
+            "interface": "utun3",
+            "family": "IPv6"
+          },
+          "timestamp": 1772071325690
+        },
+        {
+          "key": "\"awdl0\"|\"IPv6\"",
+          "value": "0a:0c:e5:65:2b:8a",
+          "labels": {
+            "interface": "awdl0",
+            "family": "IPv6"
+          },
+          "timestamp": 1772260796294
+        },
+        {
+          "key": "\"llw0\"|\"IPv6\"",
+          "value": "0a:0c:e5:65:2b:8a",
+          "labels": {
+            "interface": "llw0",
+            "family": "IPv6"
+          },
+          "timestamp": 1772260796294
+        },
+        {
+          "key": "\"utun4\"|\"IPv6\"",
+          "value": "00:00:00:00:00:00",
+          "labels": {
+            "interface": "utun4",
+            "family": "IPv6"
+          },
+          "timestamp": 1772071325690
+        },
+        {
+          "key": "\"utun5\"|\"IPv6\"",
+          "value": "00:00:00:00:00:00",
+          "labels": {
+            "interface": "utun5",
+            "family": "IPv6"
+          },
+          "timestamp": 1772071325690
+        },
+        {
+          "key": "\"utun6\"|\"IPv6\"",
+          "value": "00:00:00:00:00:00",
+          "labels": {
+            "interface": "utun6",
+            "family": "IPv6"
+          },
+          "timestamp": 1772071325690
+        },
+        {
+          "key": "\"utun7\"|\"IPv6\"",
+          "value": "00:00:00:00:00:00",
+          "labels": {
+            "interface": "utun7",
+            "family": "IPv6"
+          },
+          "timestamp": 1772071325690
+        },
+        {
+          "key": "\"en0\"|\"IPv6\"",
+          "value": "ee:00:d6:d7:d2:30",
+          "labels": {
+            "interface": "en0",
+            "family": "IPv6"
+          },
+          "timestamp": 1772245710975
+        },
+        {
+          "key": "\"en0\"|\"IPv4\"",
+          "value": "ee:00:d6:d7:d2:30",
+          "labels": {
+            "interface": "en0",
+            "family": "IPv4"
+          },
+          "timestamp": 1772245710975
+        }
+      ]
+    },
+    {
+      "type": "gauge",
+      "name": "os.datetime.unix",
+      "description": "系统当前日期时间格式",
+      "labelNames": [],
+      "unit": "",
+      "values": [
+        {
+          "key": "",
+          "value": 1772260801295,
+          "labels": {},
+          "timestamp": 1772260801295
+        }
+      ]
+    },
+    {
+      "type": "info",
+      "name": "os.datetime.iso",
+      "description": "镜像当前日期时间",
+      "labelNames": [],
+      "unit": "",
+      "values": [
+        {
+          "key": "",
+          "value": "2026-02-28T06:40:01.295Z",
+          "labels": {},
+          "timestamp": 1772260801296
+        }
+      ]
+    },
+    {
+      "type": "info",
+      "name": "os.datetime.utc",
+      "description": "当前UTC时间格式",
+      "labelNames": [],
+      "unit": "",
+      "values": [
+        {
+          "key": "",
+          "value": "Sat, 28 Feb 2026 06:40:01 GMT",
+          "labels": {},
+          "timestamp": 1772260801296
+        }
+      ]
+    },
+    {
+      "type": "gauge",
+      "name": "os.datetime.tz.offset",
+      "description": "时区偏移",
+      "labelNames": [],
+      "unit": "",
+      "values": [
+        {
+          "key": "",
+          "value": -480,
+          "labels": {},
+          "timestamp": 1772071325691
+        }
+      ]
+    },
+    {
+      "type": "gauge",
+      "name": "os.cpu.load.1",
+      "description": "CPU load1",
+      "labelNames": [],
+      "unit": "",
+      "values": [
+        {
+          "key": "",
+          "value": 5.15673828125,
+          "labels": {},
+          "timestamp": 1772260801296
+        }
+      ]
+    },
+    {
+      "type": "gauge",
+      "name": "os.cpu.load.5",
+      "description": "CPU load5",
+      "labelNames": [],
+      "unit": "",
+      "values": [
+        {
+          "key": "",
+          "value": 5.63623046875,
+          "labels": {},
+          "timestamp": 1772260801296
+        }
+      ]
+    },
+    {
+      "type": "gauge",
+      "name": "os.cpu.load.15",
+      "description": "CPU load15",
+      "labelNames": [],
+      "unit": "",
+      "values": [
+        {
+          "key": "",
+          "value": 5.42236328125,
+          "labels": {},
+          "timestamp": 1772260801296
+        }
+      ]
+    },
+    {
+      "type": "gauge",
+      "name": "os.cpu.utilization",
+      "description": "CPU利用率",
+      "labelNames": [],
+      "unit": "",
+      "values": [
+        {
+          "key": "",
+          "value": 92.26767676767676,
+          "labels": {},
+          "timestamp": 1772260801496
+        }
+      ]
+    },
+    {
+      "type": "gauge",
+      "name": "os.cpu.user",
+      "description": "CPU用户",
+      "labelNames": [],
+      "unit": "",
+      "values": [
+        {
+          "key": "",
+          "value": 917933410,
+          "labels": {},
+          "timestamp": 1772260801496
+        }
+      ]
+    },
+    {
+      "type": "gauge",
+      "name": "os.cpu.system",
+      "description": "CPU系统",
+      "labelNames": [],
+      "unit": "",
+      "values": []
+    },
+    {
+      "type": "gauge",
+      "name": "os.cpu.total",
+      "description": "CPU数量",
+      "labelNames": [],
+      "unit": "cpu",
+      "values": [
+        {
+          "key": "",
+          "value": 10,
+          "labels": {},
+          "timestamp": 1772071326514
+        }
+      ]
+    },
+    {
+      "type": "info",
+      "name": "os.cpu.info.model",
+      "description": "CPU模型",
+      "labelNames": ["index"],
+      "unit": "",
+      "values": [
+        {
+          "key": "0",
+          "value": "Apple M2 Pro",
+          "labels": {
+            "index": 0
+          },
+          "timestamp": 1772071326514
+        },
+        {
+          "key": "1",
+          "value": "Apple M2 Pro",
+          "labels": {
+            "index": 1
+          },
+          "timestamp": 1772071326514
+        },
+        {
+          "key": "2",
+          "value": "Apple M2 Pro",
+          "labels": {
+            "index": 2
+          },
+          "timestamp": 1772071326514
+        },
+        {
+          "key": "3",
+          "value": "Apple M2 Pro",
+          "labels": {
+            "index": 3
+          },
+          "timestamp": 1772071326514
+        },
+        {
+          "key": "4",
+          "value": "Apple M2 Pro",
+          "labels": {
+            "index": 4
+          },
+          "timestamp": 1772071326514
+        },
+        {
+          "key": "5",
+          "value": "Apple M2 Pro",
+          "labels": {
+            "index": 5
+          },
+          "timestamp": 1772071326514
+        },
+        {
+          "key": "6",
+          "value": "Apple M2 Pro",
+          "labels": {
+            "index": 6
+          },
+          "timestamp": 1772071326514
+        },
+        {
+          "key": "7",
+          "value": "Apple M2 Pro",
+          "labels": {
+            "index": 7
+          },
+          "timestamp": 1772071326514
+        },
+        {
+          "key": "8",
+          "value": "Apple M2 Pro",
+          "labels": {
+            "index": 8
+          },
+          "timestamp": 1772071326514
+        },
+        {
+          "key": "9",
+          "value": "Apple M2 Pro",
+          "labels": {
+            "index": 9
+          },
+          "timestamp": 1772071326514
+        }
+      ]
+    },
+    {
+      "type": "gauge",
+      "name": "os.cpu.info.speed",
+      "description": "CPU速度",
+      "labelNames": ["index"],
+      "unit": "GHz",
+      "values": [
+        {
+          "key": "0",
+          "value": 2400,
+          "labels": {
+            "index": 0
+          },
+          "timestamp": 1772071326514
+        },
+        {
+          "key": "1",
+          "value": 2400,
+          "labels": {
+            "index": 1
+          },
+          "timestamp": 1772071326514
+        },
+        {
+          "key": "2",
+          "value": 2400,
+          "labels": {
+            "index": 2
+          },
+          "timestamp": 1772071326514
+        },
+        {
+          "key": "3",
+          "value": 2400,
+          "labels": {
+            "index": 3
+          },
+          "timestamp": 1772071326514
+        },
+        {
+          "key": "4",
+          "value": 2400,
+          "labels": {
+            "index": 4
+          },
+          "timestamp": 1772071326514
+        },
+        {
+          "key": "5",
+          "value": 2400,
+          "labels": {
+            "index": 5
+          },
+          "timestamp": 1772071326514
+        },
+        {
+          "key": "6",
+          "value": 2400,
+          "labels": {
+            "index": 6
+          },
+          "timestamp": 1772071326514
+        },
+        {
+          "key": "7",
+          "value": 2400,
+          "labels": {
+            "index": 7
+          },
+          "timestamp": 1772071326514
+        },
+        {
+          "key": "8",
+          "value": 2400,
+          "labels": {
+            "index": 8
+          },
+          "timestamp": 1772071326514
+        },
+        {
+          "key": "9",
+          "value": 2400,
+          "labels": {
+            "index": 9
+          },
+          "timestamp": 1772071326514
+        }
+      ]
+    },
+    {
+      "type": "gauge",
+      "name": "os.cpu.info.times.user",
+      "description": "CPU用户时间",
+      "labelNames": ["index"],
+      "unit": "",
+      "values": [
+        {
+          "key": "0",
+          "value": 328532410,
+          "labels": {
+            "index": 0
+          },
+          "timestamp": 1772260801496
+        },
+        {
+          "key": "1",
+          "value": 309290170,
+          "labels": {
+            "index": 1
+          },
+          "timestamp": 1772260801496
+        },
+        {
+          "key": "2",
+          "value": 293457080,
+          "labels": {
+            "index": 2
+          },
+          "timestamp": 1772260801496
+        },
+        {
+          "key": "3",
+          "value": 278718920,
+          "labels": {
+            "index": 3
+          },
+          "timestamp": 1772260801496
+        },
+        {
+          "key": "4",
+          "value": 117455190,
+          "labels": {
+            "index": 4
+          },
+          "timestamp": 1772260801496
+        },
+        {
+          "key": "5",
+          "value": 85230060,
+          "labels": {
+            "index": 5
+          },
+          "timestamp": 1772260801496
+        },
+        {
+          "key": "6",
+          "value": 62737420,
+          "labels": {
+            "index": 6
+          },
+          "timestamp": 1772260801496
+        },
+        {
+          "key": "7",
+          "value": 117757050,
+          "labels": {
+            "index": 7
+          },
+          "timestamp": 1772260801496
+        },
+        {
+          "key": "8",
+          "value": 85504270,
+          "labels": {
+            "index": 8
+          },
+          "timestamp": 1772260801496
+        },
+        {
+          "key": "9",
+          "value": 62462060,
+          "labels": {
+            "index": 9
+          },
+          "timestamp": 1772260801496
+        }
+      ]
+    },
+    {
+      "type": "gauge",
+      "name": "os.cpu.info.times.sys",
+      "description": "CPU系统时间",
+      "labelNames": ["index"],
+      "unit": "",
+      "values": [
+        {
+          "key": "0",
+          "value": 178124000,
+          "labels": {
+            "index": 0
+          },
+          "timestamp": 1772260801496
+        },
+        {
+          "key": "1",
+          "value": 159054830,
+          "labels": {
+            "index": 1
+          },
+          "timestamp": 1772260801496
+        },
+        {
+          "key": "2",
+          "value": 144936900,
+          "labels": {
+            "index": 2
+          },
+          "timestamp": 1772260801496
+        },
+        {
+          "key": "3",
+          "value": 133762560,
+          "labels": {
+            "index": 3
+          },
+          "timestamp": 1772260801496
+        },
+        {
+          "key": "4",
+          "value": 62915500,
+          "labels": {
+            "index": 4
+          },
+          "timestamp": 1772260801496
+        },
+        {
+          "key": "5",
+          "value": 50659700,
+          "labels": {
+            "index": 5
+          },
+          "timestamp": 1772260801496
+        },
+        {
+          "key": "6",
+          "value": 38498580,
+          "labels": {
+            "index": 6
+          },
+          "timestamp": 1772260801496
+        },
+        {
+          "key": "7",
+          "value": 62417060,
+          "labels": {
+            "index": 7
+          },
+          "timestamp": 1772260801496
+        },
+        {
+          "key": "8",
+          "value": 49797310,
+          "labels": {
+            "index": 8
+          },
+          "timestamp": 1772260801496
+        },
+        {
+          "key": "9",
+          "value": 37766970,
+          "labels": {
+            "index": 9
+          },
+          "timestamp": 1772260801496
+        }
+      ]
+    },
+    {
+      "type": "gauge",
+      "name": "process.gc.time",
+      "description": "垃圾回收时间",
+      "labelNames": [],
+      "unit": "millisecond",
+      "values": [
+        {
+          "key": "",
+          "value": 6.260667085647583,
+          "labels": {},
+          "timestamp": 1772260802272
+        }
+      ]
+    },
+    {
+      "type": "counter",
+      "name": "process.gc.total.time",
+      "description": "所有的垃圾回收花费时间",
+      "labelNames": [],
+      "unit": "millisecond",
+      "values": [
+        {
+          "key": "",
+          "value": 257170.24475359917,
+          "labels": {},
+          "timestamp": 1772260802272
+        }
+      ]
+    },
+    {
+      "type": "counter",
+      "name": "process.gc.executed.total",
+      "description": "执行垃圾回收的数量",
+      "labelNames": ["type"],
+      "unit": "",
+      "values": [
+        {
+          "key": "1",
+          "value": 103610,
+          "labels": {
+            "type": 1
+          },
+          "timestamp": 1772260802272
+        },
+        {
+          "key": "8",
+          "value": 3362,
+          "labels": {
+            "type": 8
+          },
+          "timestamp": 1772260775001
+        },
+        {
+          "key": "4",
+          "value": 3362,
+          "labels": {
+            "type": 4
+          },
+          "timestamp": 1772260775074
+        }
+      ]
+    },
+    {
+      "type": "gauge",
+      "name": "process.eventloop.lag.min",
+      "description": "事件循环最小时间",
+      "labelNames": [],
+      "unit": "millisecond",
+      "values": []
+    },
+    {
+      "type": "gauge",
+      "name": "process.eventloop.lag.avg",
+      "description": "事件循环平均时间",
+      "labelNames": [],
+      "unit": "millisecond",
+      "values": []
+    },
+    {
+      "type": "gauge",
+      "name": "process.eventloop.lag.max",
+      "description": "事件循环最大时间",
+      "labelNames": [],
+      "unit": "millisecond",
+      "values": []
+    },
+    {
+      "type": "gauge",
+      "name": "process.eventloop.lag.count",
+      "description": "事件循环延迟数量",
+      "labelNames": [],
+      "unit": "",
+      "values": []
+    },
+    {
+      "type": "info",
+      "name": "universe.node.type",
+      "description": "Universe运行环境类型",
+      "labelNames": [],
+      "unit": "",
+      "values": [
+        {
+          "key": "",
+          "value": "nodejs",
+          "labels": {},
+          "timestamp": 1772071325691
+        }
+      ]
+    },
+    {
+      "type": "info",
+      "name": "universe.node.versions.universe",
+      "description": "Universe版本号",
+      "labelNames": [],
+      "unit": "",
+      "values": [
+        {
+          "key": "",
+          "value": "0.0.1",
+          "labels": {},
+          "timestamp": 1772071325691
+        }
+      ]
+    },
+    {
+      "type": "info",
+      "name": "universe.node.versions.protocol",
+      "description": "Universe协议版本号",
+      "labelNames": [],
+      "unit": "",
+      "values": [
+        {
+          "key": "",
+          "value": "1",
+          "labels": {},
+          "timestamp": 1772071325691
+        }
+      ]
+    },
+    {
+      "type": "info",
+      "name": "universe.star.namespace",
+      "description": "星球的名字",
+      "labelNames": [],
+      "unit": "",
+      "values": [
+        {
+          "key": "",
+          "value": "darwin-app",
+          "labels": {},
+          "timestamp": 1772071325691
+        }
+      ]
+    },
+    {
+      "type": "gauge",
+      "name": "universe.star.started",
+      "description": "星球开始运转",
+      "labelNames": [],
+      "unit": "",
+      "values": [
+        {
+          "key": "",
+          "value": 1,
+          "labels": {},
+          "timestamp": 1772071330885
+        }
+      ]
+    },
+    {
+      "type": "gauge",
+      "name": "universe.star.local.services.total",
+      "description": "星球的服务人造卫星数量",
+      "labelNames": [],
+      "unit": "",
+      "values": [
+        {
+          "key": "",
+          "value": 2,
+          "labels": {},
+          "timestamp": 1772071326309
+        }
+      ]
+    },
+    {
+      "type": "gauge",
+      "name": "universe.star.middlewares.total",
+      "description": "星球的人造卫星中间件数量",
+      "labelNames": [],
+      "unit": "",
+      "values": [
+        {
+          "key": "",
+          "value": 14,
+          "labels": {},
+          "timestamp": 1772071325699
+        }
+      ]
+    },
+    {
+      "type": "gauge",
+      "name": "universe.registry.nodes.total",
+      "description": "注册的节点总数量（包括掉线、状态异常的节点）",
+      "labelNames": [],
+      "unit": "",
+      "values": [
+        {
+          "key": "",
+          "value": 7,
+          "labels": {},
+          "timestamp": 1772257840902
+        }
+      ]
+    },
+    {
+      "type": "gauge",
+      "name": "universe.registry.nodes.online.total",
+      "description": "注册的节点正在运行的数量",
+      "labelNames": [],
+      "unit": "",
+      "values": [
+        {
+          "key": "",
+          "value": 7,
+          "labels": {},
+          "timestamp": 1772257840902
+        }
+      ]
+    },
+    {
+      "type": "gauge",
+      "name": "universe.registry.services.total",
+      "description": "注册的服务总数量",
+      "labelNames": [],
+      "unit": "",
+      "values": [
+        {
+          "key": "",
+          "value": 1,
+          "labels": {},
+          "timestamp": 1772071330876
+        }
+      ]
+    },
+    {
+      "type": "gauge",
+      "name": "universe.registry.service.endpoints.total",
+      "description": "注册的服务节点总数量",
+      "labelNames": ["service"],
+      "unit": "",
+      "values": [
+        {
+          "key": "\"$node\"",
+          "value": 1,
+          "labels": {
+            "service": "$node"
+          },
+          "timestamp": 1772071330876
+        }
+      ]
+    },
+    {
+      "type": "gauge",
+      "name": "universe.registry.actions.total",
+      "description": "注册的动作总数量",
+      "labelNames": [],
+      "unit": "",
+      "values": [
+        {
+          "key": "",
+          "value": 111,
+          "labels": {},
+          "timestamp": 1772071360748
+        }
+      ]
+    },
+    {
+      "type": "gauge",
+      "name": "universe.registry.action.endpoints.total",
+      "description": "注册的动作节点总数量",
+      "labelNames": ["action"],
+      "unit": "",
+      "values": [
+        {
+          "key": "\"$node.list\"",
+          "value": 7,
+          "labels": {
+            "action": "$node.list"
+          },
+          "timestamp": 1772257840904
+        },
+        {
+          "key": "\"$node.services\"",
+          "value": 7,
+          "labels": {
+            "action": "$node.services"
+          },
+          "timestamp": 1772257840904
+        },
+        {
+          "key": "\"$node.actions\"",
+          "value": 7,
+          "labels": {
+            "action": "$node.actions"
+          },
+          "timestamp": 1772257840904
+        },
+        {
+          "key": "\"$node.events\"",
+          "value": 7,
+          "labels": {
+            "action": "$node.events"
+          },
+          "timestamp": 1772257840904
+        },
+        {
+          "key": "\"$node.health\"",
+          "value": 7,
+          "labels": {
+            "action": "$node.health"
+          },
+          "timestamp": 1772257840904
+        },
+        {
+          "key": "\"$node.options\"",
+          "value": 7,
+          "labels": {
+            "action": "$node.options"
+          },
+          "timestamp": 1772257840904
+        },
+        {
+          "key": "\"$node.metrics\"",
+          "value": 7,
+          "labels": {
+            "action": "$node.metrics"
+          },
+          "timestamp": 1772257840904
+        },
+        {
+          "key": "\"gateway.listAliases\"",
+          "value": 1,
+          "labels": {
+            "action": "gateway.listAliases"
+          },
+          "timestamp": 1772071330882
+        },
+        {
+          "key": "\"gateway.addRoute\"",
+          "value": 1,
+          "labels": {
+            "action": "gateway.addRoute"
+          },
+          "timestamp": 1772071330882
+        },
+        {
+          "key": "\"gateway.removeRoute\"",
+          "value": 1,
+          "labels": {
+            "action": "gateway.removeRoute"
+          },
+          "timestamp": 1772071330882
+        },
+        {
+          "key": "\"gateway.health\"",
+          "value": 1,
+          "labels": {
+            "action": "gateway.health"
+          },
+          "timestamp": 1772071330882
+        },
+        {
+          "key": "\"gateway.dispatch\"",
+          "value": 1,
+          "labels": {
+            "action": "gateway.dispatch"
+          },
+          "timestamp": 1772071330882
+        },
+        {
+          "key": "\"gateway.metrics\"",
+          "value": 1,
+          "labels": {
+            "action": "gateway.metrics"
+          },
+          "timestamp": 1772071330882
+        },
+        {
+          "key": "\"gateway.adminMetricsSnapshot\"",
+          "value": 1,
+          "labels": {
+            "action": "gateway.adminMetricsSnapshot"
+          },
+          "timestamp": 1772071330882
+        },
+        {
+          "key": "\"gateway.adminMetricsCatalog\"",
+          "value": 1,
+          "labels": {
+            "action": "gateway.adminMetricsCatalog"
+          },
+          "timestamp": 1772071330882
+        },
+        {
+          "key": "\"gateway.adminMetricsQuery\"",
+          "value": 1,
+          "labels": {
+            "action": "gateway.adminMetricsQuery"
+          },
+          "timestamp": 1772071330882
+        },
+        {
+          "key": "\"gateway.adminMetricsGraphql\"",
+          "value": 1,
+          "labels": {
+            "action": "gateway.adminMetricsGraphql"
+          },
+          "timestamp": 1772071330882
+        },
+        {
+          "key": "\"gateway.websocket.trigger\"",
+          "value": 1,
+          "labels": {
+            "action": "gateway.websocket.trigger"
+          },
+          "timestamp": 1772071330882
+        },
+        {
+          "key": "\"user.v1.create\"",
+          "value": 1,
+          "labels": {
+            "action": "user.v1.create"
+          },
+          "timestamp": 1772257833129
+        },
+        {
+          "key": "\"user.v1.getUserInfo\"",
+          "value": 1,
+          "labels": {
+            "action": "user.v1.getUserInfo"
+          },
+          "timestamp": 1772257833129
+        },
+        {
+          "key": "\"user.v1.update\"",
+          "value": 1,
+          "labels": {
+            "action": "user.v1.update"
+          },
+          "timestamp": 1772257833129
+        },
+        {
+          "key": "\"user.v1.delete\"",
+          "value": 1,
+          "labels": {
+            "action": "user.v1.delete"
+          },
+          "timestamp": 1772257833129
+        },
+        {
+          "key": "\"user.v1.batchGetUsers\"",
+          "value": 1,
+          "labels": {
+            "action": "user.v1.batchGetUsers"
+          },
+          "timestamp": 1772257833129
+        },
+        {
+          "key": "\"user.v1.recordLogin\"",
+          "value": 1,
+          "labels": {
+            "action": "user.v1.recordLogin"
+          },
+          "timestamp": 1772257833129
+        },
+        {
+          "key": "\"user.v1.recordLogout\"",
+          "value": 1,
+          "labels": {
+            "action": "user.v1.recordLogout"
+          },
+          "timestamp": 1772257833129
+        },
+        {
+          "key": "\"user.v1.uploadAvatar\"",
+          "value": 1,
+          "labels": {
+            "action": "user.v1.uploadAvatar"
+          },
+          "timestamp": 1772257833129
+        },
+        {
+          "key": "\"user.addApplicationAccess\"",
+          "value": 1,
+          "labels": {
+            "action": "user.addApplicationAccess"
+          },
+          "timestamp": 1772257833129
+        },
+        {
+          "key": "\"user.removeApplicationAccess\"",
+          "value": 1,
+          "labels": {
+            "action": "user.removeApplicationAccess"
+          },
+          "timestamp": 1772257833129
+        },
+        {
+          "key": "\"user.getUserApplications\"",
+          "value": 1,
+          "labels": {
+            "action": "user.getUserApplications"
+          },
+          "timestamp": 1772257833129
+        },
+        {
+          "key": "\"user.checkApplicationAccess\"",
+          "value": 1,
+          "labels": {
+            "action": "user.checkApplicationAccess"
+          },
+          "timestamp": 1772257833129
+        },
+        {
+          "key": "\"auth.v1.verifyCode\"",
+          "value": 1,
+          "labels": {
+            "action": "auth.v1.verifyCode"
+          },
+          "timestamp": 1772257833127
+        },
+        {
+          "key": "\"auth.v1.register\"",
+          "value": 1,
+          "labels": {
+            "action": "auth.v1.register"
+          },
+          "timestamp": 1772257833127
+        },
+        {
+          "key": "\"auth.v1.login\"",
+          "value": 1,
+          "labels": {
+            "action": "auth.v1.login"
+          },
+          "timestamp": 1772257833127
+        },
+        {
+          "key": "\"auth.v1.logout\"",
+          "value": 1,
+          "labels": {
+            "action": "auth.v1.logout"
+          },
+          "timestamp": 1772257833127
+        },
+        {
+          "key": "\"auth.v1.rsa.getKey\"",
+          "value": 1,
+          "labels": {
+            "action": "auth.v1.rsa.getKey"
+          },
+          "timestamp": 1772257833127
+        },
+        {
+          "key": "\"auth.v1.rsa.save\"",
+          "value": 1,
+          "labels": {
+            "action": "auth.v1.rsa.save"
+          },
+          "timestamp": 1772257833127
+        },
+        {
+          "key": "\"auth.v1.forgetHash\"",
+          "value": 1,
+          "labels": {
+            "action": "auth.v1.forgetHash"
+          },
+          "timestamp": 1772257833127
+        },
+        {
+          "key": "\"auth.v1.updateHash\"",
+          "value": 1,
+          "labels": {
+            "action": "auth.v1.updateHash"
+          },
+          "timestamp": 1772257833127
+        },
+        {
+          "key": "\"auth.v1.refreshToken\"",
+          "value": 1,
+          "labels": {
+            "action": "auth.v1.refreshToken"
+          },
+          "timestamp": 1772257833127
+        },
+        {
+          "key": "\"auth.v1.qrcode.getKey\"",
+          "value": 1,
+          "labels": {
+            "action": "auth.v1.qrcode.getKey"
+          },
+          "timestamp": 1772257833127
+        },
+        {
+          "key": "\"auth.v1.qrcode.status\"",
+          "value": 1,
+          "labels": {
+            "action": "auth.v1.qrcode.status"
+          },
+          "timestamp": 1772257833127
+        },
+        {
+          "key": "\"auth.v1.qrcode.scan\"",
+          "value": 1,
+          "labels": {
+            "action": "auth.v1.qrcode.scan"
+          },
+          "timestamp": 1772257833127
+        },
+        {
+          "key": "\"auth.v1.qrcode.confirm\"",
+          "value": 1,
+          "labels": {
+            "action": "auth.v1.qrcode.confirm"
+          },
+          "timestamp": 1772257833127
+        },
+        {
+          "key": "\"auth.v1.qrcode.cancel\"",
+          "value": 1,
+          "labels": {
+            "action": "auth.v1.qrcode.cancel"
+          },
+          "timestamp": 1772257833127
+        },
+        {
+          "key": "\"auth.resolveToken\"",
+          "value": 1,
+          "labels": {
+            "action": "auth.resolveToken"
+          },
+          "timestamp": 1772257833127
+        },
+        {
+          "key": "\"file.v1.uploadFile\"",
+          "value": 1,
+          "labels": {
+            "action": "file.v1.uploadFile"
+          },
+          "timestamp": 1772257833126
+        },
+        {
+          "key": "\"file.v1.deleteFile\"",
+          "value": 1,
+          "labels": {
+            "action": "file.v1.deleteFile"
+          },
+          "timestamp": 1772257833126
+        },
+        {
+          "key": "\"file.v1.getFileInfo\"",
+          "value": 1,
+          "labels": {
+            "action": "file.v1.getFileInfo"
+          },
+          "timestamp": 1772257833126
+        },
+        {
+          "key": "\"metrics.v1.ingest.prometheus\"",
+          "value": 1,
+          "labels": {
+            "action": "metrics.v1.ingest.prometheus"
+          },
+          "timestamp": 1772257421048
+        },
+        {
+          "key": "\"metrics.v1.ingest.otlp\"",
+          "value": 1,
+          "labels": {
+            "action": "metrics.v1.ingest.otlp"
+          },
+          "timestamp": 1772257421048
+        },
+        {
+          "key": "\"metrics.v1.ingest\"",
+          "value": 1,
+          "labels": {
+            "action": "metrics.v1.ingest"
+          },
+          "timestamp": 1772257421048
+        },
+        {
+          "key": "\"metrics.v1.batchIngest\"",
+          "value": 1,
+          "labels": {
+            "action": "metrics.v1.batchIngest"
+          },
+          "timestamp": 1772257421048
+        },
+        {
+          "key": "\"metrics.v1.query\"",
+          "value": 1,
+          "labels": {
+            "action": "metrics.v1.query"
+          },
+          "timestamp": 1772257421048
+        },
+        {
+          "key": "\"metrics.listMetrics\"",
+          "value": 1,
+          "labels": {
+            "action": "metrics.listMetrics"
+          },
+          "timestamp": 1772257421048
+        },
+        {
+          "key": "\"metrics.getUserMetricsCount\"",
+          "value": 1,
+          "labels": {
+            "action": "metrics.getUserMetricsCount"
+          },
+          "timestamp": 1772257421048
+        },
+        {
+          "key": "\"metrics.getUserStorageUsage\"",
+          "value": 1,
+          "labels": {
+            "action": "metrics.getUserStorageUsage"
+          },
+          "timestamp": 1772257421048
+        },
+        {
+          "key": "\"metrics.getTagValues\"",
+          "value": 1,
+          "labels": {
+            "action": "metrics.getTagValues"
+          },
+          "timestamp": 1772257421048
+        },
+        {
+          "key": "\"metrics.export\"",
+          "value": 1,
+          "labels": {
+            "action": "metrics.export"
+          },
+          "timestamp": 1772257421048
+        },
+        {
+          "key": "\"metrics.v1.schema.formats\"",
+          "value": 1,
+          "labels": {
+            "action": "metrics.v1.schema.formats"
+          },
+          "timestamp": 1772257421048
+        },
+        {
+          "key": "\"metrics.createCustomSchema\"",
+          "value": 1,
+          "labels": {
+            "action": "metrics.createCustomSchema"
+          },
+          "timestamp": 1772257421048
+        },
+        {
+          "key": "\"metrics.listCustomSchemas\"",
+          "value": 1,
+          "labels": {
+            "action": "metrics.listCustomSchemas"
+          },
+          "timestamp": 1772257421048
+        },
+        {
+          "key": "\"metrics.validate\"",
+          "value": 1,
+          "labels": {
+            "action": "metrics.validate"
+          },
+          "timestamp": 1772257421048
+        },
+        {
+          "key": "\"metrics.transform\"",
+          "value": 1,
+          "labels": {
+            "action": "metrics.transform"
+          },
+          "timestamp": 1772257421048
+        },
+        {
+          "key": "\"metrics.v1.appkey.generate\"",
+          "value": 1,
+          "labels": {
+            "action": "metrics.v1.appkey.generate"
+          },
+          "timestamp": 1772257421048
+        },
+        {
+          "key": "\"metrics.v1.appkey.list\"",
+          "value": 1,
+          "labels": {
+            "action": "metrics.v1.appkey.list"
+          },
+          "timestamp": 1772257421048
+        },
+        {
+          "key": "\"metrics.v1.appkey.verify\"",
+          "value": 1,
+          "labels": {
+            "action": "metrics.v1.appkey.verify"
+          },
+          "timestamp": 1772257421048
+        },
+        {
+          "key": "\"metrics.v1.appkey.update\"",
+          "value": 1,
+          "labels": {
+            "action": "metrics.v1.appkey.update"
+          },
+          "timestamp": 1772257421048
+        },
+        {
+          "key": "\"metrics.v1.appkey.delete\"",
+          "value": 1,
+          "labels": {
+            "action": "metrics.v1.appkey.delete"
+          },
+          "timestamp": 1772257421048
+        },
+        {
+          "key": "\"metrics.v1.appkey.stats\"",
+          "value": 1,
+          "labels": {
+            "action": "metrics.v1.appkey.stats"
+          },
+          "timestamp": 1772257421048
+        },
+        {
+          "key": "\"metrics.getUserApiKeysCount\"",
+          "value": 1,
+          "labels": {
+            "action": "metrics.getUserApiKeysCount"
+          },
+          "timestamp": 1772257421048
+        },
+        {
+          "key": "\"metrics.v1.topology\"",
+          "value": 1,
+          "labels": {
+            "action": "metrics.v1.topology"
+          },
+          "timestamp": 1772257421048
+        },
+        {
+          "key": "\"metrics.v1.realtime\"",
+          "value": 1,
+          "labels": {
+            "action": "metrics.v1.realtime"
+          },
+          "timestamp": 1772257421048
+        },
+        {
+          "key": "\"metrics.v1.dashboard\"",
+          "value": 1,
+          "labels": {
+            "action": "metrics.v1.dashboard"
+          },
+          "timestamp": 1772257421048
+        },
+        {
+          "key": "\"metrics.v1.metrics.analysis\"",
+          "value": 1,
+          "labels": {
+            "action": "metrics.v1.metrics.analysis"
+          },
+          "timestamp": 1772257421048
+        },
+        {
+          "key": "\"metrics.v1.gdpr.delete\"",
+          "value": 1,
+          "labels": {
+            "action": "metrics.v1.gdpr.delete"
+          },
+          "timestamp": 1772257421048
+        },
+        {
+          "key": "\"metrics.health\"",
+          "value": 1,
+          "labels": {
+            "action": "metrics.health"
+          },
+          "timestamp": 1772257421048
+        },
+        {
+          "key": "\"metrics.v1.stats\"",
+          "value": 1,
+          "labels": {
+            "action": "metrics.v1.stats"
+          },
+          "timestamp": 1772257421048
+        },
+        {
+          "key": "\"logs.v1.ingest\"",
+          "value": 1,
+          "labels": {
+            "action": "logs.v1.ingest"
+          },
+          "timestamp": 1772257833127
+        },
+        {
+          "key": "\"logs.v1.batch-ingest\"",
+          "value": 1,
+          "labels": {
+            "action": "logs.v1.batch-ingest"
+          },
+          "timestamp": 1772257833127
+        },
+        {
+          "key": "\"logs.v1.search\"",
+          "value": 1,
+          "labels": {
+            "action": "logs.v1.search"
+          },
+          "timestamp": 1772257833127
+        },
+        {
+          "key": "\"logs.v1.stats\"",
+          "value": 1,
+          "labels": {
+            "action": "logs.v1.stats"
+          },
+          "timestamp": 1772257833127
+        },
+        {
+          "key": "\"logs.v1.export\"",
+          "value": 1,
+          "labels": {
+            "action": "logs.v1.export"
+          },
+          "timestamp": 1772257833127
+        },
+        {
+          "key": "\"logs.v1.exception-analysis\"",
+          "value": 1,
+          "labels": {
+            "action": "logs.v1.exception-analysis"
+          },
+          "timestamp": 1772257833127
+        },
+        {
+          "key": "\"logs.v1.stream\"",
+          "value": 1,
+          "labels": {
+            "action": "logs.v1.stream"
+          },
+          "timestamp": 1772257833127
+        },
+        {
+          "key": "\"subscription.v1.plans.list\"",
+          "value": 1,
+          "labels": {
+            "action": "subscription.v1.plans.list"
+          },
+          "timestamp": 1772257840904
+        },
+        {
+          "key": "\"subscription.v1.plans.get\"",
+          "value": 1,
+          "labels": {
+            "action": "subscription.v1.plans.get"
+          },
+          "timestamp": 1772257840904
+        },
+        {
+          "key": "\"subscription.v1.plans.compare\"",
+          "value": 1,
+          "labels": {
+            "action": "subscription.v1.plans.compare"
+          },
+          "timestamp": 1772257840904
+        },
+        {
+          "key": "\"subscription.v1.plans.limits\"",
+          "value": 1,
+          "labels": {
+            "action": "subscription.v1.plans.limits"
+          },
+          "timestamp": 1772257840904
+        },
+        {
+          "key": "\"subscription.v1.plans.upgradePath\"",
+          "value": 1,
+          "labels": {
+            "action": "subscription.v1.plans.upgradePath"
+          },
+          "timestamp": 1772257840904
+        },
+        {
+          "key": "\"subscription.v1.plans.recommend\"",
+          "value": 1,
+          "labels": {
+            "action": "subscription.v1.plans.recommend"
+          },
+          "timestamp": 1772257840904
+        },
+        {
+          "key": "\"subscription.v1.plans.pricing\"",
+          "value": 1,
+          "labels": {
+            "action": "subscription.v1.plans.pricing"
+          },
+          "timestamp": 1772257840904
+        },
+        {
+          "key": "\"subscription.v1.subscription.current\"",
+          "value": 1,
+          "labels": {
+            "action": "subscription.v1.subscription.current"
+          },
+          "timestamp": 1772257840904
+        },
+        {
+          "key": "\"subscription.getUserSubscription\"",
+          "value": 1,
+          "labels": {
+            "action": "subscription.getUserSubscription"
+          },
+          "timestamp": 1772257840904
+        },
+        {
+          "key": "\"subscription.v1.subscription.create\"",
+          "value": 1,
+          "labels": {
+            "action": "subscription.v1.subscription.create"
+          },
+          "timestamp": 1772257840904
+        },
+        {
+          "key": "\"subscription.v1.subscription.upgrade\"",
+          "value": 1,
+          "labels": {
+            "action": "subscription.v1.subscription.upgrade"
+          },
+          "timestamp": 1772257840904
+        },
+        {
+          "key": "\"subscription.v1.subscription.cancel\"",
+          "value": 1,
+          "labels": {
+            "action": "subscription.v1.subscription.cancel"
+          },
+          "timestamp": 1772257840904
+        },
+        {
+          "key": "\"subscription.v1.subscription.resume\"",
+          "value": 1,
+          "labels": {
+            "action": "subscription.v1.subscription.resume"
+          },
+          "timestamp": 1772257840904
+        },
+        {
+          "key": "\"subscription.v1.subscription.history\"",
+          "value": 1,
+          "labels": {
+            "action": "subscription.v1.subscription.history"
+          },
+          "timestamp": 1772257840904
+        },
+        {
+          "key": "\"subscription.v1.quota.check\"",
+          "value": 1,
+          "labels": {
+            "action": "subscription.v1.quota.check"
+          },
+          "timestamp": 1772257840904
+        },
+        {
+          "key": "\"subscription.v1.quota.status\"",
+          "value": 1,
+          "labels": {
+            "action": "subscription.v1.quota.status"
+          },
+          "timestamp": 1772257840905
+        },
+        {
+          "key": "\"subscription.v1.quota.consume\"",
+          "value": 1,
+          "labels": {
+            "action": "subscription.v1.quota.consume"
+          },
+          "timestamp": 1772257840905
+        },
+        {
+          "key": "\"subscription.v1.quota.history\"",
+          "value": 1,
+          "labels": {
+            "action": "subscription.v1.quota.history"
+          },
+          "timestamp": 1772257840905
+        },
+        {
+          "key": "\"subscription.v1.quota.reset\"",
+          "value": 1,
+          "labels": {
+            "action": "subscription.v1.quota.reset"
+          },
+          "timestamp": 1772257840905
+        },
+        {
+          "key": "\"subscription.v1.quota.forecast\"",
+          "value": 1,
+          "labels": {
+            "action": "subscription.v1.quota.forecast"
+          },
+          "timestamp": 1772257840905
+        },
+        {
+          "key": "\"subscription.v1.payment.createOrder\"",
+          "value": 1,
+          "labels": {
+            "action": "subscription.v1.payment.createOrder"
+          },
+          "timestamp": 1772257840905
+        },
+        {
+          "key": "\"subscription.v1.payment.queryOrder\"",
+          "value": 1,
+          "labels": {
+            "action": "subscription.v1.payment.queryOrder"
+          },
+          "timestamp": 1772257840905
+        },
+        {
+          "key": "\"subscription.v1.payment.cancelOrder\"",
+          "value": 1,
+          "labels": {
+            "action": "subscription.v1.payment.cancelOrder"
+          },
+          "timestamp": 1772257840905
+        },
+        {
+          "key": "\"subscription.v1.payment.notify\"",
+          "value": 1,
+          "labels": {
+            "action": "subscription.v1.payment.notify"
+          },
+          "timestamp": 1772257840905
+        },
+        {
+          "key": "\"subscription.v1.payment.refund\"",
+          "value": 1,
+          "labels": {
+            "action": "subscription.v1.payment.refund"
+          },
+          "timestamp": 1772257840905
+        },
+        {
+          "key": "\"subscription.v1.payment.methods\"",
+          "value": 1,
+          "labels": {
+            "action": "subscription.v1.payment.methods"
+          },
+          "timestamp": 1772257840905
+        },
+        {
+          "key": "\"subscription.v1.payment.history\"",
+          "value": 1,
+          "labels": {
+            "action": "subscription.v1.payment.history"
+          },
+          "timestamp": 1772257840905
+        }
+      ]
+    },
+    {
+      "type": "gauge",
+      "name": "universe.registry.events.total",
+      "description": "注册的事件总数量",
+      "labelNames": [],
+      "unit": "",
+      "values": [
+        {
+          "key": "",
+          "value": 1,
+          "labels": {},
+          "timestamp": 1772071330882
+        }
+      ]
+    },
+    {
+      "type": "gauge",
+      "name": "universe.registry.event.endpoints.total",
+      "description": "注册的事件节点总数量",
+      "labelNames": ["event"],
+      "unit": "",
+      "values": [
+        {
+          "key": "\"$services.changed\"",
+          "value": 1,
+          "labels": {
+            "event": "$services.changed"
+          },
+          "timestamp": 1772071330882
+        }
+      ]
+    },
+    {
+      "type": "counter",
+      "name": "universe.cacher.get.total",
+      "description": "",
+      "labelNames": [],
+      "unit": "",
+      "values": []
+    },
+    {
+      "type": "histogram",
+      "name": "universe.cacher.get.time",
+      "description": "",
+      "labelNames": [],
+      "unit": "millisecond",
+      "values": []
+    },
+    {
+      "type": "counter",
+      "name": "universe.cacher.found.total",
+      "description": "",
+      "labelNames": [],
+      "unit": "",
+      "values": []
+    },
+    {
+      "type": "counter",
+      "name": "universe.cacher.set.total",
+      "description": "",
+      "labelNames": [],
+      "unit": "",
+      "values": []
+    },
+    {
+      "type": "histogram",
+      "name": "universe.cacher.set.time",
+      "description": "",
+      "labelNames": [],
+      "unit": "millisecond",
+      "values": []
+    },
+    {
+      "type": "counter",
+      "name": "universe.cacher.del.total",
+      "description": "",
+      "labelNames": [],
+      "unit": "",
+      "values": []
+    },
+    {
+      "type": "histogram",
+      "name": "universe.cacher.del.time",
+      "description": "",
+      "labelNames": [],
+      "unit": "millisecond",
+      "values": []
+    },
+    {
+      "type": "counter",
+      "name": "universe.cacher.clean.total",
+      "description": "",
+      "labelNames": [],
+      "unit": "",
+      "values": []
+    },
+    {
+      "type": "histogram",
+      "name": "universe.cacher.clean.time",
+      "description": "",
+      "labelNames": [],
+      "unit": "millisecond",
+      "values": []
+    },
+    {
+      "type": "counter",
+      "name": "universe.cacher.expired.total",
+      "description": "",
+      "labelNames": [],
+      "unit": "",
+      "values": []
+    },
+    {
+      "type": "gauge",
+      "name": "universe.transit.ready",
+      "description": "通信模块已准备",
+      "labelNames": [],
+      "unit": "",
+      "values": [
+        {
+          "key": "",
+          "value": 1,
+          "labels": {},
+          "timestamp": 1772071330885
+        }
+      ]
+    },
+    {
+      "type": "gauge",
+      "name": "universe.transit.connected",
+      "description": "通信模块已连接",
+      "labelNames": [],
+      "unit": "",
+      "values": [
+        {
+          "key": "",
+          "value": 1,
+          "labels": {},
+          "timestamp": 1772071330869
+        }
+      ]
+    },
+    {
+      "type": "gauge",
+      "name": "universe.transit.pong.time",
+      "description": "ping操作时间",
+      "labelNames": ["targetNodeID"],
+      "unit": "",
+      "values": []
+    },
+    {
+      "type": "gauge",
+      "name": "universe.transit.pong.systime_diff",
+      "description": "不同节点间的系统时间",
+      "labelNames": ["targetNodeID"],
+      "unit": "",
+      "values": []
+    },
+    {
+      "type": "counter",
+      "name": "universe.transit.orphan.response.total",
+      "description": "响应回复次数",
+      "labelNames": [],
+      "unit": "",
+      "values": []
+    },
+    {
+      "type": "gauge",
+      "name": "universe.request.bulkhead.inflight",
+      "description": "",
+      "labelNames": ["action", "service"],
+      "unit": "",
+      "values": []
+    },
+    {
+      "type": "gauge",
+      "name": "universe.request.bulkhead.queue.size",
+      "description": "",
+      "labelNames": ["action", "service"],
+      "unit": "",
+      "values": []
+    },
+    {
+      "type": "gauge",
+      "name": "universe.event.bulkhead.inflight",
+      "description": "",
+      "labelNames": ["action", "service"],
+      "unit": "",
+      "values": []
+    },
+    {
+      "type": "gauge",
+      "name": "universe.event.bulkhead.queue.size",
+      "description": "",
+      "labelNames": ["action", "service"],
+      "unit": "",
+      "values": []
+    },
+    {
+      "type": "counter",
+      "name": "universe.request.timeout.total",
+      "description": "超时请求的数量",
+      "labelNames": ["service", "action"],
+      "unit": "",
+      "values": []
+    },
+    {
+      "type": "counter",
+      "name": "universe.request.retry.attempts.total",
+      "description": "重试次数",
+      "labelNames": ["service", "action"],
+      "unit": "",
+      "values": []
+    },
+    {
+      "type": "counter",
+      "name": "universe.request.fallback.total",
+      "description": "执行回退操作的请求数量",
+      "labelNames": ["service", "action"],
+      "unit": "",
+      "values": []
+    },
+    {
+      "type": "counter",
+      "name": "universe.request.total",
+      "description": "微服务请求总数量",
+      "labelNames": ["service", "action", "type", "caller"],
+      "unit": "request",
+      "values": [
+        {
+          "key": "\"gateway\"|\"gateway.websocket.trigger\"|\"local\"|",
+          "value": 8152,
+          "labels": {
+            "service": "gateway",
+            "action": "gateway.websocket.trigger",
+            "type": "local",
+            "caller": null
+          },
+          "timestamp": 1772260801614,
+          "rate": 3.9999522547399047
+        },
+        {
+          "key": "\"gateway\"|\"gateway.rest\"|\"local\"|",
+          "value": 1325,
+          "labels": {
+            "service": "gateway",
+            "action": "gateway.rest",
+            "type": "local",
+            "caller": null
+          },
+          "timestamp": 1772260802939,
+          "rate": 12.189681902131907
+        },
+        {
+          "key": "\"gateway\"|\"gateway.dispatch\"|\"local\"|",
+          "value": 730,
+          "labels": {
+            "service": "gateway",
+            "action": "gateway.dispatch",
+            "type": "local",
+            "caller": null
+          },
+          "timestamp": 1772260799686,
+          "rate": 12.189681902131907
+        },
+        {
+          "key": "\"auth\"|\"auth.v1.verifyCode\"|\"remote\"|",
+          "value": 8,
+          "labels": {
+            "service": "auth",
+            "action": "auth.v1.verifyCode",
+            "type": "remote",
+            "caller": null
+          },
+          "timestamp": 1772258547476,
+          "rate": 0
+        },
+        {
+          "key": "\"auth\"|\"auth.v1.login\"|\"remote\"|",
+          "value": 5,
+          "labels": {
+            "service": "auth",
+            "action": "auth.v1.login",
+            "type": "remote",
+            "caller": null
+          },
+          "timestamp": 1772258654864,
+          "rate": 0
+        },
+        {
+          "key": "\"auth\"|\"auth.resolveToken\"|\"remote\"|",
+          "value": 1156,
+          "labels": {
+            "service": "auth",
+            "action": "auth.resolveToken",
+            "type": "remote",
+            "caller": null
+          },
+          "timestamp": 1772260799485,
+          "rate": 6.095308142725266
+        },
+        {
+          "key": "\"metrics\"|\"metrics.v1.appkey.list\"|\"remote\"|",
+          "value": 20,
+          "labels": {
+            "service": "metrics",
+            "action": "metrics.v1.appkey.list",
+            "type": "remote",
+            "caller": null
+          },
+          "timestamp": 1772249883803,
+          "rate": 0
+        },
+        {
+          "key": "\"metrics\"|\"metrics.v1.dashboard\"|\"remote\"|",
+          "value": 545,
+          "labels": {
+            "service": "metrics",
+            "action": "metrics.v1.dashboard",
+            "type": "remote",
+            "caller": null
+          },
+          "timestamp": 1772260799686,
+          "rate": 6.095307831395425
+        },
+        {
+          "key": "\"gateway\"|\"gateway.metrics\"|\"local\"|",
+          "value": 1,
+          "labels": {
+            "service": "gateway",
+            "action": "gateway.metrics",
+            "type": "local",
+            "caller": null
+          },
+          "timestamp": 1772260802942,
+          "rate": 0
+        }
+      ]
+    },
+    {
+      "type": "gauge",
+      "name": "universe.request.active",
+      "description": "微服务正在活跃状态的请求数量",
+      "labelNames": ["service", "action", "type", "caller"],
+      "unit": "request",
+      "values": [
+        {
+          "key": "\"gateway\"|\"gateway.websocket.trigger\"|\"local\"|",
+          "value": 0,
+          "labels": {
+            "service": "gateway",
+            "action": "gateway.websocket.trigger",
+            "type": "local",
+            "caller": null
+          },
+          "timestamp": 1772260801614
+        },
+        {
+          "key": "\"gateway\"|\"gateway.rest\"|\"local\"|",
+          "value": 1,
+          "labels": {
+            "service": "gateway",
+            "action": "gateway.rest",
+            "type": "local",
+            "caller": null
+          },
+          "timestamp": 1772260802939
+        },
+        {
+          "key": "\"gateway\"|\"gateway.dispatch\"|\"local\"|",
+          "value": 0,
+          "labels": {
+            "service": "gateway",
+            "action": "gateway.dispatch",
+            "type": "local",
+            "caller": null
+          },
+          "timestamp": 1772260799858
+        },
+        {
+          "key": "\"auth\"|\"auth.v1.verifyCode\"|\"remote\"|",
+          "value": 0,
+          "labels": {
+            "service": "auth",
+            "action": "auth.v1.verifyCode",
+            "type": "remote",
+            "caller": null
+          },
+          "timestamp": 1772258548662
+        },
+        {
+          "key": "\"auth\"|\"auth.v1.login\"|\"remote\"|",
+          "value": 0,
+          "labels": {
+            "service": "auth",
+            "action": "auth.v1.login",
+            "type": "remote",
+            "caller": null
+          },
+          "timestamp": 1772258655112
+        },
+        {
+          "key": "\"auth\"|\"auth.resolveToken\"|\"remote\"|",
+          "value": 0,
+          "labels": {
+            "service": "auth",
+            "action": "auth.resolveToken",
+            "type": "remote",
+            "caller": null
+          },
+          "timestamp": 1772260799641
+        },
+        {
+          "key": "\"metrics\"|\"metrics.v1.appkey.list\"|\"remote\"|",
+          "value": 0,
+          "labels": {
+            "service": "metrics",
+            "action": "metrics.v1.appkey.list",
+            "type": "remote",
+            "caller": null
+          },
+          "timestamp": 1772249883900
+        },
+        {
+          "key": "\"metrics\"|\"metrics.v1.dashboard\"|\"remote\"|",
+          "value": 0,
+          "labels": {
+            "service": "metrics",
+            "action": "metrics.v1.dashboard",
+            "type": "remote",
+            "caller": null
+          },
+          "timestamp": 1772260799858
+        },
+        {
+          "key": "\"gateway\"|\"gateway.metrics\"|\"local\"|",
+          "value": 1,
+          "labels": {
+            "service": "gateway",
+            "action": "gateway.metrics",
+            "type": "local",
+            "caller": null
+          },
+          "timestamp": 1772260802942
+        }
+      ]
+    },
+    {
+      "type": "counter",
+      "name": "universe.request.error.total",
+      "description": "返回错误的请求总数量",
+      "labelNames": ["srvice", "action", "type", "caller", "errorName", "errorCode", "errorType"],
+      "unit": "request",
+      "values": [
+        {
+          "key": "|\"gateway.dispatch\"|\"local\"||\"Ee\"|404|\"SERVICE_NOT_FOUND\"",
+          "value": 152,
+          "labels": {
+            "action": "gateway.dispatch",
+            "type": "local",
+            "caller": null,
+            "errorName": "Ee",
+            "errorCode": 404,
+            "errorType": "SERVICE_NOT_FOUND"
+          },
+          "timestamp": 1772260799482,
+          "rate": 6.096773279502623
+        },
+        {
+          "key": "|\"gateway.rest\"|\"local\"||\"Ee\"|404|\"SERVICE_NOT_FOUND\"",
+          "value": 152,
+          "labels": {
+            "action": "gateway.rest",
+            "type": "local",
+            "caller": null,
+            "errorName": "Ee",
+            "errorCode": 404,
+            "errorType": "SERVICE_NOT_FOUND"
+          },
+          "timestamp": 1772260799483,
+          "rate": 6.096773279502623
+        },
+        {
+          "key": "|\"gateway.rest\"|\"local\"||\"UnAuthorizedError\"|401|\"BAD_GETWAY\"",
+          "value": 3,
+          "labels": {
+            "action": "gateway.rest",
+            "type": "local",
+            "caller": null,
+            "errorName": "UnAuthorizedError",
+            "errorCode": 401,
+            "errorType": "BAD_GETWAY"
+          },
+          "timestamp": 1772094399368,
+          "rate": 0
+        },
+        {
+          "key": "|\"gateway.rest\"|\"local\"||\"TokenExpiredError\"|401|\"BAD_GETWAY\"",
+          "value": 591,
+          "labels": {
+            "action": "gateway.rest",
+            "type": "local",
+            "caller": null,
+            "errorName": "TokenExpiredError",
+            "errorCode": 401,
+            "errorType": "BAD_GETWAY"
+          },
+          "timestamp": 1772257428920,
+          "rate": 0
+        }
+      ]
+    },
+    {
+      "type": "histogram",
+      "name": "universe.request.time",
+      "description": "请求耗时（毫秒）",
+      "labelNames": ["service", "action", "type", "caller"],
+      "unit": "millisecond",
+      "values": [
+        {
+          "key": "\"gateway\"|\"gateway.websocket.trigger\"|\"local\"|",
+          "labels": {
+            "service": "gateway",
+            "action": "gateway.websocket.trigger",
+            "type": "local",
+            "caller": null
+          },
+          "count": 8152,
+          "sum": 1393.820335000002,
+          "lastValue": 0.178125,
+          "timestamp": 1772260801614,
+          "buckets": {
+            "1": 7956,
+            "5": 8141,
+            "10": 8149,
+            "25": 8151,
+            "50": 8152,
+            "100": 8152,
+            "250": 8152,
+            "500": 8152,
+            "1000": 8152,
+            "2500": 8152,
+            "5000": 8152,
+            "10000": 8152
+          },
+          "min": 0.033292,
+          "mean": 0.22140283333333333,
+          "variance": 0.06137930815936667,
+          "stdDev": 0.2477484776126115,
+          "max": 0.709917,
+          "quantiles": {
+            "0.5": 0.123583,
+            "0.9": 0.709917,
+            "0.95": 0.709917,
+            "0.99": 0.709917,
+            "0.999": 0.709917
+          },
+          "rate": 3.9999522547399047
+        },
+        {
+          "key": "\"auth\"|\"auth.v1.verifyCode\"|\"remote\"|",
+          "labels": {
+            "service": "auth",
+            "action": "auth.v1.verifyCode",
+            "type": "remote",
+            "caller": null
+          },
+          "count": 8,
+          "sum": 8176.37925,
+          "lastValue": 1186.183959,
+          "timestamp": 1772258548662,
+          "buckets": {
+            "1": 0,
+            "5": 0,
+            "10": 0,
+            "25": 0,
+            "50": 0,
+            "100": 2,
+            "250": 3,
+            "500": 3,
+            "1000": 5,
+            "2500": 7,
+            "5000": 8,
+            "10000": 8
+          },
+          "min": null,
+          "mean": null,
+          "variance": null,
+          "stdDev": null,
+          "max": null,
+          "quantiles": {},
+          "rate": 0
+        },
+        {
+          "key": "\"gateway\"|\"gateway.dispatch\"|\"local\"|",
+          "labels": {
+            "service": "gateway",
+            "action": "gateway.dispatch",
+            "type": "local",
+            "caller": null
+          },
+          "count": 730,
+          "sum": 63190.001142999965,
+          "lastValue": 172.12991599999998,
+          "timestamp": 1772260799858,
+          "buckets": {
+            "1": 41,
+            "5": 143,
+            "10": 147,
+            "25": 150,
+            "50": 201,
+            "100": 542,
+            "250": 712,
+            "500": 722,
+            "1000": 727,
+            "2500": 729,
+            "5000": 730,
+            "10000": 730
+          },
+          "min": 4.0585830000000005,
+          "mean": 80.28387475,
+          "variance": 7487.176407358239,
+          "stdDev": 86.52847165735818,
+          "max": 172.12991599999998,
+          "quantiles": {
+            "0.5": 8.859292,
+            "0.9": 172.12991599999998,
+            "0.95": 172.12991599999998,
+            "0.99": 172.12991599999998,
+            "0.999": 172.12991599999998
+          },
+          "rate": 12.192081422227888
+        },
+        {
+          "key": "\"gateway\"|\"gateway.rest\"|\"local\"|",
+          "labels": {
+            "service": "gateway",
+            "action": "gateway.rest",
+            "type": "local",
+            "caller": null
+          },
+          "count": 1324,
+          "sum": 214094.18904200022,
+          "lastValue": 374.62174999999996,
+          "timestamp": 1772260799858,
+          "buckets": {
+            "1": 0,
+            "5": 90,
+            "10": 141,
+            "25": 151,
+            "50": 173,
+            "100": 512,
+            "250": 1128,
+            "500": 1289,
+            "1000": 1319,
+            "2500": 1323,
+            "5000": 1324,
+            "10000": 1324
+          },
+          "min": 8.041292,
+          "mean": 213.78432275,
+          "variance": 53708.065919068344,
+          "stdDev": 231.7500073766306,
+          "max": 450.616541,
+          "quantiles": {
+            "0.5": 21.857708,
+            "0.9": 450.616541,
+            "0.95": 450.616541,
+            "0.99": 450.616541,
+            "0.999": 450.616541
+          },
+          "rate": 12.192081422227888
+        },
+        {
+          "key": "\"auth\"|\"auth.v1.login\"|\"remote\"|",
+          "labels": {
+            "service": "auth",
+            "action": "auth.v1.login",
+            "type": "remote",
+            "caller": null
+          },
+          "count": 5,
+          "sum": 1648.11729,
+          "lastValue": 248.453416,
+          "timestamp": 1772258655112,
+          "buckets": {
+            "1": 0,
+            "5": 0,
+            "10": 0,
+            "25": 0,
+            "50": 0,
+            "100": 0,
+            "250": 2,
+            "500": 4,
+            "1000": 5,
+            "2500": 5,
+            "5000": 5,
+            "10000": 5
+          },
+          "min": null,
+          "mean": null,
+          "variance": null,
+          "stdDev": null,
+          "max": null,
+          "quantiles": {},
+          "rate": 0
+        },
+        {
+          "key": "\"auth\"|\"auth.resolveToken\"|\"remote\"|",
+          "labels": {
+            "service": "auth",
+            "action": "auth.resolveToken",
+            "type": "remote",
+            "caller": null
+          },
+          "count": 1156,
+          "sum": 121661.12665200006,
+          "lastValue": 156.05875,
+          "timestamp": 1772260799641,
+          "buckets": {
+            "1": 0,
+            "5": 0,
+            "10": 0,
+            "25": 0,
+            "50": 36,
+            "100": 747,
+            "250": 1110,
+            "500": 1153,
+            "1000": 1154,
+            "2500": 1156,
+            "5000": 1156,
+            "10000": 1156
+          },
+          "min": 156.05875,
+          "mean": 157.085979,
+          "variance": 2.110398836882023,
+          "stdDev": 1.4527211834629599,
+          "max": 158.11320800000001,
+          "quantiles": {
+            "0.5": 156.05875,
+            "0.9": 158.11320800000001,
+            "0.95": 158.11320800000001,
+            "0.99": 158.11320800000001,
+            "0.999": 158.11320800000001
+          },
+          "rate": 6.095308142725266
+        },
+        {
+          "key": "\"metrics\"|\"metrics.v1.appkey.list\"|\"remote\"|",
+          "labels": {
+            "service": "metrics",
+            "action": "metrics.v1.appkey.list",
+            "type": "remote",
+            "caller": null
+          },
+          "count": 20,
+          "sum": 2635.65042,
+          "lastValue": 97.17525,
+          "timestamp": 1772249883900,
+          "buckets": {
+            "1": 0,
+            "5": 0,
+            "10": 0,
+            "25": 0,
+            "50": 0,
+            "100": 8,
+            "250": 19,
+            "500": 20,
+            "1000": 20,
+            "2500": 20,
+            "5000": 20,
+            "10000": 20
+          },
+          "min": null,
+          "mean": null,
+          "variance": null,
+          "stdDev": null,
+          "max": null,
+          "quantiles": {},
+          "rate": 0
+        },
+        {
+          "key": "\"metrics\"|\"metrics.v1.dashboard\"|\"remote\"|",
+          "labels": {
+            "service": "metrics",
+            "action": "metrics.v1.dashboard",
+            "type": "remote",
+            "caller": null
+          },
+          "count": 545,
+          "sum": 50177.50408199999,
+          "lastValue": 171.92670800000002,
+          "timestamp": 1772260799858,
+          "buckets": {
+            "1": 0,
+            "5": 0,
+            "10": 0,
+            "25": 0,
+            "50": 50,
+            "100": 385,
+            "250": 536,
+            "500": 543,
+            "1000": 545,
+            "2500": 545,
+            "5000": 545,
+            "10000": 545
+          },
+          "min": 135.913541,
+          "mean": 153.92012450000001,
+          "variance": 648.4740986849448,
+          "stdDev": 25.4651545977036,
+          "max": 171.92670800000002,
+          "quantiles": {
+            "0.5": 135.913541,
+            "0.9": 171.92670800000002,
+            "0.95": 171.92670800000002,
+            "0.99": 171.92670800000002,
+            "0.999": 171.92670800000002
+          },
+          "rate": 6.095307849697841
+        }
+      ]
+    },
+    {
+      "type": "counter",
+      "name": "universe.request.levels",
+      "description": "按上下文级别统计的请求数量",
+      "labelNames": ["level"],
+      "unit": "request",
+      "values": [
+        {
+          "key": "1",
+          "value": 11942,
+          "labels": {
+            "level": 1
+          },
+          "timestamp": 1772260802942
+        }
+      ]
+    },
+    {
+      "type": "counter",
+      "name": "universe.event.emit.total",
+      "description": "触发的事件数量",
+      "labelNames": ["event", "groups"],
+      "unit": "event",
+      "values": [
+        {
+          "key": "\"$metrics.snapshot\"|",
+          "value": 16613,
+          "labels": {
+            "event": "$metrics.snapshot"
+          },
+          "timestamp": 1772260801327,
+          "rate": 11.999727110457206
+        }
+      ]
+    },
+    {
+      "type": "counter",
+      "name": "universe.event.broadcast.total",
+      "description": "广播事件的数量",
+      "labelNames": ["event", "groups"],
+      "unit": "event",
+      "values": [
+        {
+          "key": "\"$api.aliases.regenerated\"|",
+          "value": 280,
+          "labels": {
+            "event": "$api.aliases.regenerated"
+          },
+          "timestamp": 1772257841403,
+          "rate": 0
+        }
+      ]
+    },
+    {
+      "type": "counter",
+      "name": "universe.event.broadcast_local.total",
+      "description": "本地广播事件的数量",
+      "labelNames": ["event", "groups"],
+      "unit": "event",
+      "values": [
+        {
+          "key": "\"$transporter.connected\"|",
+          "value": 1,
+          "labels": {
+            "event": "$transporter.connected"
+          },
+          "timestamp": 1772071330870,
+          "rate": 0
+        },
+        {
+          "key": "\"$services.changed\"|",
+          "value": 740,
+          "labels": {
+            "event": "$services.changed"
+          },
+          "timestamp": 1772257840899,
+          "rate": 0
+        },
+        {
+          "key": "\"$star.started\"|",
+          "value": 1,
+          "labels": {
+            "event": "$star.started"
+          },
+          "timestamp": 1772071330885,
+          "rate": 0
+        },
+        {
+          "key": "\"$api.aliases.regenerated\"|",
+          "value": 280,
+          "labels": {
+            "event": "$api.aliases.regenerated"
+          },
+          "timestamp": 1772257841404,
+          "rate": 0
+        },
+        {
+          "key": "\"$node.connected\"|",
+          "value": 738,
+          "labels": {
+            "event": "$node.connected"
+          },
+          "timestamp": 1772257840905,
+          "rate": 0
+        },
+        {
+          "key": "\"$node.disconnected\"|",
+          "value": 732,
+          "labels": {
+            "event": "$node.disconnected"
+          },
+          "timestamp": 1772257699940,
+          "rate": 0
+        },
+        {
+          "key": "\"$node.updated\"|",
+          "value": 2826,
+          "labels": {
+            "event": "$node.updated"
+          },
+          "timestamp": 1772257844087,
+          "rate": 0
+        }
+      ]
+    },
+    {
+      "type": "counter",
+      "name": "universe.event.received.total",
+      "description": "接收到的事件数量",
+      "labelNames": ["service", "group", "event", "caller"],
+      "unit": "event",
+      "values": [
+        {
+          "key": "\"gateway\"|\"gateway\"|\"$services.changed\"|",
+          "value": 739,
+          "labels": {
+            "service": "gateway",
+            "group": "gateway",
+            "event": "$services.changed",
+            "caller": null
+          },
+          "timestamp": 1772257840902,
+          "rate": 0
+        }
+      ]
+    },
+    {
+      "type": "gauge",
+      "name": "universe.event.received.active",
+      "description": "活跃事件执行的数量",
+      "labelNames": ["service", "group", "event", "caller"],
+      "unit": "request",
+      "values": [
+        {
+          "key": "\"gateway\"|\"gateway\"|\"$services.changed\"|",
+          "value": 0,
+          "labels": {
+            "service": "gateway",
+            "group": "gateway",
+            "event": "$services.changed",
+            "caller": null
+          },
+          "timestamp": 1772257840905
+        }
+      ]
+    },
+    {
+      "type": "counter",
+      "name": "universe.event.received.error.total",
+      "description": "事件执行错误的数量",
+      "labelNames": ["service", "group", "event", "caller", "errorName", "errorCode", "errorType"],
+      "unit": "request",
+      "values": []
+    },
+    {
+      "type": "histogram",
+      "name": "universe.event.received.time",
+      "description": "事件执行时间（毫秒）",
+      "labelNames": ["services", "group", "event", "caller"],
+      "unit": "millisecond",
+      "values": [
+        {
+          "key": "|\"gateway\"|\"$services.changed\"|",
+          "labels": {
+            "group": "gateway",
+            "event": "$services.changed",
+            "caller": null
+          },
+          "count": 739,
+          "sum": 981048.9252439997,
+          "lastValue": 3.19125,
+          "timestamp": 1772257840905,
+          "buckets": {
+            "1": 618,
+            "5": 729,
+            "10": 736,
+            "25": 738,
+            "50": 738,
+            "100": 738,
+            "250": 738,
+            "500": 738,
+            "1000": 738,
+            "2500": 738,
+            "5000": 738,
+            "10000": 738
+          },
+          "min": null,
+          "mean": null,
+          "variance": null,
+          "stdDev": null,
+          "max": null,
+          "quantiles": {},
+          "rate": 0
+        }
+      ]
+    },
+    {
+      "type": "counter",
+      "name": "universe.transit.publish.total",
+      "description": "已发布数据包的数量",
+      "labelNames": ["type"],
+      "unit": "packet",
+      "values": [
+        {
+          "key": "\"DISCOVER\"",
+          "value": 1004,
+          "labels": {
+            "type": "DISCOVER"
+          },
+          "timestamp": 1772257833091,
+          "rate": 0
+        },
+        {
+          "key": "\"INFO\"",
+          "value": 800,
+          "labels": {
+            "type": "INFO"
+          },
+          "timestamp": 1772257833097,
+          "rate": 0
+        },
+        {
+          "key": "\"HEARTBEAT\"",
+          "value": 8560,
+          "labels": {
+            "type": "HEARTBEAT"
+          },
+          "timestamp": 1772260794427,
+          "rate": 4.000234914026899
+        },
+        {
+          "key": "\"RES\"",
+          "value": 8152,
+          "labels": {
+            "type": "RES"
+          },
+          "timestamp": 1772260801614,
+          "rate": 3.9999522547399047
+        },
+        {
+          "key": "\"REQ\"",
+          "value": 1734,
+          "labels": {
+            "type": "REQ"
+          },
+          "timestamp": 1772260799686,
+          "rate": 12.188216765354552
+        }
+      ]
+    },
+    {
+      "type": "counter",
+      "name": "universe.transit.receive.total",
+      "description": "接收到的数据包数量",
+      "labelNames": ["type"],
+      "unit": "packet",
+      "values": [
+        {
+          "key": "\"INFO\"",
+          "value": 3565,
+          "labels": {
+            "type": "INFO"
+          },
+          "timestamp": 1772257844087,
+          "rate": 0
+        },
+        {
+          "key": "\"DISCOVER\"",
+          "value": 799,
+          "labels": {
+            "type": "DISCOVER"
+          },
+          "timestamp": 1772257833097,
+          "rate": 0
+        },
+        {
+          "key": "\"HEARTBEAT\"",
+          "value": 58221,
+          "labels": {
+            "type": "HEARTBEAT"
+          },
+          "timestamp": 1772260802225,
+          "rate": 38.99442432210923
+        },
+        {
+          "key": "\"REQ\"",
+          "value": 8152,
+          "labels": {
+            "type": "REQ"
+          },
+          "timestamp": 1772260801611,
+          "rate": 3.9999522547399047
+        },
+        {
+          "key": "\"RES\"",
+          "value": 1734,
+          "labels": {
+            "type": "RES"
+          },
+          "timestamp": 1772260799857,
+          "rate": 12.190616285450533
+        }
+      ]
+    },
+    {
+      "type": "gauge",
+      "name": "universe.transit.requests.active",
+      "description": "活动请求的数量",
+      "labelNames": [],
+      "unit": "request",
+      "values": [
+        {
+          "key": "",
+          "value": 20258,
+          "labels": {},
+          "timestamp": 1772260801614
+        }
+      ]
+    },
+    {
+      "type": "gauge",
+      "name": "universe.transit.streams.send.active",
+      "description": "活动发送流的数量",
+      "labelNames": [],
+      "unit": "request",
+      "values": [
+        {
+          "key": "",
+          "value": 20250,
+          "labels": {},
+          "timestamp": 1772260801614
+        }
+      ]
+    },
+    {
+      "type": "counter",
+      "name": "universe.transporter.packets.sent.total",
+      "description": "已发送数据包的数量",
+      "labelNames": [],
+      "unit": "packet",
+      "values": []
+    },
+    {
+      "type": "counter",
+      "name": "universe.transporter.packets.sent.bytes",
+      "description": "发送的字节数",
+      "labelNames": [],
+      "unit": "byte",
+      "values": []
+    },
+    {
+      "type": "counter",
+      "name": "universe.transporter.packets.received.total",
+      "description": "接收数据包的数量",
+      "labelNames": [],
+      "unit": "packet",
+      "values": []
+    },
+    {
+      "type": "counter",
+      "name": "universe.transporter.packets.received.bytes",
+      "description": "接收字节的数量",
+      "labelNames": [],
+      "unit": "byte",
+      "values": []
+    }
+  ]
+}

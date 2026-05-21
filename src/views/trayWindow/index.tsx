@@ -1,5 +1,6 @@
 import { defineComponent, onMounted } from 'vue'
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
+import './index.scss'
 
 export default defineComponent({
   name: 'TrayWindow',
@@ -11,10 +12,10 @@ export default defineComponent({
     })
 
     return () => (
-      <div class="tray-window flex flex-col items-center justify-center h-full bg-white text-xs border border-gray-200 rounded shadow-lg overflow-hidden select-none">
-        <div class="p-2 hover:bg-gray-100 cursor-pointer w-full text-center transition-colors">打开主界面</div>
-        <div class="h-[1px] bg-gray-100 w-full"></div>
-        <div class="p-2 hover:bg-gray-100 cursor-pointer w-full text-center transition-colors text-red-500">退出</div>
+      <div class="tray-window">
+        <div class="tray-window__item">打开主界面</div>
+        <div class="tray-window__divider"></div>
+        <div class="tray-window__item tray-window__item--danger">退出</div>
       </div>
     )
   }

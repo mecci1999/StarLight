@@ -1,0 +1,74 @@
+.billing-plans-tab {
+  padding: 16px;
+
+  &__hint-card,
+  &__plan-card {
+    height: 100%;
+    border-top-width: 4px;
+    border-top-style: solid;
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+  }
+
+  &__hint-card {
+    margin-bottom: 16px;
+  }
+
+  &__hint {
+    color: var(--color-text-3);
+    font-size: 14px;
+  }
+
+  &__empty {
+    padding: 24px 0;
+  }
+
+  &__plan-header {
+    margin-bottom: 24px;
+    text-align: center;
+  }
+
+  &__plan-title {
+    color: var(--color-text-1);
+    font-size: 18px;
+    font-weight: var(--font-weight-bold);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+
+  &__price-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: center;
+    margin-top: 16px;
+  }
+
+  &__price {
+    color: var(--color-text-1);
+    font-size: 30px;
+    font-weight: var(--font-weight-bold);
+  }
+
+  &__period {
+    margin-left: 4px;
+    color: var(--color-text-3);
+  }
+
+  &__feature-row {
+    display: flex;
+    align-items: center;
+  }
+
+  &__feature-text {
+    margin-left: 12px;
+    color: var(--color-text-2);
+  }
+
+  &__actions {
+    margin-top: 32px;
+  }
+
+  &__cancel {
+    margin-top: 12px;
+  }
+}

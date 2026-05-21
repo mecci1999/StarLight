@@ -27,4 +27,6 @@ export type UserInfoType = {
   timezone?: string
   /** 语言 */
   locale?: string
+  /** 是否已完成接入向导 */
+  isOnboardingCompleted?: boolean
 }

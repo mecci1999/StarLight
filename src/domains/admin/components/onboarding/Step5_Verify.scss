@@ -1,0 +1,40 @@
+.step5-verify {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+
+  &__footer,
+  &__waiting-actions,
+  &__timeout-actions {
+    display: flex;
+    gap: 12px;
+  }
+
+  &__footer {
+    align-items: center;
+  }
+
+  &__waiting {
+    text-align: center;
+  }
+
+  &__waiting-text {
+    margin-top: 20px;
+    color: var(--color-text-2);
+    cursor: default;
+    user-select: none;
+  }
+
+  &__waiting-note {
+    margin-top: 8px;
+    color: var(--color-text-3);
+    font-size: 12px;
+  }
+
+  &__waiting-actions,
+  &__timeout-actions {
+    justify-content: center;
+    margin-top: 20px;
+  }
+}

@@ -19,9 +19,9 @@ export default defineComponent({
     })
 
     return () => (
-      <main class={'login-window bg-[--color-bg-1] size-full rounded-8px select-none'} data-tauri-drag-region>
+      <main class="login-window" data-tauri-drag-region>
         {/* 窗口顶部操作栏 */}
-        <WindowActionBar maxW={false} shrink={false} />
+        <WindowActionBar maxW={false} shrink={false} plain />
         {/*  登录窗口主体 */}
         <section class={'login-window__container'}>
           {/* 登录组件 */}

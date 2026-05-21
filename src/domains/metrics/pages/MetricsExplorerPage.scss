@@ -1,0 +1,39 @@
+.metrics-explorer-page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: auto;
+  padding: 24px;
+  background: color-mix(in srgb, var(--color-bg-1) 92%, white 8%);
+
+  &__toolbar,
+  &__saved-views {
+    margin-bottom: 16px;
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+  }
+
+  &__saved-note {
+    margin-bottom: 12px;
+    color: var(--color-text-3);
+    font-size: 14px;
+  }
+
+  &__saved-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  &__content {
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+  }
+
+  &__loading,
+  &__empty-state {
+    display: flex;
+    justify-content: center;
+    padding: 40px 0;
+  }
+}

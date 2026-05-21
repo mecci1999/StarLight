@@ -1,10 +1,12 @@
 import NaiveProvider from '@/components/common/NaiveProvider'
 import { RouterView, useRouter } from 'vue-router'
-import { WebviewWindow } from '@tauri-apps/api/webviewWindow'
+import { emit, listen } from '@tauri-apps/api/event'
 import { type } from '@tauri-apps/plugin-os'
 import { useSettingStore } from '@/store/setting'
 import { StoresEnum, ThemeEnum } from '@/types/enums'
-import { removeCookie } from '@/utils/cookie'
+import { clearStoredAuthSession, persistAuthTokens } from '@/services/authSession'
+
+import { useTauriListener } from '@/hooks/useTauriListener'
 
 export default defineComponent({
   name: 'App',
@@ -13,6 +15,7 @@ export default defineComponent({
     const settingStore = useSettingStore()
     const router = useRouter()
     const { themes, page } = storeToRefs(settingStore)
+    const tauriListener = useTauriListener()
 
     // 是否桌面端
     const isDesktop = computed(() => {
@@ -76,8 +79,7 @@ export default defineComponent({
 
     /** 重新登录处理 */
     const handleReLogin = () => {
-      removeCookie('ACCESS_TOKEN')
-      removeCookie('REFRESH_TOKEN')
+      clearStoredAuthSession()
       router.push('/login')
     }
 
@@ -91,6 +93,16 @@ export default defineComponent({
       document.documentElement.dataset.theme = themes.value.content
       window.addEventListener('dragstart', preventDrag)
       window.addEventListener('needReLogin', handleReLogin)
+      tauriListener.addListener(
+        listen('auth-token', (event) => {
+          if (typeof localStorage === 'undefined') return
+          const payload = event.payload as { accessToken?: string; refreshToken?: string }
+          if (payload?.accessToken || payload?.refreshToken) {
+            persistAuthTokens(payload)
+          }
+        })
+      )
+      emit('auth-token-request')
       /** 开发环境不禁止 */
       if (process.env.NODE_ENV !== 'development') {
         /** 禁用浏览器默认的快捷键 */

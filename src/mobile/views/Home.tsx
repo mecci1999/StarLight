@@ -1,60 +1,103 @@
 import { defineComponent, ref, onMounted } from 'vue'
-import { NCard, NStatistic, NGrid, NGridItem, NIcon, NList, NListItem, NThing, NTag, NSpace } from 'naive-ui'
+import { NCard, NStatistic, NGrid, NGridItem, NIcon, NList, NListItem, NThing, NTag, NSpace, NButton } from 'naive-ui'
 import { PulseOutline, TimeOutline, ServerOutline, WarningOutline } from '@vicons/ionicons5'
-import { getServiceStats } from '@/api'
+import { fetchAlerts, fetchOverviewSummary, type MetricsDatasetScope } from '@/api'
+import { getPreferredMetricsDatasetScope } from '@/services/authSession'
 
 export default defineComponent({
   name: 'MobileHome',
   setup() {
-    const stats = ref<any>({})
+    const datasetScope = ref<MetricsDatasetScope>(getPreferredMetricsDatasetScope())
+    const stats = ref<any>({
+      totalRequests: null,
+      p95Latency: null,
+      activeInstances: null,
+      alerts: []
+    })
     const loading = ref(true)
+    const loadError = ref(false)
 
     const loadData = async () => {
       try {
         loading.value = true
-        // Mock data for mobile view or fetch real data
-        const res = await getServiceStats().catch(() => ({}) as any)
-
-        // Simulated data for mobile visualization
+        const [overviewRes, alertsRes] = await Promise.all([
+          fetchOverviewSummary({ scope: datasetScope.value }),
+          fetchAlerts({ status: 'active', scope: datasetScope.value })
+        ])
+        const totals = overviewRes?.totals || {}
         stats.value = {
-          qps: 1250,
-          avgRt: 45,
-          activeInstances: res?.activeApps || 8,
-          alerts: [
-            { id: 1, service: 'order-service', level: 'warning', message: 'High CPU Usage' },
-            { id: 2, service: 'payment-service', level: 'critical', message: 'Connection Timeout' }
-          ]
+          totalRequests: totals.totalRequests ?? null,
+          p95Latency: totals.p95Latency ?? null,
+          activeInstances: null,
+          alerts: Array.isArray(alertsRes) ? alertsRes.slice(0, 5) : []
         }
+        loadError.value = false
+      } catch (error) {
+        console.error('Failed to load mobile home data:', error)
+        stats.value = {
+          totalRequests: null,
+          p95Latency: null,
+          activeInstances: null,
+          alerts: []
+        }
+        loadError.value = true
       } finally {
         loading.value = false
       }
     }
+
+    const displayMetric = (value: number | null | undefined, suffix = '') =>
+      typeof value === 'number' ? `${value}${suffix}` : '未知'
 
     onMounted(() => {
       loadData()
     })
 
     return () => (
-      <div style={{ padding: '16px', backgroundColor: '#f5f7fa', minHeight: '100vh' }}>
-        <h2 style={{ margin: '0 0 16px 0', fontSize: '20px', color: '#333' }}>StarLight Mobile</h2>
+      <div style={{ padding: '16px', backgroundColor: 'var(--color-bg-1)', minHeight: '100vh' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+          <h2 style={{ margin: '0', fontSize: '20px', color: 'var(--color-text-1)' }}>StarLight Mobile</h2>
+          <NSpace>
+            <NTag type="info" size="small" bordered={false}>
+              实时视图
+            </NTag>
+          </NSpace>
+        </div>
+
+        <div style={{ marginBottom: '16px' }}>
+          <NSpace>
+            <NButton type="primary" secondary onClick={() => window.location.assign('/mobile/overview-v2')}>
+              新版概览
+            </NButton>
+            <NButton secondary onClick={() => window.location.assign('/mobile/services-v2')}>
+              新版服务
+            </NButton>
+          </NSpace>
+        </div>
+
+        {loadError.value ? (
+          <NCard size="small" style={{ marginBottom: '16px' }}>
+            <div style={{ color: 'var(--color-text-3)' }}>移动端数据暂时不可用，请稍后重试。</div>
+          </NCard>
+        ) : null}
 
         <NGrid cols={2} xGap={12} yGap={12}>
           <NGridItem>
             <NCard size="small">
-              <NStatistic label="Total QPS">
+              <NStatistic label="请求总量">
                 {{
                   prefix: () => <NIcon component={PulseOutline} color="#165dff" />,
-                  default: () => stats.value.qps || '-'
+                  default: () => displayMetric(stats.value.totalRequests)
                 }}
               </NStatistic>
             </NCard>
           </NGridItem>
           <NGridItem>
             <NCard size="small">
-              <NStatistic label="Avg RT (ms)">
+              <NStatistic label="P95 延迟 (ms)">
                 {{
                   prefix: () => <NIcon component={TimeOutline} color="#ff7d00" />,
-                  default: () => stats.value.avgRt || '-'
+                  default: () => displayMetric(stats.value.p95Latency, 'ms')
                 }}
               </NStatistic>
             </NCard>
@@ -64,7 +107,7 @@ export default defineComponent({
               <NStatistic label="Active Instances">
                 {{
                   prefix: () => <NIcon component={ServerOutline} color="#00b42a" />,
-                  default: () => stats.value.activeInstances || '-'
+                  default: () => displayMetric(stats.value.activeInstances)
                 }}
               </NStatistic>
             </NCard>

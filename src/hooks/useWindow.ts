@@ -31,8 +31,8 @@ export const useWindow = () => {
     height: number,
     wantCloseWindow?: string,
     resizable = false,
-    minW = 310,
-    minH = 495
+    minW = 960,
+    minH = 640
   ) => {
     const checkLabel = computed(() => {
       /** 如果是打开独立窗口就截取label中的固定label名称 */
@@ -70,6 +70,10 @@ export const useWindow = () => {
     await webview.once('tauri://error', async () => {
       // TODO 这里利用错误处理的方式来查询是否是已经创建了窗口,如果一开始就使用WebviewWindow.getByLabel来查询在刷新的时候就会出现问题
       await checkWinExist(label)
+      if (wantCloseWindow) {
+        const win = await WebviewWindow.getByLabel(wantCloseWindow)
+        win?.close()
+      }
     })
 
     return webview

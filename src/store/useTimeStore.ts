@@ -11,12 +11,12 @@ export const useTimeStore = defineStore('time', () => {
   const isLive = ref(true) // Live tailing mode
 
   const timeOptions = [
-    { label: 'Past 15 Minutes', value: '15m' },
-    { label: 'Past 1 Hour', value: '1h' },
-    { label: 'Past 4 Hours', value: '4h' },
-    { label: 'Past 1 Day', value: '1d' },
-    { label: 'Past 2 Days', value: '2d' },
-    { label: 'Past 7 Days', value: '7d' }
+    { label: '最近 15 分钟', value: '15m' },
+    { label: '最近 1 小时', value: '1h' },
+    { label: '最近 4 小时', value: '4h' },
+    { label: '最近 1 天', value: '1d' },
+    { label: '最近 2 天', value: '2d' },
+    { label: '最近 7 天', value: '7d' }
   ]
 
   const setTimeRange = (range: TimeRangeKey) => {

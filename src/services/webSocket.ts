@@ -9,7 +9,8 @@ import { ConnectionState, WorkerMsgEnum, WsReqMsgContentType, WsResponseMessageT
 import { emit, listen } from '@tauri-apps/api/event'
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow'
 import { getEnhancedFingerprint } from './fingerprint'
-import { getCookie } from '@/utils/cookie'
+import { getCookie } from '@/utils/Cookie'
+import { clearStoredAuthSession } from '@/services/authSession'
 
 // 创建webSocket Worker
 const worker: Worker = new Worker(new URL('../workers/webSocket.worker.ts', import.meta.url), { type: 'module' })
@@ -74,7 +75,7 @@ class WS {
     const token = getCookie('ACCESS_TOKEN')
     // 如果token 是 null, 而且 localStorage 的用户信息有值，需要清空用户信息
     if (token === null && localStorage.getItem('user')) {
-      localStorage.removeItem('user')
+      clearStoredAuthSession()
     }
     const clientId = await getEnhancedFingerprint()
     // 初始化 ws
@@ -177,7 +178,16 @@ class WS {
   onMessage = async (value: string) => {
     try {
       const params: { type: WsResponseMessageType; data: unknown } = JSON.parse(value)
+      useMitt.emit('wsRawMessage', params)
       switch (params.type) {
+        case WsResponseMessageType.TOPOLOGY_SNAPSHOT: {
+          useMitt.emit(WsResponseMessageType.TOPOLOGY_SNAPSHOT, params.data)
+          break
+        }
+        case WsResponseMessageType.TOPOLOGY_DELTA: {
+          useMitt.emit(WsResponseMessageType.TOPOLOGY_DELTA, params.data)
+          break
+        }
         // // 获取登录二维码
         // case WsResponseMessageType.LOGIN_QR_CODE: {
         //   console.log('获取二维码')

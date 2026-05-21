@@ -6,6 +6,7 @@ import { NButton, NFlex, NInput } from 'naive-ui'
 import * as api from '@/api'
 import { encryptPassword } from '@/utils/Crypto'
 import { throttle } from 'lodash-es'
+import './forget.scss'
 
 export default defineComponent({
   name: 'LoginWindowContentForget',
@@ -128,15 +129,14 @@ export default defineComponent({
         // 加密密码
         const hash = encryptPassword(state.info.password, secretKey)
 
-        // 调用重置密码API（这里假设有resetPassword接口）
+        // 调用真实重置密码 API
         const resetData = {
           email: state.info.email,
           hash: hash,
           code: state.validCode
         }
 
-        // const response = await api.resetPassword(resetData)
-        console.log('重置密码请求数据:', resetData)
+        await api.forgetPassword(resetData)
 
         // 重置成功后的处理
         window.$message.success('密码重置成功，跳转到登录页面')
@@ -209,10 +209,10 @@ export default defineComponent({
     })
 
     return () => (
-      <NFlex class="ma text-center h-full" size={0} vertical={true}>
+      <NFlex class="login-forget" size={0} vertical={true}>
         {/* 邮箱账号 */}
         <NInput
-          class={'email-input mb-22px'}
+          class="email-input"
           size={'large'}
           maxlength={32}
           minlength={6}
@@ -240,14 +240,14 @@ export default defineComponent({
         />
         {/* 邮箱无效错误提示 */}
         {state.emailValid ? (
-          <div class="text-12px text-left absolute top-46px">
-            <span class="color-[--color-error-6]">请输入正确的邮箱地址</span>
+          <div class="login-forget__error login-forget__error--email">
+            <span>请输入正确的邮箱地址</span>
           </div>
         ) : null}
 
         {/* 新密码 */}
         <NInput
-          class={'password-input mb-22px'}
+          class="password-input password-input--spaced"
           size={'large'}
           maxlength={32}
           minlength={6}
@@ -292,14 +292,14 @@ export default defineComponent({
         />
         {/* 密码错误提示 */}
         {state.passwordValid ? (
-          <div class="text-12px text-left absolute top-92px">
-            <span class="color-[--color-error-6]">{state.passwordErrorMsg}</span>
+          <div class="login-forget__error login-forget__error--password">
+            <span>{state.passwordErrorMsg}</span>
           </div>
         ) : null}
 
         {/* 确认密码 */}
         <NInput
-          class={'password-input mb-22px'}
+          class="password-input password-input--spaced"
           size={'large'}
           maxlength={32}
           minlength={6}
@@ -315,14 +315,14 @@ export default defineComponent({
         />
         {/* 确认密码错误提示 */}
         {state.confirmPasswordValid ? (
-          <div class="text-12px text-left absolute top-138px">
-            <span class="color-[--color-error-6]">{state.confirmPasswordErrorMsg}</span>
+          <div class="login-forget__error login-forget__error--confirm">
+            <span>{state.confirmPasswordErrorMsg}</span>
           </div>
         ) : null}
 
         {/* 验证码 */}
         <NInput
-          class={'password-input mb-12px'}
+          class="password-input password-input--compact"
           size={'large'}
           maxlength={6}
           value={state.validCode}
@@ -336,10 +336,7 @@ export default defineComponent({
           {{
             suffix: () => (
               <div onClick={handleValidCode}>
-                <span
-                  class={`text-14px ${
-                    state.countdown > 0 ? 'color-[--color-text-3]' : 'color-[--color-primary-6] cursor-pointer'
-                  }`}>
+                <span class={['login-forget__code-action', state.countdown > 0 ? 'is-waiting' : 'is-ready']}>
                   {validCodeText.value}
                 </span>
               </div>
@@ -348,14 +345,14 @@ export default defineComponent({
         </NInput>
         {/* 验证码错误提示 */}
         {state.validCodeValid ? (
-          <div class="text-12px text-left absolute top-184px">
-            <span class="color-[--color-error-6]">{state.validCodeErrorMsg}</span>
+          <div class="login-forget__error login-forget__error--code">
+            <span>{state.validCodeErrorMsg}</span>
           </div>
         ) : null}
 
         {/* 重置密码按钮 */}
         <NButton
-          class={'reset-btn w-full h-40px mt-8px mb-24px'}
+          class="reset-btn login-forget__submit"
           type={'primary'}
           disabled={state.resetDisabled}
           loading={state.loading}

@@ -1,0 +1,24 @@
+.panel-canvas {
+  &__title {
+    margin-bottom: 12px;
+    color: var(--color-text-2);
+    font-size: 14px;
+    font-weight: var(--font-weight-medium);
+  }
+
+  &__loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 0;
+  }
+
+  &__empty-card {
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+  }
+
+  &__empty {
+    padding: 16px 0;
+  }
+}

@@ -1,0 +1,356 @@
+- generic:
+  - generic [ref=e8]:
+    - generic [ref=e12]:
+      - generic [ref=e16]:
+        - img [ref=e18]:
+          - img [ref=e19]
+        - generic [ref=e22]:
+          - textbox "搜索服务、日志或链路（示例：service:web env:prod）..." [ref=e23]
+          - generic:
+            - generic: 搜索服务、日志或链路（示例：service:web env:prod）...
+      - generic [ref=e24]:
+        - generic [ref=e26]:
+          - button [ref=e27] [cursor=pointer]:
+            - img [ref=e29]:
+              - img [ref=e30]
+          - superscript [ref=e33]
+        - generic [ref=e35] [cursor=pointer]:
+          - generic [ref=e37]: S
+          - generic [ref=e38]:
+            - generic [ref=e39]: StarLight User
+            - generic [ref=e40]: 管理员
+          - img [ref=e41]:
+            - img [ref=e42]
+    - generic [ref=e44]:
+      - generic [ref=e45]:
+        - generic [ref=e47]:
+          - generic [ref=e48] [cursor=pointer]:
+            - img [ref=e49]:
+              - img [ref=e50]
+            - generic [ref=e55]: 面板
+          - generic [ref=e56] [cursor=pointer]:
+            - img [ref=e57]:
+              - img [ref=e58]
+            - generic [ref=e64]: 服务拓扑图
+          - generic [ref=e65] [cursor=pointer]:
+            - img [ref=e66]:
+              - img [ref=e67]
+            - generic [ref=e71]: 服务目录
+          - generic [ref=e72] [cursor=pointer]:
+            - img [ref=e73]:
+              - img [ref=e74]
+            - generic [ref=e77]: 实例监控
+          - generic [ref=e78] [cursor=pointer]:
+            - img [ref=e79]:
+              - img [ref=e80]
+            - generic [ref=e85]: 实时监控
+          - generic [ref=e86] [cursor=pointer]:
+            - img [ref=e87]:
+              - img [ref=e88]
+            - generic [ref=e93]: 指标分析
+          - generic [ref=e94] [cursor=pointer]:
+            - img [ref=e95]:
+              - img [ref=e96]
+            - generic [ref=e102]: 链路追踪
+          - generic [ref=e103] [cursor=pointer]:
+            - img [ref=e104]:
+              - img [ref=e105]
+            - generic [ref=e108]: 日志中心
+          - generic [ref=e109] [cursor=pointer]:
+            - img [ref=e110]:
+              - img [ref=e111]
+            - generic [ref=e114]: 异常分析
+          - generic [ref=e115] [cursor=pointer]:
+            - img [ref=e116]:
+              - img [ref=e117]
+            - generic [ref=e120]: 告警列表
+          - generic [ref=e121] [cursor=pointer]:
+            - img [ref=e122]:
+              - img [ref=e123]
+            - generic [ref=e125]: 告警规则
+          - generic [ref=e126] [cursor=pointer]:
+            - img [ref=e127]:
+              - img [ref=e128]
+            - generic [ref=e132]: 计费
+          - generic [ref=e133] [cursor=pointer]:
+            - img [ref=e134]:
+              - img [ref=e135]
+            - generic [ref=e137]: 接入管理
+        - generic [ref=e138]:
+          - generic [ref=e139] [cursor=pointer]:
+            - img [ref=e140]:
+              - img [ref=e141]
+            - generic [ref=e142]: 自定义排序
+          - generic [ref=e143] [cursor=pointer]:
+            - img [ref=e144]:
+              - img [ref=e145]
+            - generic [ref=e147]: 收起
+      - main [ref=e149]:
+        - generic [ref=e150]:
+          - generic [ref=e151]:
+            - generic [ref=e152]:
+              - heading "面板" [level=1] [ref=e153]
+              - generic [ref=e154]: 集中查看 Darwin 系统运行状态、关键事件和排查入口。
+            - button "刷新" [ref=e155] [cursor=pointer]:
+              - generic [ref=e156]: 刷新
+          - generic [ref=e158]:
+            - text: 时间范围
+            - generic [ref=e161] [cursor=pointer]:
+              - generic "最近 1 小时" [ref=e162]:
+                - generic [ref=e163]: 最近 1 小时
+              - img "loading" [ref=e164]:
+                - img [ref=e169]
+            - text: 实时模式
+            - switch [checked] [ref=e171]
+            - text: 自动刷新
+            - generic [ref=e176] [cursor=pointer]:
+              - generic "关闭" [ref=e177]:
+                - generic [ref=e178]: 关闭
+              - img "loading" [ref=e179]:
+                - img [ref=e184]
+            - button "刷新时间" [ref=e186] [cursor=pointer]:
+              - generic [ref=e187]: 刷新时间
+            - generic [ref=e188]: 自动刷新已关闭，可继续使用手动刷新。
+          - generic [ref=e190]:
+            - generic [ref=e193]:
+              - textbox "搜索服务名称，筛选当前可添加和可查询的服务范围" [ref=e194]
+              - generic:
+                - generic: 搜索服务名称，筛选当前可添加和可查询的服务范围
+            - button "搜索" [ref=e195] [cursor=pointer]:
+              - generic [ref=e196]: 搜索
+          - generic [ref=e198]:
+            - generic [ref=e199]:
+              - generic [ref=e200]:
+                - generic [ref=e201]: 我的面板
+                - generic [ref=e203]: Metrics
+              - generic [ref=e204]: 从空白面板开始，按需新增指标卡片。
+            - generic [ref=e206]:
+              - button "保存默认视角" [ref=e207] [cursor=pointer]:
+                - generic [ref=e208]: 保存默认视角
+              - button "编辑面板" [ref=e209] [cursor=pointer]:
+                - generic [ref=e210]: 编辑面板
+          - generic [ref=e238]:
+            - img [ref=e241]
+            - generic [ref=e244]: 当前面板还是空的，请新增第一张指标卡片。
+            - button "添加第一张卡片" [ref=e246] [cursor=pointer]:
+              - generic [ref=e247]: 添加第一张卡片
+  - generic [ref=e1]:
+    - generic "Toggle devtools panel" [ref=e2] [cursor=pointer]:
+      - img [ref=e3]
+    - generic "Toggle Component Inspector" [ref=e223] [cursor=pointer]:
+      - img [ref=e224]
+  - dialog [ref=e249]:
+    - heading "添加卡片" [level=1] [ref=e250]
+    - button "close" [active] [ref=e251] [cursor=pointer]:
+      - img [ref=e253]
+    - generic [ref=e258]:
+      - generic [ref=e259]:
+        - generic [ref=e260]:
+          - generic [ref=e262]:
+            - generic [ref=e263]: 基础信息
+            - generic [ref=e264]: 保留当前卡片来源类型，同时补齐名称、卡片描述与说明。
+          - generic [ref=e265]:
+            - generic [ref=e266]:
+              - generic [ref=e267]: 组件名称
+              - textbox "组件名称" [ref=e271]:
+                - /placeholder: 请输入组件名称
+                - text: 指标摘要
+            - generic [ref=e272]:
+              - generic [ref=e273]: 组件类型
+              - generic [ref=e276] [cursor=pointer]:
+                - generic "指标摘要 · 显示单个指标的当前值、baseline 与阈值提示。" [ref=e277]:
+                  - generic [ref=e278]: 指标摘要 · 显示单个指标的当前值、baseline 与阈值提示。
+                - img "loading" [ref=e279]:
+                  - img [ref=e284]
+          - generic [ref=e286]:
+            - generic [ref=e287]: 卡片描述
+            - textbox "卡片描述" [ref=e290]:
+              - /placeholder: 用于展示在卡片头部的描述文案
+              - text: 显示单个指标的当前值、baseline 与阈值提示。
+          - generic [ref=e291]:
+            - generic [ref=e292]: 备注
+            - generic [ref=e294]:
+              - textbox "备注 用于补充当前卡片的筛选说明或排查提示" [ref=e295]:
+                - /placeholder: 用于补充当前卡片的筛选说明或排查提示
+              - generic: 用于补充当前卡片的筛选说明或排查提示
+        - generic [ref=e296]:
+          - generic [ref=e298]:
+            - generic [ref=e299]: 时间与数据
+            - generic [ref=e300]: 时间粒度决定可选时间范围，显示指标决定预览内容。
+          - generic [ref=e301]:
+            - generic [ref=e302]:
+              - generic [ref=e303]: 时间粒度
+              - generic [ref=e306] [cursor=pointer]:
+                - generic "小时" [ref=e307]:
+                  - generic [ref=e308]: 小时
+                - img "loading" [ref=e309]:
+                  - img [ref=e314]
+            - generic [ref=e316]:
+              - generic [ref=e317]: 时间范围
+              - generic [ref=e320] [cursor=pointer]:
+                - generic "最近 1 小时" [ref=e321]:
+                  - generic [ref=e322]: 最近 1 小时
+                - img "loading" [ref=e323]:
+                  - img [ref=e328]
+          - generic [ref=e330]:
+            - generic [ref=e331]: 过去时间范围对比
+            - generic [ref=e334] [cursor=pointer]:
+              - generic "环比上期" [ref=e335]:
+                - generic [ref=e336]: 环比上期
+              - img "loading" [ref=e337]:
+                - img [ref=e342]
+          - generic [ref=e344]:
+            - generic [ref=e345]: 显示指标
+            - generic [ref=e348] [cursor=pointer]:
+              - generic "service-count" [ref=e349]:
+                - generic [ref=e350]: service-count
+              - img "loading" [ref=e351]:
+                - img [ref=e356]
+        - generic [ref=e358]:
+          - generic [ref=e360]:
+            - generic [ref=e361]: 专项设置与查询预览
+            - generic [ref=e362]: 补充当前卡片专属配置，并通过查询网关预览或查看高级脚本。
+          - generic [ref=e363]:
+            - generic [ref=e364]:
+              - generic [ref=e365]:
+                - generic [ref=e366]:
+                  - generic [ref=e367]: 当前卡片可用指标
+                  - generic [ref=e368]: 这些是当前卡片类型已经支持、可直接查询预览并保存到面板的真实指标。
+                - generic [ref=e370]: 可直接使用
+              - generic [ref=e374]:
+                - textbox "搜索当前卡片可用指标" [ref=e375]
+                - generic:
+                  - generic: 搜索当前卡片可用指标
+              - generic [ref=e376]:
+                - generic [ref=e377]:
+                  - generic [ref=e378]:
+                    - generic [ref=e379]: 请求总量
+                    - generic [ref=e380]: 展示当前范围内的请求总量，适合快速查看整体吞吐。
+                    - generic [ref=e381]:
+                      - generic [ref=e383]: metric-summary
+                      - generic [ref=e385]: request
+                      - generic [ref=e387]: 推荐 number
+                      - generic [ref=e389]: 查询指标 请求总量
+                  - button "应用" [ref=e390] [cursor=pointer]:
+                    - generic [ref=e391]: 应用
+                - generic [ref=e392]:
+                  - generic [ref=e393]:
+                    - generic [ref=e394]: 全局错误率
+                    - generic [ref=e395]: 展示当前范围内的整体错误率，适合快速定位异常。
+                    - generic [ref=e396]:
+                      - generic [ref=e398]: metric-summary
+                      - generic [ref=e400]: "%"
+                      - generic [ref=e402]: 推荐 number
+                      - generic [ref=e404]: 查询指标 全局错误率
+                  - button "应用" [ref=e405] [cursor=pointer]:
+                    - generic [ref=e406]: 应用
+                - generic [ref=e407]:
+                  - generic [ref=e408]:
+                    - generic [ref=e409]: P95 延迟
+                    - generic [ref=e410]: 展示当前范围内的 P95 延迟，适合观察性能风险。
+                    - generic [ref=e411]:
+                      - generic [ref=e413]: metric-summary
+                      - generic [ref=e415]: ms
+                      - generic [ref=e417]: 推荐 number
+                      - generic [ref=e419]: 查询指标 P95 延迟
+                  - button "应用" [ref=e420] [cursor=pointer]:
+                    - generic [ref=e421]: 应用
+            - generic [ref=e422]:
+              - generic [ref=e423]:
+                - generic [ref=e424]:
+                  - generic [ref=e425]:
+                    - generic [ref=e426]: 单卡预览
+                    - generic [ref=e427]: 通过查询网关预览当前卡片配置对应的数据形态。
+                  - button "预览查询" [ref=e428] [cursor=pointer]:
+                    - generic [ref=e429]: 预览查询
+                - generic [ref=e430]:
+                  - img [ref=e433]
+                  - generic [ref=e436]: 当前摘要卡片暂不支持脚本预览
+              - generic [ref=e438]:
+                - generic [ref=e439]:
+                  - generic [ref=e440]: 高级模式
+                  - generic [ref=e441]: 仅管理员可查看编译后的查询脚本与校验结果。
+                - button "展开高级模式" [ref=e442] [cursor=pointer]:
+                  - generic [ref=e443]: 展开高级模式
+        - generic [ref=e444]:
+          - generic [ref=e446]:
+            - generic [ref=e447]: 展示设置
+            - generic [ref=e448]: 数值卡支持 S 尺寸，其他展示类型会自动提升为 M。
+          - generic [ref=e449]:
+            - button "数值 当前 突出当前值与关键对比信息。" [ref=e450] [cursor=pointer]:
+              - generic [ref=e451]:
+                - generic [ref=e452]: 数值
+                - generic [ref=e454]: 当前
+              - generic [ref=e455]: 突出当前值与关键对比信息。
+            - button "柱图 适合展示分段对比与时间切片。" [ref=e456] [cursor=pointer]:
+              - generic [ref=e458]: 柱图
+              - generic [ref=e459]: 适合展示分段对比与时间切片。
+            - button "环图 适合展示当前指标占比。" [ref=e460] [cursor=pointer]:
+              - generic [ref=e462]: 环图
+              - generic [ref=e463]: 适合展示当前指标占比。
+          - generic [ref=e464]:
+            - button "S 紧凑卡片" [ref=e465] [cursor=pointer]:
+              - generic [ref=e467]:
+                - generic [ref=e468]: S
+                - generic [ref=e469]: 紧凑卡片
+            - button "M 标准宽度" [ref=e470] [cursor=pointer]:
+              - generic [ref=e472]:
+                - generic [ref=e473]: M
+                - generic [ref=e474]: 标准宽度
+            - button "L 大尺寸卡片" [ref=e475] [cursor=pointer]:
+              - generic [ref=e477]:
+                - generic [ref=e478]: L
+                - generic [ref=e479]: 大尺寸卡片
+          - generic [ref=e480]:
+            - generic [ref=e481]: 同时显示
+            - group [ref=e482]:
+              - generic [ref=e483]:
+                - generic [ref=e484]:
+                  - checkbox [checked] [ref=e485] [cursor=pointer]:
+                    - img [ref=e489]
+                  - generic [ref=e492]:
+                    - generic [ref=e493]: 合计
+                    - generic [ref=e494]: 显示统计总量
+                - generic [ref=e495]:
+                  - checkbox [ref=e496] [cursor=pointer]:
+                    - img [ref=e500]
+                  - generic [ref=e503]:
+                    - generic [ref=e504]: 均值
+                    - generic [ref=e505]: 显示平均水平
+                - generic [ref=e506]:
+                  - checkbox [checked] [ref=e507] [cursor=pointer]:
+                    - img [ref=e511]
+                  - generic [ref=e514]:
+                    - generic [ref=e515]: 环比上期
+                    - generic [ref=e516]: 显示上一周期对比
+                - generic [ref=e517]:
+                  - checkbox [ref=e518] [cursor=pointer]:
+                    - img [ref=e522]
+                  - generic [ref=e525]:
+                    - generic [ref=e526]: 同比时间范围
+                    - generic [ref=e527]: 显示同类时间窗口对比
+      - generic [ref=e530]:
+        - generic [ref=e531]:
+          - generic [ref=e532]:
+            - generic [ref=e533]: 实时预览
+            - generic [ref=e534]: 预览画布会根据当前尺寸与展示方式自动调整，让卡片形态更接近面板中的真实占位。
+          - generic [ref=e536]: 数值
+        - generic [ref=e537]:
+          - generic [ref=e538]: 指标摘要
+          - generic [ref=e539]: S 卡片
+          - generic [ref=e540]: 1h
+          - generic [ref=e541]: 1 项指标
+        - generic [ref=e544]:
+          - generic [ref=e545]:
+            - generic [ref=e546]:
+              - generic [ref=e547]: 指标摘要
+              - generic [ref=e548]: 显示单个指标的当前值、baseline 与阈值提示。
+            - generic [ref=e550]: S
+          - generic [ref=e552]:
+            - img [ref=e555]
+            - generic [ref=e558]: 指标摘要 当前暂无可显示数据。
+    - generic [ref=e559]:
+      - button "取消" [ref=e560] [cursor=pointer]:
+        - generic [ref=e561]: 取消
+      - button "添加卡片" [ref=e562] [cursor=pointer]:
+        - generic [ref=e563]: 添加卡片

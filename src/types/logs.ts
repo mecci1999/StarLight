@@ -21,11 +21,12 @@ export enum LogSourceEnum {
   AUDIT = 'audit'
 }
 
+export type LogOriginType = 'darwin-app' | 'microservice'
+
 /** 日志导出格式 */
 export enum LogExportFormatEnum {
   JSON = 'json',
-  CSV = 'csv',
-  TXT = 'txt'
+  CSV = 'csv'
 }
 
 /** 日志查询参数 */
@@ -36,6 +37,8 @@ export interface LogSearchParams {
   level?: LogLevelEnum
   /** 关键词搜索 */
   keyword?: string
+  /** 后端全文搜索字段 */
+  query?: string
   /** 开始时间 */
   startTime?: string
   /** 结束时间 */
@@ -44,12 +47,18 @@ export interface LogSearchParams {
   page?: number
   /** 每页数量 */
   pageSize?: number
+  /** 查询数量上限 */
+  limit?: number
   /** 日志来源 */
   source?: LogSourceEnum
+  /** 日志归属来源 */
+  originType?: LogOriginType
   /** 主机名 */
   hostname?: string
   /** 容器ID */
   containerId?: string
+  /** 后端通用过滤条件 */
+  filters?: Record<string, string | number | boolean>
   /** 标签过滤 */
   tags?: Record<string, string>
   /** 排序字段 */
@@ -84,6 +93,18 @@ export interface LogEntry {
   containerId?: string
   /** 日志来源 */
   source: LogSourceEnum
+  /** 日志归属来源 */
+  originType?: LogOriginType
+  /** 日志可见性 */
+  visibility?: 'admin' | 'tenant'
+  /** Darwin 节点 */
+  nodeID?: string
+  /** Darwin 命名空间 */
+  namespace?: string
+  /** Darwin logger 模块 */
+  mod?: string
+  /** Darwin 服务名 */
+  svc?: string
   /** 标签 */
   tags?: Record<string, any>
   /** 堆栈信息 */
@@ -96,29 +117,33 @@ export interface LogEntry {
   fields?: Record<string, any>
 }
 
-/** 日志搜索响应 */
 export interface LogSearchResponse {
-  /** 请求是否成功 */
-  success: boolean
-  /** 响应数据 */
-  data?: {
-    /** 日志列表 */
-    logs: LogEntry[]
-    /** 总数 */
-    total: number
-    /** 当前页 */
-    page: number
-    /** 每页数量 */
-    pageSize: number
-    /** 是否有更多数据 */
-    hasMore: boolean
-  }
+  /** 日志列表 */
+  logs: LogEntry[]
+  /** 总数 */
+  total: number
+  /** 当前页 */
+  page: number
+  /** 每页数量 */
+  pageSize: number
+  /** 是否有更多数据 */
+  hasMore: boolean
 }
 
 /** 日志统计参数 */
 export interface LogStatsParams {
   /** 服务名称 */
   service?: string
+  /** 日志级别 */
+  level?: LogLevelEnum
+  /** 后端全文搜索字段 */
+  query?: string
+  /** 日志来源 */
+  source?: LogSourceEnum
+  /** 主机名 */
+  hostname?: string
+  /** 后端通用过滤条件 */
+  filters?: Record<string, string | number | boolean>
   /** 开始时间 */
   startTime: string
   /** 结束时间 */
@@ -126,32 +151,28 @@ export interface LogStatsParams {
   /** 时间间隔 */
   interval?: string
   /** 分组方式 */
-  groupBy?: string[]
+  groupBy?: string | string[]
+  /** 日志归属来源 */
+  originType?: LogOriginType
 }
 
-/** 日志统计响应 */
 export interface LogStatsResponse {
-  /** 请求是否成功 */
-  success: boolean
-  /** 响应数据 */
-  data?: {
-    /** 总日志数 */
-    totalLogs: number
-    /** 错误日志数 */
-    errorLogs: number
-    /** 警告日志数 */
-    warnLogs: number
-    /** 按级别统计 */
-    levelStats: Record<LogLevelEnum, number>
-    /** 按服务统计 */
-    serviceStats: Record<string, number>
-    /** 时间序列数据 */
-    timeSeries: {
-      timestamp: string
-      count: number
-      level: LogLevelEnum
-    }[]
-  }
+  /** 总日志数 */
+  totalLogs: number
+  /** 错误日志数 */
+  errorLogs: number
+  /** 警告日志数 */
+  warnLogs: number
+  /** 按级别统计 */
+  levelStats: Record<LogLevelEnum, number>
+  /** 按服务统计 */
+  serviceStats: Record<string, number>
+  /** 时间序列数据 */
+  timeSeries: {
+    timestamp: string
+    count: number
+    level: LogLevelEnum
+  }[]
 }
 
 /** 日志导出参数 */
@@ -162,6 +183,17 @@ export interface LogExportParams {
   format: LogExportFormatEnum
   /** 文件名 */
   filename?: string
+}
+
+export interface LogExportResponse {
+  exportData?: string
+  downloadUrl?: string
+  filename?: string
+  meta?: {
+    filename?: string
+    format?: string
+    count?: number
+  }
 }
 
 /** 日志流参数 */
@@ -186,6 +218,8 @@ export interface LogStreamParams {
   bufferSize?: number
   /** 标签过滤 */
   tags?: Record<string, string>
+  /** 日志归属来源 */
+  originType?: LogOriginType
 }
 
 /** 日志流事件 */
@@ -193,7 +227,7 @@ export interface LogStreamEvent {
   /** 事件类型 */
   type: 'log' | 'error' | 'connected' | 'disconnected'
   /** 日志数据 */
-  data?: LogEntry
+  data?: LogEntry | string
   /** 错误信息 */
   error?: string
   /** 连接信息 */

@@ -1,33 +1,27 @@
-import { NInput, NIcon, NBadge, NAvatar, NPopover, NButton, NDivider, NSelect, NPopselect } from 'naive-ui'
-import {
-  SearchOutline,
-  NotificationsOutline,
-  PersonOutline,
-  SettingsOutline,
-  LogOutOutline,
-  ChevronDownOutline,
-  TimeOutline
-} from '@vicons/ionicons5'
-import { defineComponent, ref, h, computed } from 'vue'
+import { NInput, NIcon, NBadge, NAvatar, NPopover, NButton, NDivider, NTag } from 'naive-ui'
+import { SearchOutline, NotificationsOutline, LogOutOutline, ChevronDownOutline } from '@vicons/ionicons5'
+import { defineComponent, ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { useTimeStore } from '@/store/useTimeStore'
+import { logout } from '@/api/auth'
+import { clearStoredAuthSession, getMetricsDatasetScopeLabel, getStoredUserInfo } from '@/services/authSession'
 import './index.scss'
 
 export default defineComponent({
   name: 'ContainerHeader',
   setup() {
     const router = useRouter()
-    const timeStore = useTimeStore()
     const searchValue = ref('')
     const showUserPopover = ref(false)
-
-    // User info
-    const userInfo = {
-      name: 'Admin',
-      email: 'admin@starlight.com',
-      avatar: '',
-      role: 'Administrator'
-    }
+    const userInfo = computed(() => {
+      const stored = getStoredUserInfo() || {}
+      return {
+        name: stored.nickName || stored.email || 'StarLight User',
+        email: stored.email || '未绑定邮箱',
+        avatar: stored.avatar || '',
+        role: stored.isAdmin ? '管理员' : '普通用户',
+        scopeLabel: getMetricsDatasetScopeLabel(stored)
+      }
+    })
 
     const unreadCount = ref(3)
 
@@ -37,56 +31,52 @@ export default defineComponent({
       }
     }
 
-    const goToSettings = () => {
-      router.push('/home/system-settings')
+    const handleLogout = async () => {
+      try {
+        await logout()
+      } catch (error) {
+        console.error('Logout request failed:', error)
+      }
+      clearStoredAuthSession()
       showUserPopover.value = false
-    }
-
-    const handleLogout = () => {
-      console.log('Logout')
-      showUserPopover.value = false
+      await router.replace('/login')
     }
 
     const renderUserPopover = () => {
       return (
-        <div class="user-popover p-4 w-64">
-          <div class="flex items-center gap-3 mb-4">
-            <NAvatar size={48} round class="bg-[--color-primary-6] text-white">
-              {userInfo.name.charAt(0)}
+        <div class="user-popover">
+          <div class="user-info">
+            <NAvatar size={48} round class="user-avatar-large">
+              {userInfo.value.name.charAt(0)}
             </NAvatar>
-            <div>
-              <div class="font-bold text-[--color-text-1]">{userInfo.name}</div>
-              <div class="text-xs text-[--color-text-3]">{userInfo.email}</div>
+            <div class="user-details">
+              <div class="user-name">{userInfo.value.name}</div>
+              <div class="user-email">{userInfo.value.email}</div>
+              <div class="user-tags-row">
+                <span class="user-role">{userInfo.value.role}</span>
+                <NTag size="small" bordered={false} type="info">
+                  {userInfo.value.scopeLabel}
+                </NTag>
+              </div>
             </div>
           </div>
-          <NDivider class="my-2" />
-          <div class="flex flex-col gap-1">
-            <NButton text class="justify-start w-full py-2 hover:text-[--color-primary-6]" onClick={goToSettings}>
-              <template>
-                {{
-                  icon: () => (
-                    <NIcon>
-                      <SettingsOutline />
-                    </NIcon>
-                  )
-                }}
-              </template>
-              Settings
-            </NButton>
-            <NButton
-              text
-              class="justify-start w-full py-2 text-[--color-danger-6] hover:text-[--color-danger-7]"
-              onClick={handleLogout}>
-              <template>
-                {{
-                  icon: () => (
-                    <NIcon>
-                      <LogOutOutline />
-                    </NIcon>
-                  )
-                }}
-              </template>
-              Logout
+          <NDivider class="popover-divider" />
+          <div class="user-meta-row">
+            <span class="meta-label">当前视角</span>
+            <NTag size="small" bordered={false} type="info">
+              {userInfo.value.scopeLabel}
+            </NTag>
+          </div>
+          <div class="user-actions">
+            <NButton text class="action-btn logout-btn" onClick={handleLogout}>
+              {{
+                icon: () => (
+                  <NIcon class="action-icon">
+                    <LogOutOutline />
+                  </NIcon>
+                ),
+                default: () => '退出登录'
+              }}
             </NButton>
           </div>
         </div>
@@ -94,18 +84,18 @@ export default defineComponent({
     }
 
     return () => (
-      <div class="container-header h-14 bg-[--color-bg-2] border-b border-[--color-border-2] flex items-center px-4 justify-between shadow-sm z-10 relative">
-        {/* Left: Global Search */}
-        <div class="flex-1 max-w-2xl flex items-center gap-4">
-          <div class="relative w-full max-w-md group">
+      <div class="container-header" data-tauri-drag-region>
+        <div class="header-side header-side-left" data-tauri-drag-region></div>
+
+        <div class="search-section no-drag">
+          <div class="search-input">
             <NInput
               v-model:value={searchValue.value}
-              placeholder="Search services, logs, or traces (e.g. service:web env:prod)..."
-              class="bg-[--color-fill-2] border-none rounded hover:bg-[--color-fill-3] transition-colors"
+              placeholder="搜索服务、日志或链路（示例：service:web env:prod）..."
               onKeyup={(e: KeyboardEvent) => e.key === 'Enter' && handleSearch()}>
               {{
                 prefix: () => (
-                  <NIcon size={18} class="text-[--color-text-3] group-hover:text-[--color-primary-6] transition-colors">
+                  <NIcon size={18} class="search-icon">
                     <SearchOutline />
                   </NIcon>
                 )
@@ -114,64 +104,44 @@ export default defineComponent({
           </div>
         </div>
 
-        {/* Right: Time Picker & User Actions */}
-        <div class="flex items-center gap-4">
-          {/* Global Time Picker */}
-          <div class="w-48">
-            <NPopselect
-              v-model:value={timeStore.timeRange}
-              options={timeStore.timeOptions}
-              trigger="click"
-              onUpdateValue={(val) => timeStore.setTimeRange(val as any)}>
-              <NButton class="w-full justify-between px-3" dashed>
-                <div class="flex items-center gap-2">
-                  <NIcon class="text-[--color-primary-6]">
-                    <TimeOutline />
-                  </NIcon>
-                  <span class="text-xs font-medium">
-                    {timeStore.timeOptions.find((o) => o.value === timeStore.timeRange)?.label}
-                  </span>
-                </div>
-                <NIcon size={12}>
-                  <ChevronDownOutline />
+        <div class="actions-section no-drag">
+          <div class="notification-wrapper">
+            <NBadge value={unreadCount.value} max={99} dot>
+              <NButton text class="action-button">
+                <NIcon size={18}>
+                  <NotificationsOutline />
                 </NIcon>
               </NButton>
-            </NPopselect>
+            </NBadge>
           </div>
 
-          <div class="h-6 w-px bg-[--color-border-2] mx-1"></div>
-
-          {/* Notifications */}
-          <NBadge value={unreadCount.value} max={99} dot processing>
-            <NButton text class="text-[--color-text-2] hover:text-[--color-primary-6] transition-colors">
-              <NIcon size={20}>
-                <NotificationsOutline />
-              </NIcon>
-            </NButton>
-          </NBadge>
-
-          {/* User Profile */}
-          <NPopover
-            trigger="click"
-            placement="bottom-end"
-            show={showUserPopover.value}
-            onUpdateShow={(v) => (showUserPopover.value = v)}
-            raw
-            displayDirective="show">
-            {{
-              trigger: () => (
-                <div class="flex items-center gap-2 cursor-pointer hover:bg-[--color-fill-2] py-1 px-2 rounded transition-colors">
-                  <NAvatar size={28} round class="bg-[--color-primary-6] text-white text-xs font-bold">
-                    {userInfo.name.charAt(0)}
-                  </NAvatar>
-                  <NIcon size={12} class="text-[--color-text-3]">
-                    <ChevronDownOutline />
-                  </NIcon>
-                </div>
-              ),
-              default: renderUserPopover
-            }}
-          </NPopover>
+          <div class="user-wrapper">
+            <NPopover
+              trigger="click"
+              placement="bottom-end"
+              show={showUserPopover.value}
+              onUpdateShow={(v) => (showUserPopover.value = v)}
+              displayDirective="show"
+              z-index={1000}>
+              {{
+                trigger: () => (
+                  <div class="user-trigger">
+                    <NAvatar size={28} round class="user-trigger__avatar">
+                      {userInfo.value.name.charAt(0)}
+                    </NAvatar>
+                    <div class="user-info">
+                      <span class="user-name">{userInfo.value.name}</span>
+                      <span class="user-email">{userInfo.value.role}</span>
+                    </div>
+                    <NIcon size={12} class="dropdown-icon">
+                      <ChevronDownOutline />
+                    </NIcon>
+                  </div>
+                ),
+                default: renderUserPopover
+              }}
+            </NPopover>
+          </div>
         </div>
       </div>
     )

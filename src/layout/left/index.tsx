@@ -1,229 +1,296 @@
 import { NIcon, NPopover, NTooltip } from 'naive-ui'
 import { useRouter, useRoute } from 'vue-router'
 import {
-  ServerOutline,
-  GitNetworkOutline,
-  StatsChartOutline,
-  NotificationsOutline,
-  DocumentTextOutline,
-  GitBranchOutline,
-  CogOutline,
-  PeopleOutline,
-  SettingsOutline,
-  ConstructOutline,
   EllipsisHorizontalOutline,
-  GridOutline,
-  WalletOutline
+  ChevronForwardOutline,
+  ChevronBackOutline,
+  ReorderThreeOutline
 } from '@vicons/ionicons5'
-import { VueDraggable } from 'vue-draggable-plus'
-import { markRaw, defineComponent, ref, watch, computed, h } from 'vue'
+import { useDraggable } from 'vue-draggable-plus'
+import { defineComponent, ref, watch, computed, h, nextTick, onBeforeUnmount, onMounted } from 'vue'
+import {
+  DEFAULT_HOME_SIDEBAR_KEY,
+  getDefaultHomeSidebarModules,
+  resolveHomeSidebarKey,
+  type HomeSidebarModule
+} from '@/app/navigation/homeRouteMeta'
+import { getStoredUserInfo } from '@/services/authSession'
 import './index.scss'
+
+type SidebarMode = 'icon' | 'icon-text'
+
+const STORAGE_KEY = 'starlight-sidebar-order'
+const STORAGE_MODE_KEY = 'starlight-sidebar-mode'
 
 export default defineComponent({
   name: 'HomeLeft',
-  setup(props, { slots }) {
+  setup() {
     const router = useRouter()
     const route = useRoute()
 
-    const activeModule = ref('service-overview')
-    const maxVisibleItems = 10
+    const activeModule = ref(DEFAULT_HOME_SIDEBAR_KEY)
+    const isEditing = ref(false)
+    const contentRef = ref<HTMLElement | null>(null)
+    const draggableRef = ref<HTMLElement | null>(null)
+    const visibleCount = ref(0)
+    let resizeObserver: ResizeObserver | null = null
+
+    const savedMode = localStorage.getItem(STORAGE_MODE_KEY) as SidebarMode | null
+    const sidebarMode = ref<SidebarMode>(savedMode || 'icon-text')
+
+    const defaultModules = getDefaultHomeSidebarModules().filter((module) => {
+      if (module.group !== 'admin') return true
+      return Boolean(getStoredUserInfo()?.isAdmin)
+    })
+
+    const loadOrder = () => {
+      try {
+        const saved = localStorage.getItem(STORAGE_KEY)
+        if (saved) {
+          const order = JSON.parse(saved)
+          const map = new Map(defaultModules.map((m) => [m.key, m]))
+          const result: HomeSidebarModule[] = []
+          for (const key of order) {
+            const m = map.get(key)
+            if (m) {
+              result.push(m)
+              map.delete(key)
+            }
+          }
+          for (const m of map.values()) result.push(m)
+          return result
+        }
+      } catch (e) {
+        console.error('Load order failed:', e)
+      }
+      return [...defaultModules]
+    }
+
+    const allModules = ref(loadOrder())
+
+    const saveOrder = () => {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(allModules.value.map((m) => m.key)))
+    }
+
+    const saveMode = () => {
+      localStorage.setItem(STORAGE_MODE_KEY, sidebarMode.value)
+    }
 
     watch(
-      () => route.path,
-      (newPath) => {
-        const moduleMap: Record<string, string> = {
-          '/home/service-overview': 'service-overview',
-          '/home/service-topology': 'service-overview',
-          '/home/service-list': 'service-overview',
-          '/home/instance-monitor': 'service-overview',
-          '/home/real-time-monitor': 'performance',
-          '/home/metrics-analysis': 'performance',
-          '/home/custom-dashboard': 'performance',
-          '/home/alert-list': 'alert',
-          '/home/alert-rules': 'alert',
-          '/home/notification-history': 'alert',
-          '/home/log-center': 'log',
-          '/home/service-logs': 'log',
-          '/home/exception-analysis': 'log',
-          '/home/tracing': 'tracing',
-          '/home/slow-analysis': 'tracing',
-          '/home/config-center': 'config',
-          '/home/config-list': 'config',
-          '/home/config-history': 'config',
-          '/home/registry-view': 'registry',
-          '/home/service-registry': 'registry',
-          '/home/user-management': 'user',
-          '/home/team-collaboration': 'user',
-          '/home/role-management': 'user',
-          '/home/data-source': 'system',
-          '/home/plugin-management': 'system',
-          '/home/system-settings': 'system',
-          '/home/audit-logs': 'audit',
-          '/home/system-events': 'audit',
-          '/home/api-testing': 'testing',
-          '/home/mock-service': 'testing',
-          '/home/debug-tools': 'testing',
-          '/home/billing': 'billing'
-        }
-        activeModule.value = moduleMap[newPath] || 'service-overview'
+      () => route.fullPath,
+      () => {
+        activeModule.value = resolveHomeSidebarKey(route.path, route.meta)
       },
       { immediate: true }
     )
 
-    const allModules = ref([
-      {
-        key: 'service-overview',
-        label: 'Dashboards',
-        icon: markRaw(GridOutline),
-        route: '/home/service-overview'
-      },
-      {
-        key: 'performance',
-        label: 'Infrastructure',
-        icon: markRaw(ServerOutline),
-        route: '/home/real-time-monitor'
-      },
-      {
-        key: 'tracing',
-        label: 'APM',
-        icon: markRaw(GitNetworkOutline),
-        route: '/home/tracing'
-      },
-      {
-        key: 'log',
-        label: 'Logs',
-        icon: markRaw(DocumentTextOutline),
-        route: '/home/log-center'
-      },
-      {
-        key: 'alert',
-        label: 'Monitors',
-        icon: markRaw(NotificationsOutline),
-        route: '/home/alert-list'
-      },
-      {
-        key: 'config',
-        label: 'Config',
-        icon: markRaw(SettingsOutline),
-        route: '/home/config-center'
-      },
-      {
-        key: 'registry',
-        label: 'Registry',
-        icon: markRaw(GitBranchOutline),
-        route: '/home/registry-view'
-      },
-      {
-        key: 'testing',
-        label: 'Synthetics',
-        icon: markRaw(ConstructOutline),
-        route: '/home/api-testing'
-      },
-      {
-        key: 'user',
-        label: 'Organization',
-        icon: markRaw(PeopleOutline),
-        route: '/home/user-management'
-      },
-      {
-        key: 'system',
-        label: 'Integrations',
-        icon: markRaw(CogOutline),
-        route: '/home/data-source'
-      },
-      {
-        key: 'audit',
-        label: 'Audit Trail',
-        icon: markRaw(DocumentTextOutline),
-        route: '/home/audit-logs'
-      },
-      {
-        key: 'billing',
-        label: 'Billing',
-        icon: markRaw(WalletOutline),
-        route: '/home/billing'
+    const visibleModules = computed(() => allModules.value.slice(0, visibleCount.value))
+    const moreModules = computed(() => allModules.value.slice(visibleCount.value))
+
+    const updateVisibleCount = () => {
+      const container = contentRef.value
+      if (!container) return
+
+      const isIconMode = sidebarMode.value === 'icon'
+      const itemHeight = isIconMode ? 40 : 40
+      const gap = 4
+      const moreHeight = isIconMode ? 48 : 44
+      const availableHeight = container.clientHeight
+
+      if (availableHeight <= 0) {
+        visibleCount.value = allModules.value.length
+        return
       }
-    ])
 
-    const visibleModules = computed(() => allModules.value.slice(0, maxVisibleItems))
-    const moreModules = computed(() => allModules.value.slice(maxVisibleItems))
+      const totalCount = allModules.value.length
+      const fullCapacity = Math.max(0, Math.floor((availableHeight + gap) / (itemHeight + gap)))
 
-    const handleModuleSelect = (module: any) => {
+      if (totalCount <= fullCapacity) {
+        visibleCount.value = totalCount
+        return
+      }
+
+      const reservedCapacity = Math.max(0, Math.floor((availableHeight - moreHeight + gap) / (itemHeight + gap)))
+      visibleCount.value = Math.min(totalCount, reservedCapacity)
+    }
+
+    const handleSelect = (module: any) => {
+      if (isEditing.value) return
       activeModule.value = module.key
       router.push(module.route)
     }
 
-    const onDragEnd = (evt: any) => {
-      console.log('模块排序已更新:', allModules.value)
+    function onDragEnd() {
+      saveOrder()
+      nextTick(updateVisibleCount)
     }
 
-    const renderModuleItem = (module: any, isInMore = false) => {
-      const isActive = activeModule.value === module.key
-      const itemContent = (
-        <div
-          class={[
-            'module-item',
-            'flex items-center justify-center',
-            'w-40px h-40px rounded-md cursor-pointer transition-all duration-200',
-            'hover:bg-[var(--color-fill-3)] hover:text-[var(--color-text-1)]',
-            isActive ? 'bg-[var(--color-primary-6)] text-white' : 'text-[var(--color-text-3)]',
-            isInMore ? 'mb-2' : ''
-          ]}
-          onClick={() => handleModuleSelect(module)}>
-          <NIcon size={22}>{h(module.icon)}</NIcon>
-        </div>
-      )
+    useDraggable(draggableRef, allModules, {
+      animation: 200,
+      ghostClass: 'ghost-item',
+      chosenClass: 'chosen-item',
+      disabled: !isEditing.value,
+      onEnd: onDragEnd
+    })
 
-      if (isInMore) return itemContent
+    const toggleMode = () => {
+      sidebarMode.value = sidebarMode.value === 'icon' ? 'icon-text' : 'icon'
+      saveMode()
+      nextTick(updateVisibleCount)
+    }
+
+    const toggleEdit = () => {
+      isEditing.value = !isEditing.value
+      nextTick(updateVisibleCount)
+    }
+
+    const renderMoreTrigger = () => {
+      const isIconMode = sidebarMode.value === 'icon'
 
       return (
-        <NTooltip placement="right" trigger="hover">
-          {{
-            trigger: () => <div key={module.key}>{itemContent}</div>,
-            default: () => module.label
-          }}
-        </NTooltip>
+        <div class={['sidebar-more-trigger', isIconMode ? 'sidebar-more-trigger--icon' : 'sidebar-more-trigger--text']}>
+          <NIcon size={isIconMode ? 22 : 18} class={isIconMode ? '' : 'sidebar-more-trigger__icon'}>
+            <EllipsisHorizontalOutline />
+          </NIcon>
+          {!isIconMode && <span class="sidebar-more-trigger__label">更多</span>}
+        </div>
       )
     }
 
-    return () => (
-      <div class="app-home__left w-56px h-full bg-[#1e1e1e] flex flex-col items-center py-4 border-r border-[#333]">
-        <div class="flex-1 w-full flex flex-col items-center gap-2">
-          <VueDraggable
-            modelValue={allModules.value}
-            onEnd={onDragEnd}
-            animation={200}
-            ghostClass="ghost-item"
-            chosenClass="chosen-item"
-            class="flex flex-col gap-2">
-            {visibleModules.value.map((module) => renderModuleItem(module))}
-          </VueDraggable>
-        </div>
+    onMounted(() => {
+      nextTick(() => {
+        updateVisibleCount()
+        if (contentRef.value) {
+          resizeObserver = new ResizeObserver(() => updateVisibleCount())
+          resizeObserver.observe(contentRef.value)
+        }
+      })
+    })
 
-        {moreModules.value.length > 0 && (
-          <div class="mt-2">
-            <NPopover
-              trigger="hover"
-              placement="right"
-              style={{ padding: '8px', backgroundColor: 'var(--color-bg-5)' }}>
-              {{
-                trigger: () => (
-                  <div class="flex items-center justify-center w-40px h-40px rounded-md cursor-pointer transition-all duration-200 hover:bg-[--color-fill-3] text-[--color-text-3] hover:text-[--color-text-1]">
-                    <NIcon size={22}>
-                      <EllipsisHorizontalOutline />
-                    </NIcon>
-                  </div>
-                ),
-                default: () => (
-                  <div class="grid grid-cols-1 gap-2">
-                    {moreModules.value.map((module) => renderModuleItem(module, true))}
-                  </div>
-                )
-              }}
-            </NPopover>
+    onBeforeUnmount(() => {
+      resizeObserver?.disconnect()
+    })
+
+    watch(allModules, () => nextTick(updateVisibleCount), { deep: true })
+    watch(sidebarMode, () => nextTick(updateVisibleCount))
+
+    const renderItem = (module: any, isInMore = false) => {
+      const isActive = activeModule.value === module.key
+      const isIconMode = sidebarMode.value === 'icon'
+
+      if (isIconMode) {
+        const content = (
+          <div
+            class={[
+              'sidebar-item',
+              'sidebar-item--icon',
+              isActive ? 'is-active' : '',
+              isInMore ? 'sidebar-item--more' : ''
+            ]}
+            onClick={() => handleSelect(module)}>
+            <NIcon size={22} class="sidebar-item__icon">
+              {h(module.icon)}
+            </NIcon>
           </div>
-        )}
-      </div>
-    )
+        )
+        if (isInMore) return content
+        return (
+          <NTooltip placement="right" trigger="hover">
+            {{ trigger: () => <div key={module.key}>{content}</div>, default: () => module.label }}
+          </NTooltip>
+        )
+      }
+
+      return (
+        <div
+          key={module.key}
+          class={['sidebar-item', 'sidebar-item--text', isActive ? 'is-active' : '']}
+          onClick={() => handleSelect(module)}>
+          {isEditing.value && (
+            <NIcon size={16} class="sidebar-item__drag">
+              <ReorderThreeOutline />
+            </NIcon>
+          )}
+          <NIcon size={20} class="sidebar-item__icon">
+            {h(module.icon)}
+          </NIcon>
+          <span class="sidebar-item__label">{module.label}</span>
+        </div>
+      )
+    }
+
+    return () => {
+      const isIconMode = sidebarMode.value === 'icon'
+
+      return (
+        <div class={['app-home__left', isIconMode ? 'app-home__left--icon' : 'app-home__left--text']}>
+          <div
+            ref={contentRef}
+            class={['app-home__left__content-shell', isIconMode ? 'app-home__left__content-shell--icon' : '']}>
+            <div ref={draggableRef} class={['app-home__left__list', isIconMode ? 'app-home__left__list--icon' : '']}>
+              {visibleModules.value.map((module) => renderItem(module))}
+            </div>
+
+            {moreModules.value.length > 0 && (
+              <div
+                class={[
+                  'app-home__left__more',
+                  isIconMode ? 'app-home__left__more--icon' : 'app-home__left__more--text'
+                ]}>
+                <NPopover
+                  trigger="hover"
+                  placement={isIconMode ? 'right' : 'right-start'}
+                  style={{ padding: '8px', backgroundColor: 'var(--color-bg-5)' }}>
+                  {{
+                    trigger: () => renderMoreTrigger(),
+                    default: () => (
+                      <div
+                        class={[
+                          'sidebar-more-popover',
+                          isIconMode ? 'sidebar-more-popover--icon' : 'sidebar-more-popover--text'
+                        ]}>
+                        {moreModules.value.map((module) => renderItem(module, true))}
+                      </div>
+                    )
+                  }}
+                </NPopover>
+              </div>
+            )}
+          </div>
+
+          <div
+            class={[
+              'app-home__left__footer',
+              isIconMode ? 'app-home__left__footer--icon' : 'app-home__left__footer--text'
+            ]}>
+            <div
+              class={[
+                'sidebar-footer-action',
+                isIconMode ? 'sidebar-footer-action--icon' : 'sidebar-footer-action--text'
+              ]}
+              onClick={toggleEdit}>
+              <NIcon size={18} class="sidebar-footer-action__icon">
+                <ReorderThreeOutline />
+              </NIcon>
+              {!isIconMode && (
+                <span class="sidebar-footer-action__label">{isEditing.value ? '完成排序' : '自定义排序'}</span>
+              )}
+            </div>
+
+            <div
+              class={[
+                'sidebar-footer-action',
+                isIconMode ? 'sidebar-footer-action--icon' : 'sidebar-footer-action--text'
+              ]}
+              onClick={toggleMode}>
+              <NIcon size={18} class="sidebar-footer-action__icon">
+                {isIconMode ? <ChevronForwardOutline /> : <ChevronBackOutline />}
+              </NIcon>
+              {!isIconMode && <span class="sidebar-footer-action__label">收起</span>}
+            </div>
+          </div>
+        </div>
+      )
+    }
   }
 })

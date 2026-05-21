@@ -201,7 +201,7 @@ export enum WsRequestMsgType {
 }
 
 export type WsReqMsgContentType = {
-  type: WsRequestMsgType
+  type: WsRequestMsgType | 'subscribe' | 'unsubscribe'
   data?: Record<string, unknown>
 }
 
@@ -221,6 +221,8 @@ export enum WsResponseMessageType {
   ONLINE = 'online',
   /** 前端token失效 */
   TOKEN_EXPIRED = 'tokenExpired',
+  TOPOLOGY_SNAPSHOT = 'topology_snapshot',
+  TOPOLOGY_DELTA = 'topology_delta',
   /** 禁用的用户 */
   INVALID_USER = 'invalidUser',
   /** 点赞、倒赞更新通知 */

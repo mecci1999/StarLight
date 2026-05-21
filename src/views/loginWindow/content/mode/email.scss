@@ -1,0 +1,219 @@
+.login-email {
+  margin: auto;
+  width: 100%;
+  height: 100%;
+  text-align: center;
+
+  &__history-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  &__history-arrow {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    color: #505050;
+  }
+
+  &__error {
+    position: absolute;
+    text-align: left;
+    font-size: 12px;
+    color: var(--color-danger-6);
+
+    &--email {
+      left: 26px;
+      top: 42px;
+    }
+
+    &--password {
+      left: 26px;
+      top: 110px;
+    }
+
+    &--code {
+      left: 26px;
+      top: 170px;
+    }
+  }
+
+  &__history-box {
+    position: absolute;
+    left: 50%;
+    z-index: 99;
+    box-sizing: border-box;
+    width: min(300px, 100%);
+    min-height: 60px;
+    margin-top: 45px;
+    padding: 8px;
+    border: 1px solid var(--color-border-2);
+    border-radius: 4px;
+    background: #fdfdfd;
+    box-shadow: var(--shadow-lg);
+    transform: translateX(-50%);
+  }
+
+  &__history-item {
+    margin-bottom: 4px;
+    padding: 8px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all var(--duration-fast) var(--ease-default);
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+
+    &:hover {
+      background: var(--color-bg-white);
+    }
+  }
+
+  &__account-row {
+    display: flex;
+    align-items: center;
+    width: 100%;
+  }
+
+  &__account-main {
+    display: flex;
+    flex: 1;
+    align-items: center;
+    min-width: 0;
+  }
+
+  &__account-avatar {
+    width: 32px;
+    height: 32px;
+    margin-right: 12px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    background: var(--color-fill-3);
+  }
+
+  &__account-text {
+    flex: 1;
+    min-width: 0;
+    text-align: left;
+  }
+
+  &__account-name {
+    margin-bottom: 2px;
+    overflow: hidden;
+    color: var(--color-neutral-8);
+    font-size: 14px;
+    font-weight: var(--font-weight-medium);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__account-email {
+    overflow: hidden;
+    color: var(--color-text-3);
+    font-size: 12px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__account-delete {
+    width: 14px;
+    height: 14px;
+    margin-left: 8px;
+    flex-shrink: 0;
+    color: var(--color-text-3);
+
+    &:hover {
+      color: var(--color-danger-6);
+    }
+  }
+
+  &__code-action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: flex-end;
+    width: 100%;
+    font-size: 14px;
+    white-space: nowrap;
+
+    &.is-waiting {
+      color: var(--color-text-3);
+    }
+
+    &.is-ready {
+      color: var(--color-primary-6);
+      cursor: pointer;
+    }
+  }
+
+  &__code-action-wrap {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    width: 128px;
+    flex-shrink: 0;
+  }
+
+  &__options {
+    width: min(300px, 100%);
+    margin: 0 auto 12px;
+
+    &.has-code-error {
+      margin-top: 12px;
+    }
+  }
+
+  &__option-text {
+    font-size: 12px;
+    line-height: 16px;
+  }
+
+  &__option-link {
+    color: var(--color-primary-6);
+    cursor: pointer;
+
+    &:hover {
+      color: var(--color-primary-5);
+    }
+  }
+
+  &__submit {
+    width: min(300px, 100%);
+    height: 40px;
+    margin: 8px auto 24px;
+  }
+}
+
+.email-input {
+  width: min(300px, 100%);
+  margin: 0 auto 22px;
+
+  .n-input,
+  .n-input:hover,
+  .n-input.n-input--focus,
+  .n-input:focus-within {
+    background: var(--color-bg-white);
+  }
+}
+
+.password-input {
+  width: min(300px, 100%);
+  margin-left: auto;
+  margin-right: auto;
+
+  .n-input,
+  .n-input:hover,
+  .n-input.n-input--focus,
+  .n-input:focus-within {
+    background: var(--color-bg-white);
+  }
+
+  &--spaced {
+    margin-bottom: 22px;
+  }
+
+  &--compact {
+    margin-bottom: 12px;
+  }
+}

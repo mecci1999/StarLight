@@ -1,0 +1,106 @@
+.mobile-service-detail-v2 {
+  min-height: 100vh;
+  padding: 20px 16px;
+  background: var(--color-bg-1);
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+
+  &__title {
+    margin: 0;
+    color: var(--color-text-1);
+    font-size: 18px;
+    font-weight: var(--font-weight-semibold);
+  }
+
+  &__subtitle {
+    margin-top: 4px;
+    color: var(--color-text-3);
+    font-size: 12px;
+  }
+
+  &__loading,
+  &__empty-state {
+    display: flex;
+    justify-content: center;
+    padding: 40px 0;
+  }
+
+  &__identity,
+  &__summary-card,
+  &__runtime-card {
+    margin-bottom: 16px;
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+  }
+
+  &__identity-content {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  &__identity-main {
+    min-width: 0;
+    flex: 1;
+  }
+
+  &__identity-title {
+    overflow: hidden;
+    color: var(--color-text-1);
+    font-size: 16px;
+    font-weight: var(--font-weight-semibold);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__identity-meta,
+  &__identity-submeta {
+    margin-top: 4px;
+    color: var(--color-text-3);
+    font-size: 12px;
+  }
+
+  &__stats-grid {
+    margin-bottom: 16px;
+  }
+
+  &__stat-card {
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+  }
+
+  &__runtime-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  &__runtime-block {
+    padding: 12px;
+    border-radius: var(--radius-lg);
+    background: var(--color-fill-1);
+  }
+
+  &__runtime-label {
+    color: var(--color-text-3);
+    font-size: 12px;
+  }
+
+  &__runtime-value {
+    margin-top: 4px;
+    color: var(--color-text-1);
+    font-size: 18px;
+    font-weight: var(--font-weight-semibold);
+  }
+
+  &__footer {
+    margin-top: 16px;
+  }
+}

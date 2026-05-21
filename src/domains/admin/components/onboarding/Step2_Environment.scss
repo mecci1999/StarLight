@@ -1,0 +1,63 @@
+.step2-environment {
+  &__note {
+    margin-top: 20px;
+    color: var(--color-text-3);
+    font-size: 12px;
+  }
+
+  &__body {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    padding: 20px;
+  }
+
+  &__list-wrap {
+    overflow: hidden;
+    border: 1px solid var(--color-border-2);
+    border-radius: var(--radius-lg);
+  }
+
+  &__list {
+    background: var(--color-bg-2);
+  }
+
+  &__list-item {
+    padding: 16px;
+    transition: background var(--duration-fast) var(--ease-default);
+
+    &:hover {
+      background: var(--color-fill-2);
+    }
+  }
+
+  &__item-title {
+    color: var(--color-text-1);
+    font-weight: var(--font-weight-medium);
+  }
+
+  &__item-desc {
+    margin-top: 4px;
+    color: var(--color-text-3);
+    font-size: 12px;
+  }
+
+  &__avatar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    margin-right: 16px;
+  }
+
+  &__footer,
+  &__footer-actions {
+    display: flex;
+    gap: 12px;
+  }
+
+  &__footer {
+    justify-content: space-between;
+    margin-top: auto;
+  }
+}

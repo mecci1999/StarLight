@@ -1,0 +1,68 @@
+.panel-toolbar {
+  margin-bottom: 16px;
+  border: none;
+  box-shadow: none !important;
+
+  &__content {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+
+    @media (min-width: 1024px) {
+      flex-direction: row;
+      align-items: center;
+      justify-content: space-between;
+    }
+  }
+
+  &__main {
+    min-width: 0;
+    flex: 1;
+  }
+
+  &__title-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+  }
+
+  &__panel-picker {
+    min-width: 220px;
+    max-width: 320px;
+  }
+
+  &__title {
+    color: var(--color-text-1);
+    font-size: 14px;
+    font-weight: var(--font-weight-medium);
+  }
+
+  &__description {
+    margin-top: 4px;
+    color: var(--color-text-3);
+    font-size: 12px;
+  }
+
+  &__actions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+
+    @media (min-width: 1024px) {
+      width: 420px;
+    }
+  }
+
+  &__buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: flex-start;
+
+    @media (min-width: 1024px) {
+      justify-content: flex-end;
+    }
+  }
+}

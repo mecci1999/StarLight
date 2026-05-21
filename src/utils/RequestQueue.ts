@@ -1,7 +1,14 @@
+type QueuedRequest = {
+  resolve: (token: string) => void
+  reject: (error: unknown) => void
+  timestamp: number
+  priority?: number
+}
+
 export class RequestQueue {
   private readonly maxSize: number = 100 // 队列最大容量
   private readonly maxConcurrent: number = 5 // 最大并发数
-  private queue: Array<{ resolve: (token: string) => void; timestamp: number; priority?: number }> = [] // 请求队列
+  private queue: QueuedRequest[] = [] // 请求队列
   private processing: number = 0 // 当前正在处理的请求数
 
   /**
@@ -9,15 +16,17 @@ export class RequestQueue {
    * @param resolve 请求的回调函数
    * @param priority 优先级，数字越小优先级越高
    */
-  enqueue(resolve: (token: string) => void, priority: number = 0): void {
+  enqueue(resolve: (token: string) => void, reject: (error: unknown) => void, priority: number = 0): void {
     if (this.queue.length >= this.maxSize) {
       console.warn('🚫 请求队列已满，丢弃新请求')
+      reject(new Error('请求队列已满'))
       return
     }
 
     // 按优先级和时间戳排序插入
     const request = {
       resolve,
+      reject,
       timestamp: Date.now(),
       priority
     }
@@ -61,7 +70,16 @@ export class RequestQueue {
   /**
    * 清空对列
    */
-  clear(): void {
+  clear(error?: unknown): void {
+    if (error) {
+      this.queue.forEach((request) => {
+        try {
+          request.reject(error)
+        } catch (rejectError) {
+          console.error('❌ 队列请求拒绝出错:', rejectError)
+        }
+      })
+    }
     this.queue = []
     this.processing = 0
   }

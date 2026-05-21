@@ -1,16 +1,20 @@
-import { defineComponent, ref, computed, provide, inject } from 'vue'
+import { computed, defineComponent, PropType } from 'vue'
 import VChart from 'vue-echarts'
 import { use } from 'echarts/core'
 import { CanvasRenderer } from 'echarts/renderers'
-import { LineChart, BarChart, PieChart, GaugeChart, GraphChart, HeatmapChart } from 'echarts/charts'
+import { LineChart, BarChart, PieChart, GaugeChart, GraphChart, HeatmapChart, MapChart } from 'echarts/charts'
 import {
   GridComponent,
   TooltipComponent,
   LegendComponent,
   TitleComponent,
   DataZoomComponent,
-  VisualMapComponent
+  VisualMapComponent,
+  GraphicComponent,
+  GeoComponent
 } from 'echarts/components'
+import { useChartTheme } from '@/hooks/useChartTheme'
+import { merge } from 'lodash-es'
 
 use([
   CanvasRenderer,
@@ -20,12 +24,15 @@ use([
   GaugeChart,
   GraphChart,
   HeatmapChart,
+  MapChart,
   GridComponent,
   TooltipComponent,
   LegendComponent,
   TitleComponent,
   DataZoomComponent,
-  VisualMapComponent
+  VisualMapComponent,
+  GraphicComponent,
+  GeoComponent
 ])
 
 export default defineComponent({
@@ -42,26 +49,33 @@ export default defineComponent({
     height: {
       type: String,
       default: '300px'
+    },
+    onChartClick: {
+      type: Function as PropType<(params: any) => void>,
+      default: undefined
     }
   },
   setup(props) {
-    const isDark = computed(() => {
-      // Simple detection or use a store if available.
-      // For now, let's assume light mode default or check html attribute if possible,
-      // but ECharts auto theme usually works well if we pass colors.
-      // We will pass explicit colors in options.
-      return document.documentElement.getAttribute('data-theme') === 'dark'
+    const { themeOptions, loadingOptions } = useChartTheme()
+
+    // Merge global theme options with props.option
+    // We use a computed property to ensure reactivity
+    const finalOption = computed(() => {
+      // Use lodash merge to deeply merge the theme defaults with the provided option
+      // provided option takes precedence
+      return merge({}, themeOptions.value, props.option)
     })
 
     return () => (
-      <div style={{ height: props.height, width: '100%' }}>
+      <div style={{ height: props.height, width: '100%', overflow: 'hidden' }}>
         <VChart
           class="chart"
-          option={props.option}
+          option={finalOption.value}
           loading={props.loading}
-          autoresize
-          theme={isDark.value ? 'dark' : undefined}
+          loadingOptions={loadingOptions.value}
+          autoresize={{ throttle: 100 }}
           style={{ width: '100%', height: '100%' }}
+          onClick={props.onChartClick}
         />
       </div>
     )
