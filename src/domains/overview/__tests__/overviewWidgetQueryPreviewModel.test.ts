@@ -130,7 +130,7 @@ describe('overviewWidgetQueryPreviewModel', () => {
     ).toBe(SERVICE_MEMORY_USAGE_PERCENT_METRIC_REF)
   })
 
-  it('passes query-card config through as a query spec', () => {
+  it('passes query-card config through while applying shared time and display controls', () => {
     const widget = {
       id: 'query-1',
       title: '开放查询卡',
@@ -149,13 +149,15 @@ describe('overviewWidgetQueryPreviewModel', () => {
           visualizationHint: 'line'
         }
       },
-      editor: { timeRange: '1h', visualization: 'line' }
+      editor: { timeRange: '4h', visualization: 'bar' }
     } as unknown as OverviewPanelWidget
 
     const result = buildOverviewWidgetQueryPreviewSpec({ widget, scope: 'tenant', scopedServiceName: null, services })
     expect(result.supported).toBe(true)
     expect(result.query?.metricRef).toBe(SERVICE_MEMORY_USAGE_PERCENT_METRIC_REF)
     expect(result.query?.subject).toEqual({ type: 'service', id: 'svc-1' })
+    expect(result.query?.timeRange).toBe('-4h')
+    expect(result.query?.visualizationHint).toBe('bar')
   })
 
   it('requires target service for darwin instance table', () => {

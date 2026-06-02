@@ -3,7 +3,20 @@ export type OverviewPanelKind = 'system' | 'preset' | 'user'
 export type OverviewWidgetSize = 'S' | 'M' | 'L'
 export type OverviewWidgetVisualization = 'line' | 'bar' | 'donut' | 'cumulative' | 'table' | 'number'
 export type OverviewWidgetTimeGranularity = 'hour' | 'day' | 'week' | 'month'
-export type OverviewWidgetEditorTimeRange = '15m' | '1h' | '4h' | '1d' | '2d' | '7d' | '14d' | '30d'
+export type OverviewWidgetEditorTimeRange =
+  | '1m'
+  | '5m'
+  | '10m'
+  | '15m'
+  | '30m'
+  | '1h'
+  | '4h'
+  | '1d'
+  | '2d'
+  | '7d'
+  | '14d'
+  | '30d'
+export type OverviewWidgetQueryEditMode = 'form-builder' | 'query-statement'
 export type OverviewMetricKey =
   | 'service-count'
   | 'healthy-services'
@@ -100,6 +113,7 @@ export type OverviewWidgetDisplayOptions = {
 }
 
 export type OverviewWidgetEditorState = {
+  queryEditMode?: OverviewWidgetQueryEditMode
   timeGranularity?: OverviewWidgetTimeGranularity
   timeRange?: OverviewWidgetEditorTimeRange
   visualization?: OverviewWidgetVisualization
@@ -584,6 +598,7 @@ export const buildOverviewWidgetEditorState = (widget: OverviewPanelWidget): Req
         : defaultDisplayedMetrics
 
   return {
+    queryEditMode: widget.editor?.queryEditMode || 'form-builder',
     timeGranularity: widget.editor?.timeGranularity || 'hour',
     timeRange:
       widget.editor?.timeRange ||

@@ -134,6 +134,48 @@ describe('overview panel model', () => {
     expect((normalized.config as any).query.visualizationHint).toBe('donut')
   })
 
+  it('keeps shared panel controls active for raw QuerySpec cards', () => {
+    const normalized = normalizeOverviewWidget({
+      id: 'query-card-raw',
+      title: '开放查询卡',
+      kind: 'query-card',
+      size: 'M',
+      capability: 'metrics',
+      description: '',
+      config: {
+        query: {
+          scope: 'system',
+          sourceKind: 'auto',
+          subject: { type: 'system' },
+          metricRef: 'service.memory.usage.percent',
+          aggregation: 'latest',
+          timeRange: '-15m',
+          visualizationHint: 'donut'
+        }
+      },
+      editor: {
+        queryEditMode: 'query-statement',
+        timeGranularity: 'hour',
+        timeRange: '7d',
+        visualization: 'line',
+        displayedMetrics: [],
+        compareEnabled: false,
+        compareWindow: 'previous-period',
+        display: {
+          showTotal: true,
+          showAverage: false,
+          showPreviousPeriod: true,
+          showSamePeriod: false
+        },
+        notes: ''
+      }
+    } as any)
+
+    expect(normalized.editor?.queryEditMode).toBe('query-statement')
+    expect((normalized.config as any).query.timeRange).toBe('-7d')
+    expect((normalized.config as any).query.visualizationHint).toBe('line')
+  })
+
   it('allows compact widgets to use S while keeping dense widgets excluded', () => {
     expect(
       canWidgetUseSmallSize({

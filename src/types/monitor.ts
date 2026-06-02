@@ -14,6 +14,7 @@ export type ServiceItem = {
   sla?: number
   tags?: string[]
   lastDeploy?: string
+  editable?: boolean
 }
 
 export type ServiceInstance = {
@@ -173,6 +174,16 @@ export type TopologyNode = {
   cluster?: string
   env?: string
   protocol?: string
+  instances?: number | null
+  qps?: number | null
+  latency?: number | null
+  errorRate?: number | null
+  source?: string
+  manualLayer?: number
+  editable?: boolean
+  zone?: string
+  category?: string
+  version?: string | null
 }
 
 export type TopologyEdge = {
@@ -187,6 +198,8 @@ export type TopologyEdge = {
   p50?: number
   p99?: number
   status?: string
+  inferred?: boolean
+  source?: string
   app?: string
   cluster?: string
   env?: string
@@ -195,6 +208,11 @@ export type TopologyEdge = {
 export type TopologyData = {
   nodes: TopologyNode[]
   edges: TopologyEdge[]
+  meta?: {
+    source?: string
+    reason?: string
+    updatedAt?: string | number
+  }
 }
 
 export type LogItem = {

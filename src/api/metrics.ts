@@ -101,6 +101,18 @@ export function fetchTopology(params?: { timeRange?: string; scope?: MetricsData
   return request.get<TopologyData>(url.metricsTopology, { type: 'graph', ...(params || {}) })
 }
 
+export function saveTopologyCanvas(payload: {
+  manualLayers?: Record<string, number>
+  nodes?: any[]
+  edges?: any[]
+  scope?: MetricsDatasetScope
+}) {
+  return request.post<{ manualLayers?: Record<string, number>; nodes: any[]; edges: any[] }>(url.metricsTopology, {
+    type: 'manual',
+    ...(payload || {})
+  })
+}
+
 // 获取服务列表
 export function fetchServices(params?: {
   page?: number

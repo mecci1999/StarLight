@@ -1,3 +1,5 @@
+// @vitest-environment jsdom
+
 import { defineComponent, h } from 'vue'
 import { mount, flushPromises } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -7,6 +9,7 @@ const subscriptionApi = vi.hoisted(() => ({
   getSubscriptionCurrentDetail: vi.fn(),
   getSubscriptionHistory: vi.fn(),
   getPaymentMethods: vi.fn(),
+  getPlans: vi.fn(),
   subscribe: vi.fn(),
   createPaymentOrder: vi.fn(),
   upgradeSubscription: vi.fn(),
@@ -18,6 +21,15 @@ const messageApi = vi.hoisted(() => ({
   success: vi.fn(),
   error: vi.fn(),
   warning: vi.fn()
+}))
+
+const routerApi = vi.hoisted(() => ({
+  replace: vi.fn()
+}))
+
+vi.mock('vue-router', () => ({
+  useRouter: () => routerApi,
+  useRoute: () => ({ query: {} })
 }))
 
 vi.mock('@/api/subscription', () => subscriptionApi)
@@ -37,6 +49,13 @@ vi.mock('naive-ui', () => {
     NGridItem: passthrough('div'),
     NList: passthrough('div'),
     NListItem: passthrough('div'),
+    NEmpty: defineComponent({
+      name: 'StubEmpty',
+      props: ['description'],
+      setup(props) {
+        return () => h('div', {}, props.description)
+      }
+    }),
     NIcon: passthrough('span'),
     NButton: defineComponent({
       name: 'StubButton',
@@ -63,6 +82,14 @@ describe('Billing plans lifecycle actions', () => {
     vi.clearAllMocks()
     subscriptionApi.getPaymentMethods.mockResolvedValue({
       methods: [{ id: 'stripe', enabled: true, name: 'stripe', displayName: 'Stripe', supportedCurrencies: ['USD'] }]
+    })
+    subscriptionApi.getPlans.mockResolvedValue({
+      plans: [
+        { name: 'free', displayName: 'Free', price: 0, currency: 'USD', sortOrder: 0, features: ['基础用量'] },
+        { name: 'pro', displayName: 'Pro', price: 29, currency: 'USD', sortOrder: 1, features: ['更高额度'] }
+      ],
+      currency: 'USD',
+      total: 2
     })
     subscriptionApi.getSubscriptionHistory.mockResolvedValue({ subscriptions: [], total: 0 })
     subscriptionApi.upgradeSubscription.mockResolvedValue({ requiresPayment: false })

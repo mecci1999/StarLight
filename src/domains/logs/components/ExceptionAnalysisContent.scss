@@ -1,0 +1,207 @@
+.exception-analysis-page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  padding: 24px;
+  background: linear-gradient(180deg, var(--color-bg-1), color-mix(in srgb, var(--color-fill-1) 18%, var(--color-bg-1)));
+
+  &__body {
+    padding-right: 16px;
+  }
+
+  &__card {
+    border: 1px solid color-mix(in srgb, var(--color-border-1) 82%, transparent);
+    border-radius: 18px;
+    background: color-mix(in srgb, var(--color-bg-2) 92%, var(--color-fill-1));
+  }
+
+  &__stat-value {
+    color: var(--color-text-1);
+    font-size: 24px;
+    font-weight: 700;
+
+    &--warning {
+      color: var(--color-warning-6);
+    }
+  }
+
+  &__field-label {
+    color: var(--color-text-3);
+    font-size: 12px;
+  }
+
+  &__filter-row,
+  &__filter-group,
+  &__table-footer {
+    display: flex;
+    gap: 16px;
+  }
+
+  &__filter-row {
+    flex-wrap: wrap;
+    align-items: center;
+
+    &--between {
+      justify-content: space-between;
+    }
+  }
+
+  &__filter-group {
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  &__table-shell {
+    padding: 16px;
+  }
+
+  &__table-footer {
+    justify-content: flex-end;
+    margin-top: 16px;
+  }
+
+  &__section-title {
+    margin-bottom: 8px;
+    color: var(--color-text-1);
+    font-size: 16px;
+    font-weight: var(--font-weight-semibold);
+  }
+
+  &__panel {
+    padding: 16px;
+    border: 1px solid color-mix(in srgb, var(--color-border-1) 78%, transparent);
+    border-radius: 14px;
+    background: color-mix(in srgb, var(--color-fill-1) 72%, transparent);
+
+    &--compact {
+      padding: 14px;
+    }
+  }
+
+  &__code-shell {
+    overflow: hidden;
+    border: 1px solid color-mix(in srgb, var(--color-border-1) 82%, transparent);
+    border-radius: 14px;
+    background: color-mix(in srgb, var(--color-bg-2) 96%, transparent);
+
+    &--muted {
+      background: color-mix(in srgb, var(--color-fill-1) 60%, transparent);
+    }
+  }
+
+  &__emphasis {
+    font-size: 20px;
+    font-weight: 700;
+
+    &--danger {
+      color: var(--color-danger-6);
+    }
+  }
+
+  &__modal {
+    :deep(.n-card) {
+      border: 1px solid color-mix(in srgb, var(--color-border-1) 82%, transparent);
+      border-radius: 18px;
+      background: color-mix(in srgb, var(--color-bg-2) 96%, var(--color-fill-1));
+    }
+  }
+
+  &__meta-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px;
+  }
+
+  &__meta-label {
+    color: var(--color-text-3);
+    font-size: 12px;
+    margin-right: 8px;
+
+    &--block {
+      display: block;
+      margin: 0 0 6px;
+    }
+  }
+
+  &__trend-shell {
+    padding: 16px;
+    border: 1px solid color-mix(in srgb, var(--color-border-1) 78%, transparent);
+    border-radius: 16px;
+    background: color-mix(in srgb, var(--color-fill-1) 68%, transparent);
+  }
+
+  &__trend-grid {
+    display: grid;
+    grid-template-columns: repeat(12, minmax(0, 1fr));
+    gap: 8px;
+    height: 160px;
+    align-items: end;
+  }
+
+  &__trend-column {
+    display: flex;
+    height: 100%;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 6px;
+  }
+
+  &__trend-value,
+  &__trend-time {
+    color: var(--color-text-3);
+    font-size: 11px;
+  }
+
+  &__trend-value {
+    font-weight: 700;
+    opacity: 0.75;
+  }
+
+  &__trend-bar {
+    width: 60%;
+    border-radius: 999px 999px 4px 4px;
+    background: linear-gradient(180deg, var(--color-primary-5), var(--color-primary-7));
+    transition: transform var(--duration-fast) var(--ease-default);
+
+    &:hover {
+      transform: scaleY(1.04);
+    }
+  }
+
+  &__trend-time {
+    transform: rotate(-45deg) translateY(6px);
+    transform-origin: top left;
+  }
+
+  @media (max-width: 960px) {
+    &__filter-row--between {
+      justify-content: flex-start;
+    }
+
+    &__meta-grid {
+      grid-template-columns: 1fr;
+    }
+
+    &__trend-grid {
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      height: auto;
+      min-height: 160px;
+    }
+  }
+}
+
+:root[data-theme='dark'] {
+  .exception-analysis-page {
+    background: linear-gradient(180deg, var(--color-bg-1), color-mix(in srgb, var(--color-fill-1) 20%, var(--color-bg-1)));
+
+    &__card,
+    &__modal :deep(.n-card),
+    &__panel,
+    &__code-shell {
+      border-color: color-mix(in srgb, white 7%, var(--color-border-1));
+      background: color-mix(in srgb, var(--color-bg-2) 96%, var(--color-fill-1));
+    }
+  }
+}

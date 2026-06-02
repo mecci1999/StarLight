@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { computed, defineComponent, h, reactive } from 'vue'
+import { defineComponent, h, reactive } from 'vue'
 import { mount, flushPromises } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import CustomDashboardPage from '../pages/CustomDashboardPage'
@@ -70,6 +70,38 @@ vi.mock('naive-ui', () => {
         return () => h(tag, {}, slots.default?.())
       }
     })
+
+  const tabsLike = defineComponent({
+    name: 'StubTabs',
+    props: ['value', 'onUpdateValue'],
+    emits: ['update:value'],
+    setup(props, { emit, slots }) {
+      const updateValue = (value: string) => {
+        emit('update:value', value)
+        props.onUpdateValue?.(value)
+      }
+      return () =>
+        h('div', { 'data-component': 'tabs' }, [
+          h(
+            'button',
+            {
+              'data-active': props.value === 'form-builder',
+              onClick: () => updateValue('form-builder')
+            },
+            '表单组装'
+          ),
+          h(
+            'button',
+            {
+              'data-active': props.value === 'query-statement',
+              onClick: () => updateValue('query-statement')
+            },
+            '查询语句'
+          ),
+          slots.default?.()
+        ])
+    }
+  })
 
   const inputLike = defineComponent({
     name: 'StubInput',
@@ -158,6 +190,14 @@ vi.mock('naive-ui', () => {
           )
       }
     }),
+    NTabs: tabsLike,
+    NTabPane: defineComponent({
+      name: 'StubTabPane',
+      props: ['name', 'tab'],
+      setup(props, { slots }) {
+        return () => h('div', { 'data-tab-name': props.name }, slots.default?.())
+      }
+    }),
     NInput: inputLike,
     NSelect: selectLike,
     useMessage: () => ({ success: vi.fn(), warning: vi.fn(), error: vi.fn(), info: vi.fn() })
@@ -231,7 +271,7 @@ describe('CustomDashboardPage route context reactivity', () => {
     await flushPromises()
 
     expect(apiMocks.fetchMetricsSchema).toHaveBeenCalledWith({ scope: 'system', serviceId: 'svc-1' })
-    expect((wrapper.find('input[placeholder="请输入名称"]').element as HTMLInputElement).value).toBe('CPU 趋势')
+    expect((wrapper.find('input[placeholder*="Gateway P95 延迟"]').element as HTMLInputElement).value).toBe('CPU 趋势')
 
     routeState.query = {
       scope: 'tenant',
@@ -242,7 +282,9 @@ describe('CustomDashboardPage route context reactivity', () => {
     await flushPromises()
 
     expect(apiMocks.fetchMetricsSchema).toHaveBeenLastCalledWith({ scope: 'tenant', serviceId: 'svc-2' })
-    expect((wrapper.find('input[placeholder="请输入名称"]').element as HTMLInputElement).value).toBe('Memory 趋势')
+    expect((wrapper.find('input[placeholder*="Gateway P95 延迟"]').element as HTMLInputElement).value).toBe(
+      'Memory 趋势'
+    )
   })
 
   it('reloads catalog with new route context when modal is reopened after being closed', async () => {
@@ -298,7 +340,7 @@ describe('CustomDashboardPage route context reactivity', () => {
     })
     apiMocks.fetchMetricsSchema.mockResolvedValue({ items: [] })
 
-    const wrapper = mount(CustomDashboardPage)
+    mount(CustomDashboardPage)
     await flushPromises()
 
     expect(apiMocks.getDashboardState).toHaveBeenCalledWith('starlight_dashboard_layout', [])
@@ -366,6 +408,104 @@ describe('CustomDashboardPage route context reactivity', () => {
       'service.memory.usage.percent'
     )
     expect(wrapper.text()).toContain('JSON 配置已应用到表单')
+  })
+
+  it('saves raw QuerySpec cards without forcing them through the form editor', async () => {
+    apiMocks.validateMetricQuery.mockResolvedValue({ valid: true, issues: [], supported: true })
+    const wrapper = mount(CustomDashboardPage)
+    await flushPromises()
+
+    const rawModeButton = wrapper.findAll('button').find((item) => item.text().includes('查询语句'))
+    expect(rawModeButton).toBeTruthy()
+    await rawModeButton!.trigger('click')
+    await flushPromises()
+
+    const query = {
+      scope: 'system' as const,
+      sourceKind: 'auto' as const,
+      subject: { type: 'system' as const },
+      metricRef: 'service.memory.usage.percent',
+      aggregation: 'latest' as const,
+      timeRange: '-15m',
+      visualizationHint: 'donut' as const
+    }
+    const rawInput = wrapper.find('textarea[placeholder*="粘贴 QuerySpec"]')
+    expect(rawInput.exists()).toBe(true)
+    await rawInput.setValue(JSON.stringify({ query }))
+
+    const saveButton = wrapper.findAll('button').find((item) => item.text() === '确认')
+    expect(saveButton).toBeTruthy()
+    await saveButton!.trigger('click')
+    await flushPromises()
+
+    expect(apiMocks.validateMetricQuery).toHaveBeenCalledWith(expect.objectContaining(query), 'system')
+    expect(apiMocks.saveDashboardState).toHaveBeenLastCalledWith(
+      'starlight_dashboard_layout',
+      expect.arrayContaining([
+        expect.objectContaining({
+          sourceMode: 'query-statement',
+          query: expect.objectContaining({ metricRef: 'service.memory.usage.percent' }),
+          visualization: 'donut'
+        })
+      ])
+    )
+  })
+
+  it('presents the add-card interaction as two clear workflows', async () => {
+    const wrapper = mount(CustomDashboardPage)
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Card Builder')
+    expect(wrapper.text()).toContain('用表单一步步组装卡片')
+    expect(wrapper.text()).toContain('适合：新用户 / 标准监控卡片')
+    expect(wrapper.text()).toContain('适合：专业用户 / 复杂查询 / 复制已有配置')
+
+    const rawModeButton = wrapper.findAll('button').find((item) => item.text().includes('查询语句'))
+    expect(rawModeButton).toBeTruthy()
+    await rawModeButton!.trigger('click')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('直接粘贴 QuerySpec 生成卡片')
+    expect(wrapper.text()).toContain('必须包含：')
+    expect(wrapper.find('textarea[placeholder*="粘贴 QuerySpec"]').exists()).toBe(true)
+  })
+
+  it('reopens saved raw QuerySpec cards in query-statement edit mode', async () => {
+    authState.user = { isAdmin: false }
+    apiMocks.getDashboardState.mockResolvedValue([
+      {
+        id: 'raw-card-1',
+        title: 'Raw Memory',
+        sourceMode: 'query-statement',
+        visualization: 'donut',
+        query: {
+          scope: 'tenant',
+          sourceKind: 'auto',
+          subject: { type: 'system' },
+          metricRef: 'service.memory.usage.percent',
+          aggregation: 'latest',
+          timeRange: '-15m',
+          visualizationHint: 'donut'
+        }
+      }
+    ])
+    apiMocks.queryMetricCards.mockResolvedValue({
+      items: [{ cardId: 'raw-card-1', status: 'success', data: { kind: 'number', value: 48 } }]
+    })
+
+    const wrapper = mount(CustomDashboardPage, { props: { startInEditMode: true } })
+    await flushPromises()
+
+    const editButton = wrapper.findAll('button').find((item) => item.text() === '编辑组件')
+    expect(editButton).toBeTruthy()
+    await editButton!.trigger('click')
+    await flushPromises()
+
+    const rawInput = wrapper.find('textarea[placeholder*="粘贴 QuerySpec"]')
+    expect(rawInput.exists()).toBe(true)
+    expect((rawInput.element as HTMLTextAreaElement).value).toContain('service.memory.usage.percent')
+    expect(wrapper.text()).toContain('查询语句')
+    expect(wrapper.text()).toContain('不会反向改写表单字段')
   })
 
   it('renders donut number previews with GaugeChart instead of a statistic card', async () => {

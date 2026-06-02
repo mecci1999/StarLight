@@ -58,7 +58,10 @@ const responseInterceptor = async <T>(
       query
     }
   } else {
-    url = `${url}?${new URLSearchParams(query).toString()}`
+    const queryString = new URLSearchParams(query).toString()
+    if (queryString) {
+      url = `${url}?${queryString}`
+    }
     httpParams = {
       ...httpParams,
       body
@@ -137,6 +140,14 @@ const post = async <T>(url: string, params: any, abort?: AbortController, noRetr
   return responseInterceptor(url, 'POST', {}, params, abort, noRetry)
 }
 
+const postWithOptions = async <T>(
+  url: string,
+  params: any,
+  options?: { abort?: AbortController; noRetry?: boolean } & Partial<HttpParams>
+): Promise<T> => {
+  return responseInterceptor(url, 'POST', {}, params, options?.abort, options?.noRetry, options)
+}
+
 /**
  * put 请求
  * @param url
@@ -165,6 +176,7 @@ export default {
   get,
   getWithOptions,
   post,
+  postWithOptions,
   put,
   delete: del
 }

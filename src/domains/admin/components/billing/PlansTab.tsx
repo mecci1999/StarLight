@@ -270,6 +270,17 @@ export default defineComponent({
 
     return () => (
       <div class="billing-plans-tab">
+        <div class="billing-plans-tab__section-head">
+          <div>
+            <h3>套餐与订阅</h3>
+            <p>
+              当前状态：
+              {currentStatus.value === 'active' ? '订阅中' : currentStatus.value === 'cancelled' ? '已取消' : '未订阅'}
+              。只展示可执行的下一步操作。
+            </p>
+          </div>
+        </div>
+
         {plansError.value ? (
           <NCard class="billing-plans-tab__hint-card">
             <div class="billing-plans-tab__hint">套餐信息暂时不可用，请稍后重试。</div>
@@ -282,15 +293,22 @@ export default defineComponent({
           </NCard>
         ) : null}
 
-        <NGrid x-gap={24} cols="1 s:1 m:3 l:3" responsive="screen">
+        <NGrid x-gap={16} y-gap={16} cols="1 s:1 m:3 l:3" responsive="screen">
           {plans.value.map((plan) => (
             <NGridItem>
               <NCard
-                class="billing-plans-tab__plan-card"
-                style={{ borderColor: currentPlan.value === plan.value ? 'var(--color-primary-6)' : 'transparent' }}
+                class={[
+                  'billing-plans-tab__plan-card',
+                  currentPlan.value === plan.value ? 'billing-plans-tab__plan-card--current' : ''
+                ]}
                 hoverable>
                 <div class="billing-plans-tab__plan-header">
-                  <h3 class="billing-plans-tab__plan-title">{plan.name}</h3>
+                  <div>
+                    <h3 class="billing-plans-tab__plan-title">{plan.name}</h3>
+                    {currentPlan.value === plan.value ? (
+                      <span class="billing-plans-tab__current-badge">当前套餐</span>
+                    ) : null}
+                  </div>
                   <div class="billing-plans-tab__price-row">
                     <span class="billing-plans-tab__price">{plan.price}</span>
                     <span class="billing-plans-tab__period">{plan.period}</span>

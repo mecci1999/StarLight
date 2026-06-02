@@ -312,7 +312,7 @@ export default defineComponent({
         clearInterval(state.countdownTimer)
         state.countdownTimer = null
         state.countdown = 0
-        console.error('发送验证码失败:', error)
+        console.warn('发送验证码失败，请确认服务端已启动并允许当前客户端访问。', error)
       }
     }, 500)
 

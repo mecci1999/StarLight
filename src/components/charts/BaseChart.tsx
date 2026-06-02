@@ -53,10 +53,21 @@ export default defineComponent({
     onChartClick: {
       type: Function as PropType<(params: any) => void>,
       default: undefined
+    },
+    onChartDblclick: {
+      type: Function as PropType<(params: any) => void>,
+      default: undefined
     }
   },
   setup(props) {
     const { themeOptions, loadingOptions } = useChartTheme()
+    const stopWheelPropagation = (event: WheelEvent) => {
+      if (event.ctrlKey || event.metaKey) return
+      event.stopPropagation()
+    }
+    const stopPointerPropagation = (event: PointerEvent) => {
+      event.stopPropagation()
+    }
 
     // Merge global theme options with props.option
     // We use a computed property to ensure reactivity
@@ -67,7 +78,13 @@ export default defineComponent({
     })
 
     return () => (
-      <div style={{ height: props.height, width: '100%', overflow: 'hidden' }}>
+      <div
+        class="chart-shell"
+        style={{ height: props.height, width: '100%', overflow: 'hidden' }}
+        onWheel={stopWheelPropagation}
+        onPointerdown={stopPointerPropagation}
+        onPointermove={stopPointerPropagation}
+        onPointerup={stopPointerPropagation}>
         <VChart
           class="chart"
           option={finalOption.value}
@@ -76,6 +93,7 @@ export default defineComponent({
           autoresize={{ throttle: 100 }}
           style={{ width: '100%', height: '100%' }}
           onClick={props.onChartClick}
+          onDblclick={props.onChartDblclick}
         />
       </div>
     )

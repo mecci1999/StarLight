@@ -86,8 +86,8 @@ export const buildOverviewWidgetQueryPreviewSpec = (params: {
       query: {
         ...query,
         scope: query.scope || scope,
-        timeRange: query.timeRange || editorTimeRange,
-        visualizationHint: query.visualizationHint || visualizationHint,
+        timeRange: editorTimeRange,
+        visualizationHint,
         subject:
           query.subject?.type === 'service' && !query.subject?.id && scopedServiceId
             ? { ...query.subject, id: scopedServiceId }

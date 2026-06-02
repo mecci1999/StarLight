@@ -131,8 +131,11 @@ export default defineComponent({
 
     return () => (
       <div class="billing-payment-tab">
-        <div class="billing-payment-tab__header">
-          <h3 class="billing-payment-tab__title">可用支付方式</h3>
+        <div class="billing-payment-tab__section-head">
+          <div>
+            <h3>支付与账单</h3>
+            <p>先处理待支付订单，再确认可用支付方式，最后查看历史账单。</p>
+          </div>
           <NButton type="primary" secondary loading={methodsLoading.value} onClick={fetchPaymentMethods}>
             刷新支付方式
           </NButton>
@@ -175,6 +178,10 @@ export default defineComponent({
           </NCard>
         )}
 
+        <div class="billing-payment-tab__block-title">
+          <h4>可用支付方式</h4>
+          <span>{paymentMethods.value.length} 个渠道</span>
+        </div>
         <div class="billing-payment-tab__methods-grid">
           {(paymentMethods.value.length ? paymentMethods.value : []).map((method) => (
             <NCard>
@@ -212,7 +219,10 @@ export default defineComponent({
           )}
         </div>
 
-        <h3 class="billing-payment-tab__title billing-payment-tab__history-title">账单历史</h3>
+        <div class="billing-payment-tab__block-title billing-payment-tab__history-title">
+          <h4>账单历史</h4>
+          <span>最近 20 条记录</span>
+        </div>
         {historyError.value ? (
           <NCard class="billing-payment-tab__history-alert">
             <div class="billing-payment-tab__hint">账单历史暂时不可用，请稍后重试。</div>

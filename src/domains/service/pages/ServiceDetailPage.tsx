@@ -235,7 +235,7 @@ export default defineComponent({
     const loadServiceDetail = async () => {
       loading.value = true
       try {
-        const [detailRes, runtimeRes, alertsRes, exceptionsRes, metricsRes, alertRulesRes, notificationsRes] =
+        const [detailRes, runtimeRes, alertsRes, metricsRes, exceptionsRes, alertRulesRes, notificationsRes] =
           await Promise.all([
             fetchServiceDetailSummary(serviceId, { timeRange: `-${timeStore.timeRange}`, scope: datasetScope.value }),
             fetchServiceRuntime(serviceId, { scope: datasetScope.value }),
@@ -245,7 +245,12 @@ export default defineComponent({
               startTime: timeStore.startTime,
               endTime: timeStore.endTime
             }),
-            loadTraces(),
+            fetchMetricsExplorer({ serviceId, timeRange: `-${timeStore.timeRange}`, scope: datasetScope.value }).catch(
+              (error) => {
+                console.error('Failed to load health timeline:', error)
+                return null
+              }
+            ),
             listExceptions({
               service: serviceId,
               startTime: timeStore.startTime,
@@ -253,14 +258,8 @@ export default defineComponent({
               limit: 5
             }).catch((error: unknown) => {
               console.error('Failed to load recent exceptions:', error)
-              return []
+              return { items: [] }
             }),
-            fetchMetricsExplorer({ serviceId, timeRange: `-${timeStore.timeRange}`, scope: datasetScope.value }).catch(
-              (error) => {
-                console.error('Failed to load health timeline:', error)
-                return null
-              }
-            ),
             fetchAlertRules({
               serviceId,
               scope: datasetScope.value,
@@ -348,7 +347,7 @@ export default defineComponent({
           : []
         await loadLogs()
         recentIncidents.value = alerts.value.slice(0, 5)
-        recentExceptions.value = Array.isArray(exceptionsRes) ? exceptionsRes.slice(0, 5) : []
+        recentExceptions.value = Array.isArray(exceptionsRes?.items) ? exceptionsRes.items.slice(0, 5) : []
         healthTimeline.value = {
           cpu: metricsRes?.series?.cpu?.[0]?.data || [],
           memory: metricsRes?.series?.memory?.[0]?.data || [],

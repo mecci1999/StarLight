@@ -92,6 +92,7 @@ import {
   type OverviewPanelWidget,
   type OverviewQuickPivotLinkKey,
   type OverviewSeverity,
+  type OverviewWidgetQueryEditMode,
   type OverviewWidgetDisplayMetricKey,
   type OverviewWidgetEditorState,
   type OverviewWidgetEditorTimeRange,
@@ -219,7 +220,11 @@ const editorTimeRangeCatalog: Record<
   Array<{ label: string; value: OverviewWidgetEditorTimeRange }>
 > = {
   hour: [
+    { label: '最近 1 分钟', value: '1m' },
+    { label: '最近 5 分钟', value: '5m' },
+    { label: '最近 10 分钟', value: '10m' },
     { label: '最近 15 分钟', value: '15m' },
+    { label: '最近 30 分钟', value: '30m' },
     { label: '最近 1 小时', value: '1h' },
     { label: '最近 4 小时', value: '4h' }
   ],
@@ -651,6 +656,7 @@ export default defineComponent({
     const editorDiscoveryKeyword = ref('')
     const editorAdvancedMode = ref(false)
     const editorCompiledScript = ref('')
+    const editorRawQueryScript = ref('')
     const editorScriptLanguage = ref('queryspec-json')
     const editorScriptValidation = ref<{ valid: boolean; issues: string[]; supported: boolean } | null>(null)
     const editorScriptLoading = ref(false)
@@ -839,6 +845,7 @@ export default defineComponent({
       { value: 'memory' as OverviewWidgetDisplayMetricKey, label: '内存使用率' }
     ]
     const queryCardDraft = computed(() => (widgetEditorDraft.value.config as { query: QuerySpec }).query)
+    const queryEditMode = computed(() => widgetEditorState.value.queryEditMode || 'form-builder')
     const darwinServiceOptions = computed(() =>
       services.value.map((service) => ({
         label: service.name,
@@ -885,6 +892,18 @@ export default defineComponent({
     const selectedQueryMetricSchema = computed(
       () => filteredMetricsSchemaItems.value.find((item) => item.name === queryCardDraft.value.metricRef) || null
     )
+    const queryMetricCatalogStats = computed(() => {
+      const items = filteredMetricsSchemaItems.value
+      const labelNames = new Set(items.flatMap((item) => item.labelNames))
+      const sourceServices = new Set(items.flatMap((item) => item.sourceServices))
+      return {
+        total: items.length,
+        system: items.filter((item) => item.scope.includes('system')).length,
+        darwin: items.filter((item) => item.sourceKind === 'darwin-event' || item.sourceKind === 'mixed').length,
+        labels: labelNames.size,
+        services: sourceServices.size
+      }
+    })
     const queryMetricOptions = computed(() =>
       filteredMetricsSchemaItems.value.map((item) => ({
         label: `${item.name} · ${item.description}`,
@@ -1121,8 +1140,140 @@ export default defineComponent({
       widgetEditorDraft.value = normalizeEditorState(mergedDraft)
     }
 
+    const updateQueryCardDraft = (queryPatch: Partial<QuerySpec>) => {
+      updateWidgetDraft({
+        config: {
+          query: {
+            ...queryCardDraft.value,
+            ...queryPatch
+          }
+        } as any
+      })
+    }
+
+    const applySchemaMetricToQueryDraft = (item: MetricsCatalogSchemaItem) => {
+      const nextAggregation = item.allowedAggregations.includes(queryCardDraft.value.aggregation)
+        ? queryCardDraft.value.aggregation
+        : item.allowedAggregations[0] || 'avg'
+      const nextVisualization = item.recommendedVisualizations.includes(
+        queryCardDraft.value.visualizationHint || 'line'
+      )
+        ? queryCardDraft.value.visualizationHint
+        : item.recommendedVisualizations[0] || 'line'
+      const nextScope = item.scope.includes(queryCardDraft.value.scope)
+        ? queryCardDraft.value.scope
+        : item.scope[0] || 'tenant'
+      const nextSourceKind =
+        item.sourceKind === 'mixed' || item.sourceKind === 'auto'
+          ? queryCardDraft.value.sourceKind || 'auto'
+          : item.sourceKind
+      const nextSubject = item.subjectKinds.includes(queryCardDraft.value.subject?.type || 'system')
+        ? queryCardDraft.value.subject || { type: 'system' as const }
+        : { type: item.subjectKinds[0] || 'system' }
+
+      updateQueryCardDraft({
+        metricRef: item.name,
+        aggregation: nextAggregation,
+        visualizationHint: nextVisualization,
+        scope: nextScope,
+        sourceKind: nextSourceKind,
+        subject: nextSubject
+      })
+
+      if (queryEditMode.value === 'query-statement') {
+        const nextQuery = {
+          ...queryCardDraft.value,
+          metricRef: item.name,
+          aggregation: nextAggregation,
+          visualizationHint: nextVisualization,
+          scope: nextScope,
+          sourceKind: nextSourceKind,
+          subject: nextSubject
+        }
+        editorRawQueryScript.value = JSON.stringify({ type: 'queryspec', version: 1, query: nextQuery }, null, 2)
+      }
+    }
+
+    const insertSchemaMetricIntoRawQuery = (item: MetricsCatalogSchemaItem) => {
+      const parsed = parseQuerySpecJson(editorRawQueryScript.value)
+      const baseQuery = parsed.query || queryCardDraft.value
+      const nextAggregation = item.allowedAggregations.includes(baseQuery.aggregation)
+        ? baseQuery.aggregation
+        : item.allowedAggregations[0] || 'avg'
+      const nextVisualization = item.recommendedVisualizations.includes(baseQuery.visualizationHint || 'line')
+        ? baseQuery.visualizationHint
+        : item.recommendedVisualizations[0] || 'line'
+      const nextScope = item.scope.includes(baseQuery.scope) ? baseQuery.scope : item.scope[0] || 'tenant'
+      const nextSourceKind =
+        item.sourceKind === 'mixed' || item.sourceKind === 'auto' ? baseQuery.sourceKind || 'auto' : item.sourceKind
+      const nextSubject = item.subjectKinds.includes(baseQuery.subject?.type || 'system')
+        ? baseQuery.subject || { type: 'system' as const }
+        : { type: item.subjectKinds[0] || 'system' }
+      const nextQuery: QuerySpec = {
+        ...baseQuery,
+        metricRef: item.name,
+        aggregation: nextAggregation,
+        visualizationHint: nextVisualization,
+        scope: nextScope,
+        sourceKind: nextSourceKind,
+        subject: nextSubject
+      }
+
+      editorRawQueryScript.value = JSON.stringify({ type: 'queryspec', version: 1, query: nextQuery }, null, 2)
+      editorScriptValidation.value = null
+    }
+
+    const switchQueryEditMode = (mode: OverviewWidgetQueryEditMode) => {
+      updateWidgetDraft({
+        editor: {
+          ...widgetEditorState.value,
+          queryEditMode: mode
+        }
+      })
+
+      editorPreviewData.value = null
+      editorPreviewError.value = ''
+      editorScriptValidation.value = null
+      if (mode === 'query-statement') {
+        editorRawQueryScript.value = JSON.stringify(
+          { type: 'queryspec', version: 1, query: queryCardDraft.value },
+          null,
+          2
+        )
+      }
+    }
+
+    const applyRawQueryScriptToDraft = () => {
+      const result = parseQuerySpecJson(editorRawQueryScript.value)
+      if (!result.query) {
+        editorScriptValidation.value = { valid: false, issues: result.issues, supported: false }
+        return false
+      }
+
+      updateWidgetDraft({
+        config: { query: result.query } as any,
+        editor: {
+          ...widgetEditorState.value,
+          queryEditMode: 'query-statement',
+          timeRange: String(result.query.timeRange || '-1h').replace(/^-/, '') as OverviewWidgetEditorTimeRange,
+          visualization: result.query.visualizationHint || widgetEditorState.value.visualization
+        }
+      })
+      editorScriptValidation.value = { valid: true, issues: ['QuerySpec 已应用，可继续预览或保存。'], supported: false }
+      editorPreviewData.value = null
+      editorPreviewError.value = ''
+      return true
+    }
+
     const resetWidgetDraftForKind = (kind: OverviewWidgetKind) => {
       widgetEditorDraft.value = normalizeEditorState(buildWidgetDraft(kind, runtimeCapabilities.value))
+      if (kind === 'query-card') {
+        editorRawQueryScript.value = JSON.stringify(
+          { type: 'queryspec', version: 1, query: (widgetEditorDraft.value.config as { query: QuerySpec }).query },
+          null,
+          2
+        )
+      }
     }
 
     const syncDraftMetricSelection = (draft: WidgetEditorDraft): WidgetEditorDraft => {
@@ -1276,6 +1427,9 @@ export default defineComponent({
 
     const applyWidgetDraft = async () => {
       if (!currentPanelEditable.value) return
+      if (widgetEditorDraft.value.kind === 'query-card' && queryEditMode.value === 'query-statement') {
+        if (!applyRawQueryScriptToDraft()) return
+      }
       const syncedDraft = syncDraftMetricSelection(widgetEditorDraft.value)
       const validationMessage = validateWidgetDraftBeforeSave(syncedDraft)
       if (validationMessage) {
@@ -1286,7 +1440,7 @@ export default defineComponent({
       if (syncedDraft.kind === 'query-card') {
         const query = (syncedDraft.config as any)?.query as QuerySpec | undefined
         if (query) {
-          const validation = await validateMetricQuery(query, datasetScope.value)
+          const validation = await validateMetricQuery(query, query.scope || datasetScope.value)
           if (!validation.valid) {
             message.warning(validation.issues[0] || '当前查询配置未通过校验')
             return
@@ -1651,15 +1805,56 @@ export default defineComponent({
           lastDeploy: item.lastDeployAt
         }))
 
+        const needTrendOverall = currentVisibleWidgets.value.some((widget) => {
+          if (widget.kind === 'trend') {
+            const groupBy = (widget.config as TrendConfig).groupBy as OverviewTrendGroupBy | undefined
+            return groupBy === 'overall' || !groupBy
+          }
+          return [
+            'metric-summary',
+            'query-card',
+            'darwin-infra-summary',
+            'darwin-infra-trend',
+            'darwin-instance-table'
+          ].includes(widget.kind)
+        })
+        const needTrendEnv = currentVisibleWidgets.value.some(
+          (widget) => widget.kind === 'trend' && (widget.config as TrendConfig).groupBy === 'env'
+        )
+        const needTrendTeam = currentVisibleWidgets.value.some(
+          (widget) => widget.kind === 'trend' && (widget.config as TrendConfig).groupBy === 'team'
+        )
+        const needRiskServices = currentVisibleWidgets.value.some((widget) => widget.kind === 'risk-service')
+        const needIncidents = currentVisibleWidgets.value.some((widget) => widget.kind === 'incident')
+        const needIngestStatus = currentVisibleWidgets.value.some((widget) => widget.kind === 'ingest-status')
+        const needQueryCards = currentVisibleWidgets.value.some((widget) =>
+          [
+            'query-card',
+            'metric-summary',
+            'trend',
+            'darwin-infra-summary',
+            'darwin-infra-trend',
+            'darwin-instance-table'
+          ].includes(widget.kind)
+        )
+
         const [summaryRes, overallTrendRes, envTrendRes, teamTrendRes, riskRes, ingestRes, incidentsRes] =
           await Promise.all([
             fetchOverviewSummary({ timeRange: overviewTimeRange, scope: datasetScope.value }),
-            fetchOverviewTrends({ timeRange: overviewTimeRange, groupBy: 'overall', scope: datasetScope.value }),
-            fetchOverviewTrends({ timeRange: overviewTimeRange, groupBy: 'env', scope: datasetScope.value }),
-            fetchOverviewTrends({ timeRange: overviewTimeRange, groupBy: 'team', scope: datasetScope.value }),
-            fetchOverviewRiskServices({ scope: datasetScope.value }),
-            fetchOverviewIngestStatus({ scope: datasetScope.value }),
-            fetchOverviewIncidents({ timeRange: overviewTimeRange, scope: datasetScope.value })
+            needTrendOverall
+              ? fetchOverviewTrends({ timeRange: overviewTimeRange, groupBy: 'overall', scope: datasetScope.value })
+              : Promise.resolve(null),
+            needTrendEnv
+              ? fetchOverviewTrends({ timeRange: overviewTimeRange, groupBy: 'env', scope: datasetScope.value })
+              : Promise.resolve(null),
+            needTrendTeam
+              ? fetchOverviewTrends({ timeRange: overviewTimeRange, groupBy: 'team', scope: datasetScope.value })
+              : Promise.resolve(null),
+            needRiskServices ? fetchOverviewRiskServices({ scope: datasetScope.value }) : Promise.resolve(null),
+            needIngestStatus ? fetchOverviewIngestStatus({ scope: datasetScope.value }) : Promise.resolve(null),
+            needIncidents
+              ? fetchOverviewIncidents({ timeRange: overviewTimeRange, scope: datasetScope.value })
+              : Promise.resolve([])
           ])
 
         const totals = summaryRes?.totals || {}
@@ -1697,9 +1892,9 @@ export default defineComponent({
         })
 
         trendsByGroup.value = {
-          overall: normalizeTrendSnapshot(overallTrendRes),
-          env: normalizeTrendSnapshot(envTrendRes),
-          team: normalizeTrendSnapshot(teamTrendRes)
+          overall: normalizeTrendSnapshot(overallTrendRes || {}),
+          env: normalizeTrendSnapshot(envTrendRes || {}),
+          team: normalizeTrendSnapshot(teamTrendRes || {})
         }
         const visibleWidgetRanges = Array.from(
           new Set(currentVisibleWidgets.value.map((widget) => buildOverviewWidgetEditorState(widget).timeRange))
@@ -1711,37 +1906,57 @@ export default defineComponent({
         })
         const rangeScopedSummaries = [
           [pageWidgetRange, totals] as const,
-          ...(await Promise.all(
-            snapshotFetchPlan.summaryFetchRanges.map(
-              async (range) =>
-                [
-                  range,
-                  (await fetchOverviewSummary({ timeRange: `-${range}`, scope: datasetScope.value }))?.totals || {}
-                ] as const
-            )
-          ))
+          ...(needQueryCards
+            ? await Promise.all(
+                snapshotFetchPlan.summaryFetchRanges.map(
+                  async (range) =>
+                    [
+                      range,
+                      (await fetchOverviewSummary({ timeRange: `-${range}`, scope: datasetScope.value }))?.totals || {}
+                    ] as const
+                )
+              )
+            : [])
         ]
         const rangeScopedTrends = [
-          ...(['overall', 'env', 'team'] as OverviewTrendGroupBy[]).map(
-            (groupBy) =>
-              [
-                `${pageWidgetRange}:${groupBy}`,
-                normalizeTrendSnapshot(
-                  groupBy === 'overall' ? overallTrendRes : groupBy === 'env' ? envTrendRes : teamTrendRes
-                )
-              ] as const
-          ),
-          ...(await Promise.all(
-            snapshotFetchPlan.trendFetchPairs.map(
-              async ({ range, groupBy }) =>
+          ...(['overall', 'env', 'team'] as OverviewTrendGroupBy[])
+            .filter((groupBy) => {
+              if (groupBy === 'overall') return needTrendOverall
+              if (groupBy === 'env') return needTrendEnv
+              return needTrendTeam
+            })
+            .map(
+              (groupBy) =>
                 [
-                  `${range}:${groupBy}`,
+                  `${pageWidgetRange}:${groupBy}`,
                   normalizeTrendSnapshot(
-                    await fetchOverviewTrends({ timeRange: `-${range}`, groupBy, scope: datasetScope.value })
+                    groupBy === 'overall'
+                      ? overallTrendRes || {}
+                      : groupBy === 'env'
+                        ? envTrendRes || {}
+                        : teamTrendRes || {}
                   )
                 ] as const
-            )
-          ))
+            ),
+          ...(needQueryCards
+            ? await Promise.all(
+                snapshotFetchPlan.trendFetchPairs
+                  .filter(({ groupBy }) => {
+                    if (groupBy === 'overall') return needTrendOverall
+                    if (groupBy === 'env') return needTrendEnv
+                    return needTrendTeam
+                  })
+                  .map(
+                    async ({ range, groupBy }) =>
+                      [
+                        `${range}:${groupBy}`,
+                        normalizeTrendSnapshot(
+                          await fetchOverviewTrends({ timeRange: `-${range}`, groupBy, scope: datasetScope.value })
+                        )
+                      ] as const
+                  )
+              )
+            : [])
         ]
 
         widgetTrendSnapshots.value = Object.fromEntries(rangeScopedTrends) as Record<string, TrendSnapshot>
@@ -1769,7 +1984,7 @@ export default defineComponent({
           refreshGenerationId: `${Date.now()}`
         })
 
-        if (cards.length) {
+        if (cards.length && needQueryCards) {
           const responses = await Promise.all(requests.map((request) => queryMetricCards(request)))
           queryWidgetResults.value = mapQueryResultsByWidgetId(responses.flatMap((response) => response?.items || []))
         } else {
@@ -2759,145 +2974,190 @@ export default defineComponent({
     const renderNonQueryWidgetSettings = () => {
       if (widgetEditorDraft.value.kind === 'query-card') {
         return (
-          <div class="overview-page__darwin-settings-grid">
-            <label class="overview-page__darwin-settings-field">
-              <span>数据范围</span>
-              <NSelect
-                value={queryCardDraft.value.scope}
-                options={queryScopeOptions.value}
-                onUpdateValue={(value: MetricsDatasetScope) =>
-                  updateWidgetDraft({
-                    config: {
-                      query: {
-                        ...queryCardDraft.value,
-                        scope: value
-                      }
-                    } as any
-                  })
-                }
-              />
-            </label>
-            <label class="overview-page__darwin-settings-field">
-              <span>数据来源</span>
-              <NSelect
-                value={queryCardDraft.value.sourceKind}
-                options={querySourceKindOptions.value}
-                onUpdateValue={(value: QuerySpec['sourceKind']) =>
-                  updateWidgetDraft({
-                    config: {
-                      query: {
-                        ...queryCardDraft.value,
-                        sourceKind: value || 'auto'
-                      }
-                    } as any
-                  })
-                }
-              />
-            </label>
-            <label class="overview-page__darwin-settings-field">
-              <span>目标对象</span>
-              <NSelect
-                value={queryCardDraft.value.subject?.type || 'system'}
-                options={querySubjectOptions}
-                onUpdateValue={(value: QuerySpec['subject']['type']) =>
-                  updateWidgetDraft({
-                    config: {
-                      query: {
-                        ...queryCardDraft.value,
-                        subject:
-                          value === 'service'
-                            ? { type: 'service', id: queryCardDraft.value.subject?.id || '' }
-                            : { type: 'system' }
-                      }
-                    } as any
-                  })
-                }
-              />
-            </label>
-            <label class="overview-page__darwin-settings-field">
-              <span>目标服务</span>
-              <NSelect
-                value={queryCardDraft.value.subject?.id || null}
-                clearable
-                options={darwinServiceOptions.value}
-                placeholder="当目标对象为服务/实例时选择"
-                disabled={queryCardDraft.value.subject?.type === 'system'}
-                onUpdateValue={(value: string | null) =>
-                  updateWidgetDraft({
-                    config: {
-                      query: {
-                        ...queryCardDraft.value,
-                        subject: {
-                          ...(queryCardDraft.value.subject || { type: 'service' }),
-                          id: value || undefined
+          <div class="overview-page__query-builder-flow">
+            <div class="overview-page__query-mode-grid">
+              <button
+                type="button"
+                class={['overview-page__query-mode-card', queryEditMode.value === 'form-builder' ? 'is-active' : '']}
+                onClick={() => switchQueryEditMode('form-builder')}>
+                <span class="overview-page__query-mode-kicker">Guided</span>
+                <strong>表单组装</strong>
+                <span>按指标、对象、聚合和分组一步步生成开放查询卡。</span>
+                <em>适合新用户和标准监控卡片</em>
+              </button>
+              <button
+                type="button"
+                class={[
+                  'overview-page__query-mode-card',
+                  'overview-page__query-mode-card--code',
+                  queryEditMode.value === 'query-statement' ? 'is-active' : ''
+                ]}
+                onClick={() => switchQueryEditMode('query-statement')}>
+                <span class="overview-page__query-mode-kicker">QuerySpec</span>
+                <strong>查询语句</strong>
+                <span>直接粘贴完整 QuerySpec JSON，保存时不会被表单反向改写。</span>
+                <em>适合专业用户、复杂查询和复制已有配置</em>
+              </button>
+            </div>
+
+            {queryEditMode.value === 'form-builder' ? (
+              <>
+                <div class="overview-page__query-builder-step">
+                  <div class="overview-page__query-builder-step-header">
+                    <span>1</span>
+                    <div>
+                      <div class="overview-page__editor-query-title">选择指标与查询范围</div>
+                      <div class="overview-page__editor-query-subtitle">先决定查什么，再选择数据集和目标对象。</div>
+                    </div>
+                  </div>
+                  <div class="overview-page__darwin-settings-grid">
+                    <label class="overview-page__darwin-settings-field overview-page__darwin-settings-field--full">
+                      <span>指标标识</span>
+                      <NSelect
+                        value={queryCardDraft.value.metricRef}
+                        options={queryMetricOptions.value}
+                        filterable
+                        clearable
+                        placeholder={metricsSchemaSource.value === 'schema' ? '选择一个指标' : '例如 service.cpu.usage'}
+                        onUpdateValue={(value: string | null) => updateQueryCardDraft({ metricRef: value || '' })}
+                      />
+                    </label>
+                    <label class="overview-page__darwin-settings-field">
+                      <span>数据范围</span>
+                      <NSelect
+                        value={queryCardDraft.value.scope}
+                        options={queryScopeOptions.value}
+                        onUpdateValue={(value: MetricsDatasetScope) => updateQueryCardDraft({ scope: value })}
+                      />
+                    </label>
+                    <label class="overview-page__darwin-settings-field">
+                      <span>数据来源</span>
+                      <NSelect
+                        value={queryCardDraft.value.sourceKind}
+                        options={querySourceKindOptions.value}
+                        onUpdateValue={(value: QuerySpec['sourceKind']) =>
+                          updateQueryCardDraft({ sourceKind: value || 'auto' })
                         }
-                      }
-                    } as any
-                  })
-                }
-              />
-            </label>
-            <label class="overview-page__darwin-settings-field overview-page__darwin-settings-field--full">
-              <span>指标标识</span>
-              <NSelect
-                value={queryCardDraft.value.metricRef}
-                options={queryMetricOptions.value}
-                filterable
-                clearable
-                placeholder={metricsSchemaSource.value === 'schema' ? '选择一个指标' : '例如 service.cpu.usage'}
-                onUpdateValue={(value: string | null) =>
-                  updateWidgetDraft({
-                    config: {
-                      query: {
-                        ...queryCardDraft.value,
-                        metricRef: value || ''
-                      }
-                    } as any
-                  })
-                }
-              />
-            </label>
-            <label class="overview-page__darwin-settings-field">
-              <span>聚合方式</span>
-              <NSelect
-                value={queryCardDraft.value.aggregation}
-                options={queryAggregationOptionsResolved.value}
-                onUpdateValue={(value: QuerySpec['aggregation']) =>
-                  updateWidgetDraft({
-                    config: {
-                      query: {
-                        ...queryCardDraft.value,
-                        aggregation: value
-                      }
-                    } as any
-                  })
-                }
-              />
-            </label>
-            <label class="overview-page__darwin-settings-field overview-page__darwin-settings-field--full">
-              <span>分组字段</span>
-              <NInput
-                value={(queryCardDraft.value.groupBy || []).join(',')}
-                placeholder={
-                  selectedQueryMetricSchema.value?.labelNames?.length
-                    ? `可选：${selectedQueryMetricSchema.value.labelNames.join(', ')}`
-                    : '多个字段用逗号分隔，例如 service,env'
-                }
-                onUpdate:value={(value: string) =>
-                  updateWidgetDraft({
-                    config: {
-                      query: {
-                        ...queryCardDraft.value,
-                        groupBy: value
-                          .split(',')
-                          .map((item) => item.trim())
-                          .filter(Boolean)
-                      }
-                    } as any
-                  })
-                }
-              />
-            </label>
+                      />
+                    </label>
+                    <label class="overview-page__darwin-settings-field">
+                      <span>目标对象</span>
+                      <NSelect
+                        value={queryCardDraft.value.subject?.type || 'system'}
+                        options={querySubjectOptions}
+                        onUpdateValue={(value: QuerySpec['subject']['type']) =>
+                          updateQueryCardDraft({
+                            subject:
+                              value === 'service'
+                                ? { type: 'service', id: queryCardDraft.value.subject?.id || '' }
+                                : { type: 'system' }
+                          })
+                        }
+                      />
+                    </label>
+                    <label class="overview-page__darwin-settings-field">
+                      <span>目标服务</span>
+                      <NSelect
+                        value={queryCardDraft.value.subject?.id || null}
+                        clearable
+                        options={darwinServiceOptions.value}
+                        placeholder="当目标对象为服务时选择"
+                        disabled={queryCardDraft.value.subject?.type === 'system'}
+                        onUpdateValue={(value: string | null) =>
+                          updateQueryCardDraft({
+                            subject: {
+                              ...(queryCardDraft.value.subject || { type: 'service' }),
+                              id: value || undefined
+                            }
+                          })
+                        }
+                      />
+                    </label>
+                  </div>
+                </div>
+
+                <div class="overview-page__query-builder-step">
+                  <div class="overview-page__query-builder-step-header">
+                    <span>2</span>
+                    <div>
+                      <div class="overview-page__editor-query-title">设置计算方式</div>
+                      <div class="overview-page__editor-query-subtitle">
+                        选择聚合方式和可选分组字段，图表形态在展示设置中选择。
+                      </div>
+                    </div>
+                  </div>
+                  <div class="overview-page__darwin-settings-grid">
+                    <label class="overview-page__darwin-settings-field">
+                      <span>聚合方式</span>
+                      <NSelect
+                        value={queryCardDraft.value.aggregation}
+                        options={queryAggregationOptionsResolved.value}
+                        onUpdateValue={(value: QuerySpec['aggregation']) =>
+                          updateQueryCardDraft({ aggregation: value })
+                        }
+                      />
+                    </label>
+                    <label class="overview-page__darwin-settings-field overview-page__darwin-settings-field--full">
+                      <span>分组字段</span>
+                      <NInput
+                        value={(queryCardDraft.value.groupBy || []).join(',')}
+                        placeholder={
+                          selectedQueryMetricSchema.value?.labelNames?.length
+                            ? `可选：${selectedQueryMetricSchema.value.labelNames.join(', ')}`
+                            : '多个字段用逗号分隔，例如 service,env'
+                        }
+                        onUpdate:value={(value: string) =>
+                          updateQueryCardDraft({
+                            groupBy: value
+                              .split(',')
+                              .map((item) => item.trim())
+                              .filter(Boolean)
+                          })
+                        }
+                      />
+                    </label>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div class="overview-page__query-script-editor">
+                <div class="overview-page__editor-query-header">
+                  <div>
+                    <div class="overview-page__editor-query-title">QuerySpec JSON</div>
+                    <div class="overview-page__editor-query-subtitle">
+                      保存的是完整查询语句；切回表单前不会自动拆解覆盖字段。
+                    </div>
+                  </div>
+                  <NButton
+                    size="small"
+                    ghost
+                    onClick={() =>
+                      (editorRawQueryScript.value = JSON.stringify(
+                        { type: 'queryspec', version: 1, query: queryCardDraft.value },
+                        null,
+                        2
+                      ))
+                    }>
+                    从当前表单生成模板
+                  </NButton>
+                </div>
+                <NInput
+                  type="textarea"
+                  autosize={{ minRows: 10, maxRows: 18 }}
+                  value={editorRawQueryScript.value}
+                  onUpdate:value={(value: string) => (editorRawQueryScript.value = value)}
+                  placeholder="粘贴 QuerySpec、{ query } 或 { config: { query } }"
+                />
+                <div class="overview-page__query-required-fields">
+                  <span>必须包含：</span>
+                  <code>scope</code>
+                  <code>subject</code>
+                  <code>metricRef</code>
+                  <code>aggregation</code>
+                  <code>timeRange</code>
+                </div>
+              </div>
+            )}
           </div>
         )
       }
@@ -3182,6 +3442,7 @@ export default defineComponent({
       editorPreviewError.value = ''
       editorAdvancedMode.value = false
       editorCompiledScript.value = ''
+      editorRawQueryScript.value = ''
       editorScriptLanguage.value = 'queryspec-json'
       editorScriptValidation.value = null
       editorScriptLoading.value = false
@@ -3196,6 +3457,19 @@ export default defineComponent({
       })
     )
     const currentEditorQuerySignature = computed(() => JSON.stringify(currentEditorQuerySupport.value))
+
+    watch(
+      () => [showWidgetEditor.value, widgetEditorDraft.value.id, queryEditMode.value],
+      () => {
+        if (showWidgetEditor.value && widgetEditorDraft.value.kind === 'query-card') {
+          editorRawQueryScript.value = JSON.stringify(
+            { type: 'queryspec', version: 1, query: queryCardDraft.value },
+            null,
+            2
+          )
+        }
+      }
+    )
 
     watch(
       () => currentEditorQuerySignature.value,
@@ -3499,6 +3773,120 @@ export default defineComponent({
       }
     }
 
+    const renderQueryMetricCatalogBrowser = () => {
+      if (widgetEditorDraft.value.kind !== 'query-card') return null
+
+      return (
+        <div class="overview-page__editor-query-panel overview-page__query-metric-browser">
+          <div class="overview-page__editor-query-header">
+            <div>
+              <div class="overview-page__editor-query-title">系统指标目录</div>
+              <div class="overview-page__editor-query-subtitle">
+                用于选择 metricRef、查看可用标签和聚合方式；查询语句模式也可以直接把指标写入 QuerySpec。
+              </div>
+            </div>
+            <NTag size="small" bordered={false} type={metricsSchemaSource.value === 'schema' ? 'success' : 'warning'}>
+              {metricsSchemaSource.value === 'schema' ? 'Schema 已加载' : 'Schema 未完整加载'}
+            </NTag>
+          </div>
+          <div class="overview-page__query-metric-stats">
+            <div>
+              <strong>{queryMetricCatalogStats.value.total}</strong>
+              <span>当前可选</span>
+            </div>
+            <div>
+              <strong>{queryMetricCatalogStats.value.system}</strong>
+              <span>系统指标</span>
+            </div>
+            <div>
+              <strong>{queryMetricCatalogStats.value.darwin}</strong>
+              <span>Darwin 来源</span>
+            </div>
+            <div>
+              <strong>{queryMetricCatalogStats.value.labels}</strong>
+              <span>标签字段</span>
+            </div>
+          </div>
+          <div class="overview-page__editor-discovery-filters">
+            <NInput
+              value={metricsSchemaFilters.value.keyword}
+              placeholder="搜索指标名、描述、标签、服务"
+              onUpdate:value={(value: string) => {
+                metricsSchemaFilters.value.keyword = value
+              }}
+            />
+            <NSelect
+              value={metricsSchemaFilters.value.type || null}
+              clearable
+              placeholder="指标类型"
+              options={Array.from(new Set(metricsSchemaItems.value.map((item) => item.type).filter(Boolean))).map(
+                (type) => ({
+                  label: type,
+                  value: type
+                })
+              )}
+              onUpdateValue={(value: string | null) => {
+                metricsSchemaFilters.value.type = value || ''
+              }}
+            />
+          </div>
+          {filteredMetricsSchemaItems.value.length ? (
+            <div class="overview-page__editor-discovery-list overview-page__query-metric-list">
+              {filteredMetricsSchemaItems.value.slice(0, 60).map((item) => (
+                <div key={item.name} class="overview-page__editor-discovery-item overview-page__query-metric-item">
+                  <div class="overview-page__editor-discovery-main">
+                    <div class="overview-page__editor-discovery-name">{item.name}</div>
+                    <div class="overview-page__editor-discovery-description">{item.description}</div>
+                    <div class="overview-page__editor-discovery-meta">
+                      <NTag size="small" bordered={false}>
+                        {item.type}
+                      </NTag>
+                      <NTag size="small" bordered={false} type="info">
+                        {item.unit || '无单位'}
+                      </NTag>
+                      <NTag size="small" bordered={false} type={item.scope.includes('system') ? 'warning' : 'default'}>
+                        {item.scope.join(' / ')}
+                      </NTag>
+                      <NTag
+                        size="small"
+                        bordered={false}
+                        type={item.sourceKind === 'darwin-event' ? 'success' : 'default'}>
+                        {item.sourceKind}
+                      </NTag>
+                      <NTag size="small" bordered={false} type="success">
+                        聚合 {item.allowedAggregations.join(', ')}
+                      </NTag>
+                    </div>
+                    <div class="overview-page__query-metric-detail-row">
+                      <span>标签：</span>
+                      <strong>{item.labelNames.length ? item.labelNames.join(', ') : '无标签'}</strong>
+                    </div>
+                    <div class="overview-page__query-metric-detail-row">
+                      <span>推荐展示：</span>
+                      <strong>{item.recommendedVisualizations.join(', ') || item.recommendation}</strong>
+                    </div>
+                  </div>
+                  <div class="overview-page__query-metric-actions">
+                    <NButton size="small" type="primary" ghost onClick={() => applySchemaMetricToQueryDraft(item)}>
+                      应用到表单
+                    </NButton>
+                    <NButton size="small" secondary onClick={() => insertSchemaMetricIntoRawQuery(item)}>
+                      写入 QuerySpec
+                    </NButton>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <NEmpty
+              description={metricsSchemaSource.value === 'schema' ? '当前筛选下没有指标' : '指标 schema 暂不可用'}
+              class="overview-page__editor-query-empty"
+            />
+          )}
+        </div>
+      )
+    }
+
     const renderEditorMetricDiscovery = () => {
       if (!editorMetricDiscoveryEnabled.value) return null
 
@@ -3579,6 +3967,7 @@ export default defineComponent({
         <>
           {renderDarwinWidgetSettings()}
           {renderNonQueryWidgetSettings()}
+          {renderQueryMetricCatalogBrowser()}
           {renderEditorMetricDiscovery()}
           {showQueryAssist ? renderEditorQueryAssist() : null}
         </>

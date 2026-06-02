@@ -1,18 +1,11 @@
 .billing-payment-tab {
-  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px;
 
-  &__header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 24px;
-  }
-
-  &__title {
-    font-size: 18px;
-    font-weight: var(--font-weight-bold);
-  }
-
+  &__section-head,
+  &__block-title,
   &__order-header,
   &__method-header {
     display: flex;
@@ -21,10 +14,43 @@
     gap: 16px;
   }
 
+  &__section-head {
+    h3 {
+      margin: 0;
+      color: var(--color-text-1);
+      font-size: 18px;
+      font-weight: var(--font-weight-semibold);
+    }
+
+    p {
+      margin: 6px 0 0;
+      color: var(--color-text-3);
+      font-size: 13px;
+      line-height: 1.6;
+    }
+  }
+
+  &__block-title {
+    align-items: center;
+    margin-top: 8px;
+
+    h4 {
+      margin: 0;
+      color: var(--color-text-1);
+      font-size: 15px;
+      font-weight: var(--font-weight-semibold);
+    }
+
+    span {
+      color: var(--color-text-3);
+      font-size: 12px;
+    }
+  }
+
   &__order-title,
   &__method-title {
     color: var(--color-text-1);
-    font-weight: var(--font-weight-bold);
+    font-weight: var(--font-weight-semibold);
   }
 
   &__order-meta,
@@ -32,12 +58,14 @@
   &__hint {
     margin-top: 4px;
     color: var(--color-text-3);
-    font-size: 14px;
+    font-size: 13px;
+    line-height: 1.5;
   }
 
-  &__order-actions,
-  &__history-title {
-    margin-top: 16px;
+  &__order-actions {
+    margin-top: 14px;
+    color: var(--color-text-2);
+    font-size: 13px;
   }
 
   &__link {
@@ -55,25 +83,30 @@
     font-size: 14px;
   }
 
-  &__card {
-    margin-bottom: 24px;
+  &__card,
+  &__history-alert,
+  &__hint-card,
+  &__methods-grid :deep(.n-card) {
+    border: 1px solid var(--color-border-1);
+    border-radius: var(--radius-lg);
+    background: var(--color-bg-2);
+    box-shadow: var(--shadow-sm);
   }
 
-  &__history-alert {
-    margin-bottom: 16px;
+  &__history-title {
+    margin-top: 12px;
   }
 
   &__methods-grid {
     display: grid;
     grid-template-columns: repeat(1, minmax(0, 1fr));
-    gap: 16px;
-    margin-bottom: 24px;
+    gap: 12px;
 
     @media (min-width: 768px) {
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
-    @media (min-width: 1024px) {
+    @media (min-width: 1180px) {
       grid-template-columns: repeat(3, minmax(0, 1fr));
     }
   }
@@ -84,9 +117,18 @@
         grid-column: span 2;
       }
 
-      @media (min-width: 1024px) {
+      @media (min-width: 1180px) {
         grid-column: span 3;
       }
+    }
+  }
+
+  @media (max-width: 768px) {
+    &__section-head,
+    &__block-title,
+    &__order-header,
+    &__method-header {
+      flex-direction: column;
     }
   }
 }

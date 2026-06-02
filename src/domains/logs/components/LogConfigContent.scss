@@ -1,0 +1,73 @@
+.log-config-page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  padding: 24px;
+  background:
+    linear-gradient(180deg, #0c111b 0%, #0f1623 52%, #111a29 100%),
+    radial-gradient(circle at top left, rgba(61, 130, 246, 0.08), transparent 28%),
+    radial-gradient(circle at top right, rgba(46, 189, 133, 0.08), transparent 24%);
+
+  &__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+    margin-bottom: 24px;
+    flex-shrink: 0;
+  }
+
+  &__body {
+    flex: 1;
+    overflow: auto;
+  }
+
+  &__card {
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 18px;
+    background: rgba(14, 20, 32, 0.88);
+  }
+
+  &__storage-metric {
+    text-align: center;
+  }
+
+  &__storage-value {
+    font-size: 24px;
+    font-weight: 700;
+    color: #f5f7fb;
+
+    &--primary { color: var(--color-primary-6); }
+    &--success { color: var(--color-success-6); }
+    &--warning { color: var(--color-warning-6); }
+  }
+
+  &__storage-label {
+    color: rgba(213, 222, 235, 0.62);
+    font-size: 12px;
+  }
+
+  &__modal {
+    :deep(.n-card) {
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 18px;
+      background: rgba(11, 17, 28, 0.94);
+    }
+  }
+}
+
+:root[data-theme='dark'] {
+  .log-config-page {
+    background:
+      linear-gradient(180deg, #090d15 0%, #0c111b 52%, #101826 100%),
+      radial-gradient(circle at top left, rgba(61, 130, 246, 0.1), transparent 28%),
+      radial-gradient(circle at top right, rgba(46, 189, 133, 0.08), transparent 24%);
+
+    &__card,
+    &__modal :deep(.n-card) {
+      border-color: rgba(255, 255, 255, 0.08);
+      background: rgba(11, 17, 28, 0.92);
+    }
+  }
+}

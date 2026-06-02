@@ -6,7 +6,7 @@ export const login = (data: any) => {
 }
 
 export const verifyCode = (data: any) => {
-  return request.post(url.emailVerifyCode, data)
+  return request.postWithOptions(url.emailVerifyCode, data, { noRetry: true, suppressErrorLog: true })
 }
 
 export const registerUser = (data: any) => {

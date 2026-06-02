@@ -1,4 +1,3 @@
-import { fetch } from '@tauri-apps/plugin-http'
 import { AppException, ErrorType } from '@/common/exception'
 import { RequestQueue } from '@/utils/RequestQueue'
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow'
@@ -58,6 +57,8 @@ function wait(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
+const runtimeFetch = (input: RequestInfo | URL, init?: RequestInit) => globalThis.fetch(input, init)
+
 const getStoredToken = (name: 'ACCESS_TOKEN' | 'REFRESH_TOKEN') => {
   const cookie = getCookie(name)
   if (cookie) return cookie
@@ -100,6 +101,37 @@ const persistTokens = (accessToken?: string | null, refreshToken?: string | null
     setCookie('REFRESH_TOKEN', safeRefreshToken, REFRESH_TOKEN_EXPIRE_DAYS)
     setStoredToken('REFRESH_TOKEN', safeRefreshToken)
   }
+}
+
+const TOKEN_REFRESH_SKEW_MS = 5 * 60 * 1000
+
+type JwtPayload = {
+  exp?: number
+}
+
+const parseJwtPayload = (token: string): JwtPayload | null => {
+  try {
+    const payload = token.split('.')[1]
+    if (!payload) return null
+
+    const normalizedPayload = payload.replace(/-/g, '+').replace(/_/g, '/')
+    const paddedPayload = normalizedPayload.padEnd(
+      normalizedPayload.length + ((4 - (normalizedPayload.length % 4)) % 4),
+      '='
+    )
+    return JSON.parse(atob(paddedPayload)) as JwtPayload
+  } catch {
+    return null
+  }
+}
+
+const shouldRefreshAccessToken = (token: string | null) => {
+  if (!token) return false
+
+  const payload = parseJwtPayload(token)
+  if (!payload?.exp) return false
+
+  return payload.exp * 1000 - Date.now() <= TOKEN_REFRESH_SKEW_MS
 }
 
 /**
@@ -170,6 +202,7 @@ async function refreshTokenAndRetry(): Promise<string> {
     const refreshUrl = url.refreshToken
     const serviceUrl = import.meta.env.VITE_SERVICE_URL
     const accessToken = getStoredToken('ACCESS_TOKEN')
+    const hasVisibleRefreshCookie = typeof document !== 'undefined' && document.cookie.includes('REFRESH_TOKEN=')
 
     const refreshHeaders: Record<string, string> = {
       'Content-Type': 'application/json'
@@ -184,26 +217,20 @@ async function refreshTokenAndRetry(): Promise<string> {
       refreshUrl,
       serviceUrl,
       hasRefreshToken: Boolean(refreshToken),
+      hasVisibleRefreshCookie,
       hasAccessToken: Boolean(accessToken)
     })
-    if (!serviceUrl || refreshUrl.includes('undefined')) {
+    if (!refreshUrl || refreshUrl.includes('undefined')) {
       throw new AppException('服务端地址未配置', {
         type: ErrorType.Network,
         showError: true
       })
     }
-    if (!refreshToken) {
-      clearStoredTokens()
-      window.dispatchEvent(new Event('needReLogin'))
-      throw new AppException('无刷新令牌', {
-        type: ErrorType.TokenExpired,
-        showError: true
-      })
-    }
-    const response = await fetch(refreshUrl, {
+    const response = await runtimeFetch(refreshUrl, {
       method: 'POST',
       headers: refreshHeaders,
-      body: refreshBody
+      body: refreshBody,
+      credentials: 'include'
     })
 
     const data = await response.json().catch(() => null)
@@ -341,9 +368,12 @@ async function Http<T = any>(
   }
 
   const { retries = 3, retryDelay } = retryOptions
+  const maxRetries = options.noRetry ? 1 : retries
 
   // 获取token和指纹
-  const token = getStoredToken('ACCESS_TOKEN')
+  const storedToken = getStoredToken('ACCESS_TOKEN')
+  const isAuthRequest = /\/(login|register|verifyCode|refresh|publicKey)/i.test(url)
+  const token = !isAuthRequest && shouldRefreshAccessToken(storedToken) ? await refreshTokenAndRetry() : storedToken
   //const fingerprint = await getEnhancedFingerprint()
 
   // 构建请求头
@@ -354,19 +384,16 @@ async function Http<T = any>(
     httpHeaders.set('Content-Type', 'application/json')
   }
 
-  // 设置Cookie
-  // 对于认证相关的接口（登录、注册、验证码等），不需要携带 Access Token
-  // 避免因旧 Token 过期或格式错误导致无法进行登录操作
-  const isAuthRequest = /\/(login|register|verifyCode|refresh|publicKey)/i.test(url)
+  // 设置认证头
+  // 浏览器原生 fetch 不可靠地允许手动设置 Cookie 头，所以统一改用 Authorization。
+  // refreshToken 仍然通过请求体传递，服务端已有兼容逻辑。
 
   if (token && !isAuthRequest) {
     try {
-      // 移除可能导致 header 错误的非 ASCII 字符或控制字符
       const safeToken = token.replace(/[^\x20-\x7E]/g, '')
-      httpHeaders.set('Cookie', `ACCESS_TOKEN=${safeToken}`)
+      httpHeaders.set('Authorization', `Bearer ${safeToken}`)
     } catch (e) {
-      console.error('❌ 设置 Cookie 失败，Token 可能已损坏', e)
-      // 如果 Token 格式严重错误导致无法设置 Header，应该清除它
+      console.error('❌ 设置 Authorization 失败，Token 可能已损坏', e)
       clearStoredTokens()
     }
   }
@@ -382,7 +409,8 @@ async function Http<T = any>(
     method: options.method,
     headers: httpHeaders,
     signal: abort?.signal,
-    body
+    body,
+    credentials: 'include'
   }
 
   // 添加查询参数
@@ -418,7 +446,7 @@ async function Http<T = any>(
   let tokenRefreshCount = 0 // 在闭包中存储计数器
   async function attemptFetch(currentAttempt: number): Promise<{ data: T; response: Response } | T> {
     try {
-      const response = await fetch(url, fetchOptions)
+      const response = await runtimeFetch(url, fetchOptions)
       const setCookieHeader = response.headers.get('set-cookie')
       if (setCookieHeader) {
         const headerAccessToken = extractTokenFromSetCookie(setCookieHeader, 'ACCESS_TOKEN')
@@ -479,18 +507,16 @@ async function Http<T = any>(
             const safeToken = token.replace(/[\r\n]/g, '')
             // 更新 fetchOptions.headers，确保下一次 fetch 使用新 token
             if (fetchOptions.headers instanceof Headers) {
-              fetchOptions.headers.set('Cookie', `ACCESS_TOKEN=${safeToken}`)
+              fetchOptions.headers.set('Authorization', `Bearer ${safeToken}`)
             } else if (Array.isArray(fetchOptions.headers)) {
-              // 如果是数组格式 (例如 [['Content-Type', '...']])
-              const existing = fetchOptions.headers.find((h) => h[0].toLowerCase() === 'cookie')
+              const existing = fetchOptions.headers.find((h) => h[0].toLowerCase() === 'authorization')
               if (existing) {
-                existing[1] = `ACCESS_TOKEN=${safeToken}`
+                existing[1] = `Bearer ${safeToken}`
               } else {
-                fetchOptions.headers.push(['Cookie', `ACCESS_TOKEN=${safeToken}`])
+                fetchOptions.headers.push(['Authorization', `Bearer ${safeToken}`])
               }
             } else {
-              // 如果是对象格式
-              fetchOptions.headers = { ...fetchOptions.headers, Cookie: `ACCESS_TOKEN=${safeToken}` }
+              fetchOptions.headers = { ...fetchOptions.headers, Authorization: `Bearer ${safeToken}` }
             }
           }
 
@@ -564,18 +590,15 @@ async function Http<T = any>(
 
       return responseData
     } catch (error: any) {
-      // 优化错误日志，仅在开发环境打印详细信息
-      if (import.meta.env.DEV && !options.suppressErrorLog) {
-        console.error(`尝试 ${currentAttempt + 1} 失败 →`, error)
-      }
-
       // 处理网络相关错误
-      if (
+      const isRetryableNetworkError =
         error instanceof TypeError || // fetch 的网络错误会抛出 TypeError
         error.name === 'AbortError' || // 请求中断
         error.name === 'SyntaxError' || // Header 格式错误
         !navigator.onLine // 浏览器离线
-      ) {
+
+      // 可重试的网络瞬断只打印 warning，不提前 console.error，避免刷新页面时出现“失败”误报。
+      if (isRetryableNetworkError) {
         // 移除 SyntaxError 的特殊处理，避免误删 Token 导致无法续期
         // 让错误自然抛出或进入重试逻辑
 
@@ -583,7 +606,7 @@ async function Http<T = any>(
         const errorMessage = getNetworkErrorMessage(error)
 
         // 重试请求
-        if (shouldRetry(currentAttempt, retries, abort)) {
+        if (shouldRetry(currentAttempt, maxRetries, abort)) {
           console.warn(`${errorMessage}，准备重试 → 第 ${currentAttempt + 2} 次尝试`)
           // 计算重试延迟
           const delayMs = retryDelay ? retryDelay(currentAttempt) : 1000
@@ -593,12 +616,21 @@ async function Http<T = any>(
           return attemptFetch(currentAttempt + 1)
         }
 
+        if (import.meta.env.DEV && !options.suppressErrorLog) {
+          console.error(`尝试 ${currentAttempt + 1} 失败 →`, error)
+        }
+
         // 重试次数用完，抛出友好的错误信息
         throw new AppException(errorMessage, {
           type: ErrorType.Network,
           details: { attempts: currentAttempt + 1 },
           showError: true
         })
+      }
+
+      // 非网络类错误不会重试，需要保留详细错误，方便定位真实业务/解析问题。
+      if (import.meta.env.DEV && !options.suppressErrorLog) {
+        console.error(`尝试 ${currentAttempt + 1} 失败 →`, error)
       }
 
       if (error instanceof AppException) {

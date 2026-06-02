@@ -59,7 +59,6 @@ import {
   createCustomDashboardDraftFromQuerySpec,
   createDefaultCustomDashboardWidgetDraft,
   createLocalCompiledScript,
-  extractPreviewCardData,
   parseQuerySpecJson,
   resolveLegacyMetricRef,
   validateCustomDashboardDraft,
@@ -73,7 +72,10 @@ type QueryDashboardWidget = {
   title: string
   query: QuerySpec
   visualization: NonNullable<QuerySpec['visualizationHint']>
+  sourceMode?: CustomDashboardCardSourceMode
 }
+
+type CustomDashboardCardSourceMode = 'form-builder' | 'query-statement'
 
 export default defineComponent({
   name: 'CustomDashboardPage',
@@ -101,6 +103,8 @@ export default defineComponent({
     const alertsData = ref<any[]>([])
     const services = ref<Array<{ id: string; name: string }>>([])
     const customWidgets = ref<QueryDashboardWidget[]>([])
+    const editingWidgetId = ref<string | null>(null)
+    const cardSourceMode = ref<CustomDashboardCardSourceMode>('form-builder')
     const widgetForm = ref<CustomDashboardWidgetDraft>(
       createDefaultCustomDashboardWidgetDraft(routeContext.value.serviceId || '', routeContext.value.datasetScope)
     )
@@ -127,6 +131,7 @@ export default defineComponent({
     const widgetResults = ref<Record<string, CardData | null>>({})
     const advancedMode = ref(false)
     const compiledScript = ref('')
+    const rawQueryScript = ref('')
     const scriptLanguage = ref('queryspec-json')
     const scriptValidation = ref<{ valid: boolean; issues: string[]; supported: boolean } | null>(null)
     const scriptLoading = ref(false)
@@ -182,8 +187,31 @@ export default defineComponent({
     const mappedCatalogItems = computed(() =>
       filterMetricsCatalog(catalogItems.value, catalogFilters.value)
         .map((item) => ({ item }))
-        .slice(0, 12)
+        .slice(0, 20)
     )
+    const metricRefOptions = computed(() =>
+      catalogItems.value.map((item) => ({
+        label: `${item.name}${item.description && item.description !== '暂无描述' ? ` · ${item.description}` : ''}`,
+        value: item.name
+      }))
+    )
+    const receivedCatalogItems = computed(() => catalogItems.value.filter((item) => item.sampleCount > 0))
+    const catalogStats = computed(() => {
+      const items = catalogItems.value
+      const latestSeenAt = items
+        .map((item) => item.lastSeenAt || 0)
+        .filter((timestamp) => timestamp > 0)
+        .sort((a, b) => b - a)[0]
+      const services = new Set(items.flatMap((item) => item.sourceServices || []))
+      const labels = new Set(items.flatMap((item) => item.labelNames || []))
+      return {
+        total: items.length,
+        received: receivedCatalogItems.value.length,
+        services: services.size,
+        labels: labels.size,
+        latestSeenAt: latestSeenAt || null
+      }
+    })
     const selectedMetricSchema = computed(
       () => catalogItems.value.find((item) => item.name === widgetForm.value.metricRef) || null
     )
@@ -201,6 +229,41 @@ export default defineComponent({
       }
       return parts.join(' · ')
     })
+
+    const formatSeenAt = (timestamp: number | null) => {
+      if (!timestamp) return '暂无样本'
+      const normalized = timestamp < 10000000000 ? timestamp * 1000 : timestamp
+      return new Date(normalized).toLocaleString()
+    }
+
+    const getMetricFreshnessType = (item: MetricsCatalogSchemaItem) => {
+      if (!item.lastSeenAt) return 'default'
+      const normalized = item.lastSeenAt < 10000000000 ? item.lastSeenAt * 1000 : item.lastSeenAt
+      const ageMs = Date.now() - normalized
+      if (ageMs <= 15 * 60 * 1000) return 'success'
+      if (ageMs <= 24 * 60 * 60 * 1000) return 'warning'
+      return 'default'
+    }
+
+    const getMetricFreshnessLabel = (item: MetricsCatalogSchemaItem) => {
+      if (!item.lastSeenAt) return '未收到样本'
+      const normalized = item.lastSeenAt < 10000000000 ? item.lastSeenAt * 1000 : item.lastSeenAt
+      const ageMs = Math.max(0, Date.now() - normalized)
+      if (ageMs < 60 * 1000) return '刚刚收到'
+      if (ageMs < 60 * 60 * 1000) return `${Math.floor(ageMs / 60000)} 分钟前`
+      if (ageMs < 24 * 60 * 60 * 1000) return `${Math.floor(ageMs / 3600000)} 小时前`
+      return formatSeenAt(item.lastSeenAt)
+    }
+
+    const renderMetricSampleLabels = (item: MetricsCatalogSchemaItem) => {
+      const entries = Object.entries(item.sampleLabels || {}).slice(0, 4)
+      if (!entries.length) return <span class="custom-dashboard-page__metric-muted">暂无标签样本</span>
+      return entries.map(([label, values]) => (
+        <span class="custom-dashboard-page__label-sample" key={label}>
+          {label}: {(values || []).slice(0, 3).join(' / ') || '-'}
+        </span>
+      ))
+    }
 
     const applyRouteContext = (context: ReturnType<typeof resolveCustomDashboardRouteContext>) => {
       const scopeChanged = datasetScope.value !== context.datasetScope
@@ -423,20 +486,85 @@ export default defineComponent({
       }
     }
 
+    const switchCardSourceMode = (nextMode: CustomDashboardCardSourceMode) => {
+      if (cardSourceMode.value === nextMode) return
+      cardSourceMode.value = nextMode
+      previewData.value = null
+      previewError.value = ''
+      scriptValidation.value = null
+      if (nextMode === 'query-statement' && !rawQueryScript.value.trim()) {
+        const query = buildCustomDashboardQuerySpec(widgetForm.value, datasetScope.value)
+        rawQueryScript.value = JSON.stringify({ type: 'queryspec', version: 1, query }, null, 2)
+      }
+    }
+
     const resetModalAssistState = () => {
       previewData.value = null
       previewError.value = ''
       compiledScript.value = ''
+      rawQueryScript.value = ''
       scriptLanguage.value = 'queryspec-json'
       scriptValidation.value = null
       advancedMode.value = false
+      editingWidgetId.value = null
+      cardSourceMode.value = 'form-builder'
+    }
+
+    const resetWidgetForm = () => {
+      widgetForm.value = createDefaultCustomDashboardWidgetDraft(routeContext.value.serviceId || '', datasetScope.value)
+    }
+
+    const openAddWidgetModal = () => {
+      resetModalAssistState()
+      resetWidgetForm()
+      applyRouteContext(routeContext.value)
+      showAddModal.value = true
+    }
+
+    const closeWidgetModal = () => {
+      showAddModal.value = false
+      resetModalAssistState()
+      resetWidgetForm()
+    }
+
+    const openEditWidgetModal = (widget: QueryDashboardWidget) => {
+      resetModalAssistState()
+      editingWidgetId.value = widget.id
+      cardSourceMode.value = widget.sourceMode || 'form-builder'
+      widgetForm.value = createCustomDashboardDraftFromQuerySpec(widget.query, {
+        ...createDefaultCustomDashboardWidgetDraft(
+          routeContext.value.serviceId || '',
+          widget.query.scope || datasetScope.value
+        ),
+        title: widget.title
+      })
+      widgetForm.value.title = widget.title
+      rawQueryScript.value = JSON.stringify({ type: 'queryspec', version: 1, query: widget.query }, null, 2)
+      compiledScript.value = rawQueryScript.value
+      showAddModal.value = true
+    }
+
+    const getActiveDraftQuery = () => {
+      if (cardSourceMode.value === 'form-builder') {
+        const validation = validateCustomDashboardDraft(widgetForm.value)
+        return { query: buildCustomDashboardQuerySpec(widgetForm.value, datasetScope.value), validation }
+      }
+
+      const parsed = parseQuerySpecJson(rawQueryScript.value)
+      return {
+        query: parsed.query,
+        validation: {
+          valid: Boolean(parsed.query),
+          issues: parsed.issues.length ? parsed.issues : parsed.query ? [] : ['请先输入 QuerySpec JSON']
+        }
+      }
     }
 
     const runPreview = async () => {
       previewLoading.value = true
       previewError.value = ''
       try {
-        const validation = validateCustomDashboardDraft(widgetForm.value)
+        const { query, validation } = getActiveDraftQuery()
         scriptValidation.value = { ...validation, supported: false }
         if (!validation.valid) {
           previewData.value = null
@@ -444,14 +572,13 @@ export default defineComponent({
           return
         }
 
-        const query = buildCustomDashboardQuerySpec(widgetForm.value, datasetScope.value)
         if (!query) {
           previewData.value = null
           previewError.value = '当前组件类型暂不支持脚本预览'
           return
         }
 
-        const result = await previewMetricCard(query, datasetScope.value)
+        const result = await previewMetricCard(query, query.scope)
         previewData.value = result.data || null
         if (!result.data) {
           previewError.value = result.supported
@@ -470,18 +597,20 @@ export default defineComponent({
     const runAdvancedInspection = async () => {
       scriptLoading.value = true
       try {
-        const validation = validateCustomDashboardDraft(widgetForm.value)
-        const query = buildCustomDashboardQuerySpec(widgetForm.value, datasetScope.value)
+        const { query, validation } = getActiveDraftQuery()
         if (!query) {
           scriptValidation.value = { ...validation, supported: false }
-          compiledScript.value = createLocalCompiledScript(widgetForm.value, datasetScope.value)
+          compiledScript.value =
+            cardSourceMode.value === 'form-builder'
+              ? createLocalCompiledScript(widgetForm.value, datasetScope.value)
+              : rawQueryScript.value
           scriptLanguage.value = 'queryspec-json'
           return
         }
 
         const [validateResult, compileResult] = await Promise.all([
-          validateMetricQuery(query, datasetScope.value),
-          compileMetricQuery(query, datasetScope.value)
+          validateMetricQuery(query, query.scope),
+          compileMetricQuery(query, query.scope)
         ])
         scriptValidation.value = {
           valid: validateResult.valid,
@@ -514,6 +643,7 @@ export default defineComponent({
       applyingJsonConfiguration.value = true
       widgetForm.value = createCustomDashboardDraftFromQuerySpec(result.query, widgetForm.value)
       compiledScript.value = JSON.stringify({ type: 'queryspec', version: 1, query: result.query }, null, 2)
+      rawQueryScript.value = compiledScript.value
       scriptLanguage.value = 'queryspec-json'
       scriptValidation.value = { valid: true, issues: ['JSON 配置已应用到表单，可继续预览或保存。'], supported: false }
       previewData.value = null
@@ -553,6 +683,7 @@ export default defineComponent({
 
     watch(
       () => [
+        cardSourceMode.value,
         widgetForm.value.title,
         widgetForm.value.metricRef,
         widgetForm.value.visualization,
@@ -561,7 +692,8 @@ export default defineComponent({
         widgetForm.value.serviceId,
         widgetForm.value.scope,
         widgetForm.value.sourceKind,
-        JSON.stringify(widgetForm.value.groupBy || [])
+        JSON.stringify(widgetForm.value.groupBy || []),
+        rawQueryScript.value
       ],
       () => {
         previewData.value = null
@@ -603,44 +735,22 @@ export default defineComponent({
       return catalogItems.value.find((item) => item.name === metricRef)?.description || metricRef
     }
 
+    const getCatalogEmptyDescription = () => {
+      if (catalogLoadError.value) return catalogLoadError.value
+      if (catalogSourceMode.value === 'empty') return '暂无可直接映射到现有卡片流程的指标'
+      if (catalogSourceMode.value === 'unsupported') return '当前 schema 响应格式暂不受支持'
+      return '暂无可直接映射到现有卡片流程的指标'
+    }
+
     const displayMetric = (value: number | null | undefined, suffix = '') =>
       typeof value === 'number' ? `${value}${suffix}` : '未知'
 
-    const getWidgetValue = (metric: string) => {
-      switch (metric) {
-        case 'cpu':
-          return realtimeData.value.cpu ?? null
-        case 'memory':
-          return realtimeData.value.memory ?? null
-        case 'qps':
-          return realtimeData.value.totalRequests ?? null
-        case 'response-time':
-          return realtimeData.value.p95Latency ?? null
-        case 'error-rate':
-          return realtimeData.value.errorRate ?? null
-        case 'connections':
-          return realtimeData.value.activeConnections ?? null
-        default:
-          return null
-      }
-    }
-
-    const getTrendData = (metric: string) => {
-      switch (metric) {
-        case 'cpu':
-          return trendData.value?.series?.cpu?.[0]?.data || []
-        case 'memory':
-          return trendData.value?.series?.memory?.[0]?.data || []
-        case 'qps':
-          return trendData.value?.qps || []
-        case 'response-time':
-          return trendData.value?.responseTime || []
-        default:
-          return []
-      }
-    }
-
     const renderPreviewBody = () => {
+      const activeRawQuery =
+        cardSourceMode.value === 'query-statement' ? parseQuerySpecJson(rawQueryScript.value).query : null
+      const activeVisualization = activeRawQuery?.visualizationHint || widgetForm.value.visualization
+      const activeMetricRef = activeRawQuery?.metricRef || widgetForm.value.metricRef
+
       if (previewLoading.value) {
         return (
           <div class="custom-dashboard-page__preview-loading">
@@ -660,7 +770,7 @@ export default defineComponent({
       }
 
       if (previewData.value.kind === 'number') {
-        return widgetForm.value.visualization === 'donut' ? (
+        return activeVisualization === 'donut' ? (
           <GaugeChart
             value={typeof previewData.value.value === 'number' ? previewData.value.value : 0}
             color="var(--color-primary-6)"
@@ -668,12 +778,12 @@ export default defineComponent({
             loading={previewLoading.value}
           />
         ) : (
-          <NStatistic label={getMetricLabel(widgetForm.value.metricRef)} value={previewData.value.value ?? '未知'} />
+          <NStatistic label={getMetricLabel(activeMetricRef)} value={previewData.value.value ?? '未知'} />
         )
       }
 
       if (previewData.value.kind === 'timeseries') {
-        return widgetForm.value.visualization === 'bar' ? (
+        return activeVisualization === 'bar' ? (
           <BarChart
             data={(previewData.value.series?.[0]?.points || []).map((point: any) => ({
               name: new Date(point.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
@@ -690,7 +800,7 @@ export default defineComponent({
             }))}
             title=""
             height="220px"
-            area={widgetForm.value.visualization === 'line'}
+            area={activeVisualization === 'line'}
             variant="monitor"
             showLegend
           />
@@ -698,7 +808,7 @@ export default defineComponent({
       }
 
       if (previewData.value.kind === 'distribution') {
-        return widgetForm.value.visualization === 'donut' ? (
+        return activeVisualization === 'donut' ? (
           <PieChart data={previewData.value.items || []} height="220px" variant="monitor" />
         ) : (
           <BarChart data={previewData.value.items || []} height="220px" variant="monitor" />
@@ -721,33 +831,43 @@ export default defineComponent({
     }
 
     const handleAddDashboard = async () => {
-      if (!widgetForm.value.title.trim()) {
+      const title = widgetForm.value.title.trim()
+      if (!title) {
         message.warning('请输入组件名称')
         return
       }
 
-      const query = buildCustomDashboardQuerySpec(widgetForm.value, datasetScope.value)
+      const { query, validation: localValidation } = getActiveDraftQuery()
       if (!query) {
-        message.warning('当前查询配置还不能生成卡片')
+        message.warning(localValidation.issues[0] || '当前查询配置还不能生成卡片')
         return
       }
 
-      const validation = await validateMetricQuery(query, datasetScope.value)
+      const validation = await validateMetricQuery(query, query.scope)
       if (!validation.valid) {
         message.warning(validation.issues[0] || '当前查询配置未通过校验')
         return
       }
 
-      customWidgets.value.push({
-        id: `query-card-${Date.now()}`,
-        title: widgetForm.value.title.trim(),
+      const wasEditing = Boolean(editingWidgetId.value)
+      const nextWidget: QueryDashboardWidget = {
+        id: editingWidgetId.value || `query-card-${Date.now()}`,
+        title,
         query,
-        visualization: widgetForm.value.visualization
-      })
+        visualization: query.visualizationHint || widgetForm.value.visualization,
+        sourceMode: cardSourceMode.value
+      }
 
-      showAddModal.value = false
-      widgetForm.value = createDefaultCustomDashboardWidgetDraft(routeContext.value.serviceId || '', datasetScope.value)
-      message.success('组件已添加到面板')
+      if (editingWidgetId.value) {
+        customWidgets.value = customWidgets.value.map((widget) =>
+          widget.id === editingWidgetId.value ? nextWidget : widget
+        )
+      } else {
+        customWidgets.value.push(nextWidget)
+      }
+
+      closeWidgetModal()
+      message.success(wasEditing ? '组件配置已更新' : '组件已添加到面板')
     }
 
     const removeWidget = (id: string) => {
@@ -835,7 +955,7 @@ export default defineComponent({
           </div>
           {!props.hideControls && (
             <NSpace>
-              <NButton type="primary" onClick={() => (showAddModal.value = true)}>
+              <NButton type="primary" onClick={openAddWidgetModal}>
                 添加组件
               </NButton>
               <NButton onClick={() => (isEditMode.value = !isEditMode.value)}>
@@ -1000,6 +1120,15 @@ export default defineComponent({
                   <NCard title={widget.title} bordered={false} class="custom-dashboard-page__widget-card">
                     {isEditMode.value && (
                       <div class="custom-dashboard-page__widget-actions">
+                        <NTag
+                          size="small"
+                          bordered={false}
+                          type={widget.sourceMode === 'query-statement' ? 'info' : 'success'}>
+                          {widget.sourceMode === 'query-statement' ? '查询语句' : '表单组装'}
+                        </NTag>
+                        <NButton size="small" quaternary onClick={() => openEditWidgetModal(widget)}>
+                          编辑组件
+                        </NButton>
                         <NButton size="small" quaternary type="error" onClick={() => removeWidget(widget.id)}>
                           删除组件
                         </NButton>
@@ -1013,135 +1142,297 @@ export default defineComponent({
           </>
         )}
 
-        <NModal v-model:show={showAddModal.value} preset="dialog" title="添加组件">
-          <NForm>
-            <NFormItem label="组件名称">
-              <NInput v-model:value={widgetForm.value.title} placeholder="请输入名称" />
-            </NFormItem>
-            <NFormItem label="数据范围">
-              <NSelect v-model:value={widgetForm.value.scope} options={scopeOptions.value} />
-            </NFormItem>
-            <NFormItem label="数据来源">
-              <NSelect v-model:value={widgetForm.value.sourceKind} options={sourceKindOptions.value} />
-            </NFormItem>
-            <NFormItem label="目标对象">
-              <NSelect v-model:value={widgetForm.value.subjectType} options={subjectTypeOptions} />
-            </NFormItem>
-            <NFormItem label="目标服务">
-              <NSelect
-                v-model:value={widgetForm.value.serviceId}
-                options={serviceOptions.value}
-                placeholder="当目标对象为服务时选择"
-                disabled={widgetForm.value.subjectType !== 'service'}
-              />
-            </NFormItem>
-            <NFormItem label="指标标识">
-              <NInput v-model:value={widgetForm.value.metricRef} placeholder="例如 service.cpu.usage" />
-            </NFormItem>
-            <NFormItem label="聚合方式">
-              <NSelect v-model:value={widgetForm.value.aggregation} options={aggregationOptions} />
-            </NFormItem>
-            <NFormItem label="展示方式">
-              <NSelect v-model:value={widgetForm.value.visualization} options={visualizationOptions} />
-            </NFormItem>
-            <NFormItem label="时间范围">
-              <NSelect v-model:value={widgetForm.value.timeRange} options={queryTimeRangeOptions} />
-            </NFormItem>
-            <NFormItem label="分组字段">
-              <NInput
-                value={(widgetForm.value.groupBy || []).join(',')}
-                placeholder={
-                  selectedMetricSchema.value?.labelNames?.length
-                    ? `可选：${selectedMetricSchema.value.labelNames.join(', ')}`
-                    : '多个字段用逗号分隔，例如 service,env'
-                }
-                onUpdate:value={(value: string) => {
-                  widgetForm.value.groupBy = value
-                    .split(',')
-                    .map((item) => item.trim())
-                    .filter(Boolean)
-                }}
-              />
-            </NFormItem>
-            {schemaHintText.value ? (
-              <NFormItem label="推荐提示">
-                <div>{schemaHintText.value}</div>
-              </NFormItem>
-            ) : null}
-          </NForm>
-          <NCard bordered={false} class="custom-dashboard-page__catalog-panel">
-            <div class="custom-dashboard-page__catalog-header">
+        <NModal
+          v-model:show={showAddModal.value}
+          preset="dialog"
+          title={editingWidgetId.value ? '编辑监控卡片' : '添加监控卡片'}>
+          <div class="custom-dashboard-page__builder-shell">
+            <div class="custom-dashboard-page__builder-hero">
               <div>
-                <div class="custom-dashboard-page__catalog-title">可用指标参考</div>
-                <div class="custom-dashboard-page__catalog-subtitle">
-                  在创建卡片时直接查看当前可用指标，并一键应用到现有组件流程。
-                </div>
+                <div class="custom-dashboard-page__builder-eyebrow">Card Builder</div>
+                <h2 class="custom-dashboard-page__builder-title">
+                  {cardSourceMode.value === 'form-builder' ? '用表单一步步组装卡片' : '直接粘贴 QuerySpec 生成卡片'}
+                </h2>
+                <p class="custom-dashboard-page__builder-copy">
+                  {cardSourceMode.value === 'form-builder'
+                    ? '适合第一次配置监控卡片：先选指标，再选范围、聚合和展示方式，右侧随时预览结果。'
+                    : '适合熟悉查询模型的用户：完整控制 scope、subject、metricRef、aggregation 和 visualizationHint。'}
+                </p>
               </div>
-              <NTag
-                size="small"
-                bordered={false}
-                type={
-                  catalogSourceMode.value === 'schema'
-                    ? 'success'
-                    : catalogSourceMode.value === 'unavailable'
-                      ? 'error'
-                      : 'warning'
-                }>
-                {catalogSourceMode.value === 'schema'
-                  ? '实时 schema'
-                  : catalogSourceMode.value === 'unsupported'
-                    ? 'schema 响应暂不受支持'
-                    : catalogSourceMode.value === 'unavailable'
-                      ? 'schema 暂不可用'
-                      : '暂无 schema 数据'}
+              <NTag bordered={false} type={cardSourceMode.value === 'query-statement' ? 'info' : 'success'}>
+                {cardSourceMode.value === 'query-statement' ? '专业模式' : '推荐新用户'}
               </NTag>
             </div>
-            <div class="custom-dashboard-page__catalog-filters">
-              <NInput v-model:value={catalogFilters.value.keyword} placeholder="搜索指标名、描述、标签" />
+
+            <div class="custom-dashboard-page__mode-choice-grid">
+              <button
+                type="button"
+                class={[
+                  'custom-dashboard-page__mode-choice',
+                  cardSourceMode.value === 'form-builder' ? 'is-active' : ''
+                ]}
+                onClick={() => switchCardSourceMode('form-builder')}>
+                <span class="custom-dashboard-page__mode-choice-kicker">Guided</span>
+                <strong>表单组装</strong>
+                <span>从指标目录选择数据，配置目标对象、聚合、时间范围和图表。</span>
+                <em>适合：新用户 / 标准监控卡片</em>
+              </button>
+              <button
+                type="button"
+                class={[
+                  'custom-dashboard-page__mode-choice',
+                  'custom-dashboard-page__mode-choice--code',
+                  cardSourceMode.value === 'query-statement' ? 'is-active' : ''
+                ]}
+                onClick={() => switchCardSourceMode('query-statement')}>
+                <span class="custom-dashboard-page__mode-choice-kicker">QuerySpec</span>
+                <strong>查询语句</strong>
+                <span>直接保存完整查询 JSON，不反向改写表单字段。</span>
+                <em>适合：专业用户 / 复杂查询 / 复制已有配置</em>
+              </button>
             </div>
-            {catalogLoading.value ? (
-              <div class="custom-dashboard-page__catalog-loading">
-                <NSpin size="small" />
-              </div>
-            ) : mappedCatalogItems.value.length ? (
-              <div class="custom-dashboard-page__catalog-list">
-                {mappedCatalogItems.value.map(({ item }) => (
-                  <div key={item.name} class="custom-dashboard-page__catalog-item">
-                    <div class="custom-dashboard-page__catalog-item-main">
-                      <div class="custom-dashboard-page__catalog-item-name">{item.name}</div>
-                      <div class="custom-dashboard-page__catalog-item-description">{item.description}</div>
-                      <div class="custom-dashboard-page__catalog-item-meta">
-                        <NTag size="small" bordered={false}>
-                          {item.type}
-                        </NTag>
-                        <NTag size="small" bordered={false} type="info">
-                          {item.unit || '无单位'}
-                        </NTag>
-                        <NTag size="small" bordered={false} type="success">
-                          推荐 {item.recommendation}
-                        </NTag>
+
+            <NForm class="custom-dashboard-page__name-form">
+              <NFormItem label="卡片名称">
+                <NInput v-model:value={widgetForm.value.title} placeholder="例如：Gateway P95 延迟 / CPU 使用率趋势" />
+              </NFormItem>
+            </NForm>
+          </div>
+          {cardSourceMode.value === 'form-builder' ? (
+            <div class="custom-dashboard-page__builder-layout">
+              <section class="custom-dashboard-page__builder-main">
+                <NCard bordered={false} class="custom-dashboard-page__config-panel">
+                  <div class="custom-dashboard-page__section-heading">
+                    <span>1</span>
+                    <div>
+                      <div class="custom-dashboard-page__catalog-title">选择指标与查询范围</div>
+                      <div class="custom-dashboard-page__catalog-subtitle">
+                        先决定要查什么，再决定查哪个服务或系统范围。
                       </div>
                     </div>
-                    <NButton size="small" type="primary" ghost onClick={() => applyCatalogMetric(item)}>
-                      应用
-                    </NButton>
                   </div>
-                ))}
+                  <NForm class="custom-dashboard-page__form-grid">
+                    <NFormItem label="指标标识">
+                      <NSelect
+                        v-model:value={widgetForm.value.metricRef}
+                        options={metricRefOptions.value}
+                        filterable
+                        tag
+                        clearable
+                        placeholder={catalogItems.value.length ? '搜索并选择当前已接收指标' : '例如 service.cpu.usage'}
+                        onUpdateValue={(value: string) => {
+                          const item = catalogItems.value.find((metric) => metric.name === value)
+                          if (item) applyCatalogMetric(item)
+                        }}
+                      />
+                    </NFormItem>
+                    <NFormItem label="数据范围">
+                      <NSelect v-model:value={widgetForm.value.scope} options={scopeOptions.value} />
+                    </NFormItem>
+                    <NFormItem label="数据来源">
+                      <NSelect v-model:value={widgetForm.value.sourceKind} options={sourceKindOptions.value} />
+                    </NFormItem>
+                    <NFormItem label="目标对象">
+                      <NSelect v-model:value={widgetForm.value.subjectType} options={subjectTypeOptions} />
+                    </NFormItem>
+                    <NFormItem label="目标服务">
+                      <NSelect
+                        v-model:value={widgetForm.value.serviceId}
+                        options={serviceOptions.value}
+                        placeholder="当目标对象为服务时选择"
+                        disabled={widgetForm.value.subjectType !== 'service'}
+                      />
+                    </NFormItem>
+                    <NFormItem label="分组字段">
+                      <NInput
+                        value={(widgetForm.value.groupBy || []).join(',')}
+                        placeholder={
+                          selectedMetricSchema.value?.labelNames?.length
+                            ? `可选：${selectedMetricSchema.value.labelNames.join(', ')}`
+                            : '多个字段用逗号分隔，例如 service,env'
+                        }
+                        onUpdate:value={(value: string) => {
+                          widgetForm.value.groupBy = value
+                            .split(',')
+                            .map((item) => item.trim())
+                            .filter(Boolean)
+                        }}
+                      />
+                    </NFormItem>
+                  </NForm>
+                  {schemaHintText.value ? (
+                    <div class="custom-dashboard-page__schema-hint">{schemaHintText.value}</div>
+                  ) : null}
+                </NCard>
+
+                <NCard bordered={false} class="custom-dashboard-page__config-panel">
+                  <div class="custom-dashboard-page__section-heading">
+                    <span>2</span>
+                    <div>
+                      <div class="custom-dashboard-page__catalog-title">设置计算和展示</div>
+                      <div class="custom-dashboard-page__catalog-subtitle">选择聚合方式、图表形态和时间窗口。</div>
+                    </div>
+                  </div>
+                  <NForm class="custom-dashboard-page__form-grid custom-dashboard-page__form-grid--three">
+                    <NFormItem label="聚合方式">
+                      <NSelect v-model:value={widgetForm.value.aggregation} options={aggregationOptions} />
+                    </NFormItem>
+                    <NFormItem label="展示方式">
+                      <NSelect v-model:value={widgetForm.value.visualization} options={visualizationOptions} />
+                    </NFormItem>
+                    <NFormItem label="时间范围">
+                      <NSelect v-model:value={widgetForm.value.timeRange} options={queryTimeRangeOptions} />
+                    </NFormItem>
+                  </NForm>
+                </NCard>
+              </section>
+
+              <aside class="custom-dashboard-page__builder-side">
+                <NCard
+                  bordered={false}
+                  class="custom-dashboard-page__catalog-panel custom-dashboard-page__catalog-panel--inline">
+                  <div class="custom-dashboard-page__catalog-header">
+                    <div>
+                      <div class="custom-dashboard-page__catalog-title">当前已接收指标</div>
+                      <div class="custom-dashboard-page__catalog-subtitle">
+                        来自指标 schema 的实时样本：先看有没有样本、最近何时收到，再决定展示什么。
+                      </div>
+                    </div>
+                    <NTag
+                      size="small"
+                      bordered={false}
+                      type={
+                        catalogSourceMode.value === 'schema'
+                          ? 'success'
+                          : catalogSourceMode.value === 'unavailable'
+                            ? 'error'
+                            : 'warning'
+                      }>
+                      {catalogSourceMode.value === 'schema'
+                        ? '实时 schema'
+                        : catalogSourceMode.value === 'unsupported'
+                          ? 'schema 暂不支持'
+                          : catalogSourceMode.value === 'unavailable'
+                            ? 'schema 暂不可用'
+                            : '暂无 schema'}
+                    </NTag>
+                  </div>
+                  <div class="custom-dashboard-page__catalog-health-strip">
+                    <div>
+                      <strong>{catalogStats.value.total}</strong>
+                      <span>指标定义</span>
+                    </div>
+                    <div>
+                      <strong>{catalogStats.value.received}</strong>
+                      <span>已收到样本</span>
+                    </div>
+                    <div>
+                      <strong>{catalogStats.value.services}</strong>
+                      <span>来源服务</span>
+                    </div>
+                    <div>
+                      <strong>{catalogStats.value.labels}</strong>
+                      <span>可用标签</span>
+                    </div>
+                  </div>
+                  <div class="custom-dashboard-page__catalog-latest-seen">
+                    最近收到：{formatSeenAt(catalogStats.value.latestSeenAt)}
+                  </div>
+                  <div class="custom-dashboard-page__catalog-filters">
+                    <NInput v-model:value={catalogFilters.value.keyword} placeholder="搜索指标名、描述、标签、服务" />
+                  </div>
+                  {catalogLoading.value ? (
+                    <div class="custom-dashboard-page__catalog-loading">
+                      <NSpin size="small" />
+                    </div>
+                  ) : mappedCatalogItems.value.length ? (
+                    <div class="custom-dashboard-page__catalog-list">
+                      {mappedCatalogItems.value.map(({ item }) => (
+                        <div key={item.name} class="custom-dashboard-page__catalog-item">
+                          <div class="custom-dashboard-page__catalog-item-main">
+                            <div class="custom-dashboard-page__catalog-item-headline">
+                              <div class="custom-dashboard-page__catalog-item-name">{item.name}</div>
+                              <NTag size="small" bordered={false} type={getMetricFreshnessType(item) as any}>
+                                {getMetricFreshnessLabel(item)}
+                              </NTag>
+                            </div>
+                            <div class="custom-dashboard-page__catalog-item-description">{item.description}</div>
+                            <div class="custom-dashboard-page__catalog-item-meta">
+                              <NTag size="small" bordered={false}>
+                                {item.type}
+                              </NTag>
+                              <NTag size="small" bordered={false} type="info">
+                                {item.unit || '无单位'}
+                              </NTag>
+                              <NTag size="small" bordered={false} type="success">
+                                推荐 {item.recommendation}
+                              </NTag>
+                              <NTag size="small" bordered={false} type={item.sampleCount > 0 ? 'success' : 'default'}>
+                                样本 {item.sampleCount}
+                              </NTag>
+                            </div>
+                            <div class="custom-dashboard-page__metric-discovery-row">
+                              <span>服务：</span>
+                              <strong>
+                                {item.sourceServices.length
+                                  ? item.sourceServices.slice(0, 3).join(' / ')
+                                  : '全局或未知'}
+                              </strong>
+                            </div>
+                            <div class="custom-dashboard-page__metric-discovery-row">
+                              <span>标签：</span>
+                              <strong>{item.labelNames.length ? item.labelNames.join(', ') : '无标签'}</strong>
+                            </div>
+                            <div class="custom-dashboard-page__label-samples">{renderMetricSampleLabels(item)}</div>
+                          </div>
+                          <NButton size="small" type="primary" ghost onClick={() => applyCatalogMetric(item)}>
+                            应用
+                          </NButton>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <NEmpty description={getCatalogEmptyDescription()} class="custom-dashboard-page__catalog-empty" />
+                  )}
+                </NCard>
+              </aside>
+            </div>
+          ) : (
+            <NCard bordered={false} class="custom-dashboard-page__script-panel custom-dashboard-page__raw-query-panel">
+              <div class="custom-dashboard-page__raw-query-header">
+                <div>
+                  <div class="custom-dashboard-page__catalog-title">QuerySpec JSON</div>
+                  <div class="custom-dashboard-page__catalog-subtitle">
+                    这里保存的是卡片的直接查询语句，不会反向改写表单字段；保存后该卡片也会继续以查询语句方式编辑。
+                  </div>
+                </div>
+                <NButton
+                  size="small"
+                  ghost
+                  onClick={() => {
+                    const query = buildCustomDashboardQuerySpec(widgetForm.value, datasetScope.value)
+                    rawQueryScript.value = JSON.stringify({ type: 'queryspec', version: 1, query }, null, 2)
+                  }}>
+                  从当前表单生成模板
+                </NButton>
               </div>
-            ) : (
-              <NEmpty
-                description={
-                  catalogLoadError.value ||
-                  (catalogSourceMode.value === 'empty'
-                    ? '暂无可直接映射到现有卡片流程的指标'
-                    : catalogSourceMode.value === 'unsupported'
-                      ? '当前 schema 响应格式暂不受支持'
-                      : '暂无可直接映射到现有卡片流程的指标')
-                }
-                class="custom-dashboard-page__catalog-empty"
+              <NInput
+                type="textarea"
+                autosize={{ minRows: 10, maxRows: 18 }}
+                value={rawQueryScript.value}
+                onUpdate:value={(value: string) => (rawQueryScript.value = value)}
+                placeholder="粘贴 QuerySpec、{ query } 或 { config: { query } }"
               />
-            )}
-          </NCard>
+              <div class="custom-dashboard-page__query-examples">
+                <span>必须包含：</span>
+                <code>scope</code>
+                <code>subject</code>
+                <code>metricRef</code>
+                <code>aggregation</code>
+                <code>timeRange</code>
+              </div>
+            </NCard>
+          )}
           <NCard bordered={false} class="custom-dashboard-page__preview-panel">
             <div class="custom-dashboard-page__preview-header">
               <div>
@@ -1154,7 +1445,7 @@ export default defineComponent({
             </div>
             {renderPreviewBody()}
           </NCard>
-          {isAdminUser.value ? (
+          {isAdminUser.value && cardSourceMode.value === 'form-builder' ? (
             <NCard bordered={false} class="custom-dashboard-page__script-panel">
               <div class="custom-dashboard-page__preview-header">
                 <div>
@@ -1216,7 +1507,7 @@ export default defineComponent({
             </NCard>
           ) : null}
           <div class="custom-dashboard-page__modal-actions">
-            <NButton onClick={() => (showAddModal.value = false)}>取消</NButton>
+            <NButton onClick={closeWidgetModal}>取消</NButton>
             <NButton type="primary" onClick={handleAddDashboard}>
               确认
             </NButton>
