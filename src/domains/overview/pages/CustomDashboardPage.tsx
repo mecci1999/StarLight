@@ -8,7 +8,9 @@ import {
   NForm,
   NFormItem,
   NInput,
+  NInputNumber,
   NSelect,
+  NSwitch,
   NStatistic,
   NIcon,
   NList,
@@ -34,7 +36,7 @@ import {
   fetchRealtimeOverview,
   type MetricsDatasetScope
 } from '@/api'
-import { fetchAlerts } from '@/api/alerts'
+import { fetchAlerts, saveAlertRule, updateAlertRule } from '@/api/alerts'
 import GaugeChart from '@/components/charts/GaugeChart'
 import LineChart from '@/components/charts/LineChart'
 import BarChart from '@/components/charts/BarChart'
@@ -64,7 +66,12 @@ import {
   validateCustomDashboardDraft,
   type CustomDashboardWidgetDraft
 } from '@/domains/overview/customDashboardPreviewModel'
-import type { CardData, QuerySpec } from '@/domains/metrics/queryModel'
+import {
+  normalizeQueryAlertRules,
+  type CardData,
+  type QueryAlertRule,
+  type QuerySpec
+} from '@/domains/metrics/queryModel'
 import './CustomDashboardPage.scss'
 
 type QueryDashboardWidget = {
@@ -183,6 +190,35 @@ export default defineComponent({
       { label: '7 天', value: '-7d' },
       { label: '30 天', value: '-30d' }
     ]
+    const displayUnitOptions = [
+      { label: '百分比 (%)', value: '%' },
+      { label: '毫秒 (ms)', value: 'ms' },
+      { label: '请求数 (request)', value: 'request' },
+      { label: '次数 (count)', value: 'count' },
+      { label: '无单位', value: '' }
+    ]
+    const alertOperatorOptions = [
+      { label: '大于 >', value: '>' as const },
+      { label: '大于等于 >=', value: '>=' as const },
+      { label: '小于 <', value: '<' as const },
+      { label: '小于等于 <=', value: '<=' as const },
+      { label: '等于 =', value: '=' as const }
+    ]
+    const alertLevelOptions = [
+      { label: '警告', value: 'warning' as const },
+      { label: '严重', value: 'critical' as const },
+      { label: '提示', value: 'info' as const }
+    ]
+    const alertLevelMeta = {
+      critical: { label: '严重', tagType: 'error' as const, color: 'var(--color-danger-6)' },
+      warning: { label: '警告', tagType: 'warning' as const, color: 'var(--color-warning-6)' },
+      info: { label: '提示', tagType: 'info' as const, color: 'var(--color-primary-6)' }
+    }
+    const alertChannelOptions = [
+      { label: 'Email', value: 'Email' },
+      { label: 'Webhook', value: 'Webhook' },
+      { label: '站内通知', value: 'InApp' }
+    ]
 
     const mappedCatalogItems = computed(() =>
       filterMetricsCatalog(catalogItems.value, catalogFilters.value)
@@ -229,6 +265,89 @@ export default defineComponent({
       }
       return parts.join(' · ')
     })
+    const displayConfigHint = computed(() => {
+      const unit = widgetForm.value.displayUnit || selectedMetricSchema.value?.unit || '无单位'
+      const max = typeof widgetForm.value.displayMax === 'number' ? widgetForm.value.displayMax : '自动'
+      const rules = widgetForm.value.alertEnabled ? widgetForm.value.alertRules || [] : []
+      const threshold = rules.length
+        ? rules
+            .map(
+              (rule) =>
+                `${alertLevelMeta[rule.level]?.label || rule.level} ${rule.operator} ${rule.threshold}${rule.unit || widgetForm.value.displayUnit || ''}`
+            )
+            .join(' / ')
+        : widgetForm.value.alertEnabled
+          ? `${widgetForm.value.alertOperator || '>'} ${widgetForm.value.alertThreshold ?? '未填写'}${widgetForm.value.displayUnit || ''}`
+          : '未启用'
+      return `单位 ${unit} · 展示上限 ${max} · 告警阈值 ${threshold}`
+    })
+
+    const syncLegacyAlertFieldsFromRules = () => {
+      const rules = widgetForm.value.alertRules || []
+      const primaryRule = rules.find((rule) => rule.level === 'warning') || rules[0]
+      if (!primaryRule) return
+      widgetForm.value.alertOperator = primaryRule.operator
+      widgetForm.value.alertThreshold = primaryRule.threshold
+      widgetForm.value.alertDuration = primaryRule.duration || 5
+      widgetForm.value.alertLevel = primaryRule.level
+      widgetForm.value.alertChannels = primaryRule.channels?.length ? primaryRule.channels : ['Email']
+    }
+
+    const updateAlertRuleDraft = (index: number, patch: Partial<QueryAlertRule>) => {
+      const rules = [...(widgetForm.value.alertRules || [])]
+      const current = rules[index]
+      if (!current) return
+      rules[index] = { ...current, ...patch }
+      widgetForm.value.alertRules = rules
+      syncLegacyAlertFieldsFromRules()
+    }
+
+    const addAlertRuleDraft = () => {
+      const rules = widgetForm.value.alertRules || []
+      const unit = widgetForm.value.displayUnit || selectedMetricSchema.value?.unit || ''
+      const maxThreshold = rules.reduce(
+        (max, rule) => (typeof rule.threshold === 'number' ? Math.max(max, rule.threshold) : max),
+        unit === '%' ? 75 : 0
+      )
+      widgetForm.value.alertRules = [
+        ...rules,
+        {
+          level: 'warning',
+          operator: '>',
+          threshold: unit === '%' ? Math.min(100, maxThreshold + 10) : maxThreshold + 10,
+          unit,
+          duration: 5,
+          channels: ['Email']
+        }
+      ]
+      syncLegacyAlertFieldsFromRules()
+    }
+
+    const removeAlertRuleDraft = (index: number) => {
+      const rules = [...(widgetForm.value.alertRules || [])]
+      rules.splice(index, 1)
+      widgetForm.value.alertRules = rules
+      syncLegacyAlertFieldsFromRules()
+    }
+
+    const ensureDefaultAlertRules = () => {
+      if (widgetForm.value.alertRules?.length) return
+      const unit = widgetForm.value.displayUnit || selectedMetricSchema.value?.unit || ''
+      widgetForm.value.alertRules = [
+        { level: 'warning', operator: '>', threshold: 85, unit, duration: 5, channels: ['Email'] },
+        { level: 'critical', operator: '>', threshold: 95, unit, duration: 3, channels: ['Email'] }
+      ]
+      syncLegacyAlertFieldsFromRules()
+    }
+
+    const resolveQueryThresholdLines = (query: QuerySpec | null | undefined) =>
+      normalizeQueryAlertRules(query?.alert).map((rule) => ({
+        value: rule.threshold,
+        label: alertLevelMeta[rule.level]?.label || '阈值',
+        unit: rule.unit || query?.display?.value?.unit || query?.display?.yAxis?.unit || '',
+        level: rule.level,
+        color: alertLevelMeta[rule.level]?.color
+      }))
 
     const formatSeenAt = (timestamp: number | null) => {
       if (!timestamp) return '暂无样本'
@@ -481,6 +600,12 @@ export default defineComponent({
       widgetForm.value.aggregation = item.allowedAggregations[0] || 'avg'
       widgetForm.value.groupBy = []
       widgetForm.value.visualization = item.recommendedVisualizations[0] || 'line'
+      widgetForm.value.displayUnit = item.unit || widgetForm.value.displayUnit || ''
+      if (item.unit === '%' || item.name.toLowerCase().includes('cpu') || item.name.toLowerCase().includes('percent')) {
+        widgetForm.value.displayMin = 0
+        widgetForm.value.displayMax = 100
+        widgetForm.value.displayUnit = '%'
+      }
       if (!widgetForm.value.title.trim()) {
         widgetForm.value.title = item.description && item.description !== '暂无描述' ? item.description : item.name
       }
@@ -745,9 +870,71 @@ export default defineComponent({
     const displayMetric = (value: number | null | undefined, suffix = '') =>
       typeof value === 'number' ? `${value}${suffix}` : '未知'
 
+    const resolveQueryDisplayValue = (query: QuerySpec | null | undefined, data?: CardData | null) => {
+      const valueDisplay = query?.display?.value
+      const yAxisDisplay = query?.display?.yAxis
+      const dataUnit = data && 'unit' in data ? data.unit : ''
+      return {
+        min: valueDisplay?.min ?? yAxisDisplay?.min,
+        max: valueDisplay?.max ?? yAxisDisplay?.max,
+        unit: valueDisplay?.unit ?? yAxisDisplay?.unit ?? dataUnit ?? ''
+      }
+    }
+
+    const buildAlertRulesFromQuery = (title: string, query: QuerySpec) => {
+      const rules = normalizeQueryAlertRules(query.alert)
+      if (!rules.length) return []
+      const service = query.subject.type === 'service' ? query.subject.id || 'all' : 'all'
+      return rules.map((rule) => ({
+        id: rule.ruleId,
+        name: `${title} ${alertLevelMeta[rule.level]?.label || rule.level}阈值告警`,
+        service,
+        metric: query.metricRef,
+        operator: rule.operator,
+        threshold: rule.threshold,
+        unit: rule.unit || query.display?.value?.unit || query.display?.yAxis?.unit || '',
+        duration: rule.duration || 5,
+        level: rule.level || 'warning',
+        enabled: true,
+        channels: rule.channels?.length ? rule.channels : ['Email']
+      }))
+    }
+
+    const createAlertRuleForQuery = async (title: string, query: QuerySpec) => {
+      const rules = buildAlertRulesFromQuery(title, query)
+      if (!rules.length) return []
+      return Promise.all(rules.map((rule) => (rule.id ? updateAlertRule(rule as any) : saveAlertRule(rule))))
+    }
+
+    const renderWidgetAlertSummary = (query: QuerySpec) => {
+      const rules = normalizeQueryAlertRules(query.alert)
+      if (!rules.length) return null
+      return (
+        <div class="custom-dashboard-page__widget-alert-summary">
+          {rules.map((rule) => {
+            const channels = rule.channels?.length ? rule.channels.join('、') : 'Email'
+            const meta = alertLevelMeta[rule.level]
+            return (
+              <span class="custom-dashboard-page__widget-alert-rule" key={`${rule.level}-${rule.threshold}`}>
+                <NTag size="small" bordered={false} type={meta?.tagType || 'warning'}>
+                  {meta?.label || rule.level}
+                </NTag>
+                <span>
+                  {rule.operator} {rule.threshold}
+                  {rule.unit || query.display?.value?.unit || query.display?.yAxis?.unit || ''}，持续{' '}
+                  {rule.duration || 5} 分钟，通知 {channels}
+                </span>
+              </span>
+            )
+          })}
+        </div>
+      )
+    }
+
     const renderPreviewBody = () => {
       const activeRawQuery =
         cardSourceMode.value === 'query-statement' ? parseQuerySpecJson(rawQueryScript.value).query : null
+      const activeQuery = activeRawQuery || buildCustomDashboardQuerySpec(widgetForm.value, datasetScope.value)
       const activeVisualization = activeRawQuery?.visualizationHint || widgetForm.value.visualization
       const activeMetricRef = activeRawQuery?.metricRef || widgetForm.value.metricRef
 
@@ -770,9 +957,13 @@ export default defineComponent({
       }
 
       if (previewData.value.kind === 'number') {
+        const display = resolveQueryDisplayValue(activeQuery, previewData.value)
         return activeVisualization === 'donut' ? (
           <GaugeChart
             value={typeof previewData.value.value === 'number' ? previewData.value.value : 0}
+            min={display.min ?? 0}
+            max={display.max ?? 100}
+            unit={display.unit || '%'}
             color="var(--color-primary-6)"
             height="220px"
             loading={previewLoading.value}
@@ -783,6 +974,8 @@ export default defineComponent({
       }
 
       if (previewData.value.kind === 'timeseries') {
+        const display = resolveQueryDisplayValue(activeQuery, previewData.value)
+        const thresholdLines = resolveQueryThresholdLines(activeQuery)
         return activeVisualization === 'bar' ? (
           <BarChart
             data={(previewData.value.series?.[0]?.points || []).map((point: any) => ({
@@ -791,6 +984,9 @@ export default defineComponent({
             }))}
             height="220px"
             variant="monitor"
+            yAxisMin={display.min}
+            yAxisMax={display.max}
+            yAxisUnit={display.unit}
           />
         ) : (
           <LineChart
@@ -803,6 +999,10 @@ export default defineComponent({
             area={activeVisualization === 'line'}
             variant="monitor"
             showLegend
+            yAxisMin={display.min}
+            yAxisMax={display.max}
+            yAxisUnit={display.unit}
+            thresholdLines={thresholdLines}
           />
         )
       }
@@ -849,9 +1049,22 @@ export default defineComponent({
         return
       }
 
+      const previousWidget = editingWidgetId.value
+        ? customWidgets.value.find((widget) => widget.id === editingWidgetId.value)
+        : null
+      const previousRules = normalizeQueryAlertRules(previousWidget?.query.alert)
+      if (previousRules.length && query.alert?.enabled) {
+        const nextRules = normalizeQueryAlertRules(query.alert).map((rule) => ({
+          ...rule,
+          ruleId: rule.ruleId || previousRules.find((item) => item.level === rule.level)?.ruleId
+        }))
+        query.alert = { ...query.alert, ruleId: nextRules[0]?.ruleId, rules: nextRules }
+      }
+
       const wasEditing = Boolean(editingWidgetId.value)
+      const widgetId = editingWidgetId.value || `query-card-${Date.now()}`
       const nextWidget: QueryDashboardWidget = {
-        id: editingWidgetId.value || `query-card-${Date.now()}`,
+        id: widgetId,
         title,
         query,
         visualization: query.visualizationHint || widgetForm.value.visualization,
@@ -866,8 +1079,29 @@ export default defineComponent({
         customWidgets.value.push(nextWidget)
       }
 
+      try {
+        const createdRules = await createAlertRuleForQuery(title, query)
+        if (createdRules.length) {
+          const nextRules = normalizeQueryAlertRules(query.alert).map((rule, index) => ({
+            ...rule,
+            ruleId: createdRules[index]?.id || rule.ruleId
+          }))
+          query.alert = { ...query.alert!, ruleId: nextRules[0]?.ruleId, rules: nextRules }
+          customWidgets.value = customWidgets.value.map((widget) =>
+            widget.id === widgetId ? { ...widget, query: { ...query } } : widget
+          )
+          await persistDashboardWidgets()
+          message.success('组件已保存，告警规则已同步创建')
+        }
+      } catch (error) {
+        console.error('Failed to create alert rule from dashboard widget:', error)
+        message.warning('组件已保存，但告警规则创建失败，请稍后到告警规则页补建')
+      }
+
       closeWidgetModal()
-      message.success(wasEditing ? '组件配置已更新' : '组件已添加到面板')
+      if (!query.alert?.enabled) {
+        message.success(wasEditing ? '组件配置已更新' : '组件已添加到面板')
+      }
     }
 
     const removeWidget = (id: string) => {
@@ -885,9 +1119,13 @@ export default defineComponent({
       }
 
       if (data.kind === 'number') {
+        const display = resolveQueryDisplayValue(widget.query, data)
         return widget.visualization === 'donut' ? (
           <GaugeChart
             value={typeof data.value === 'number' ? data.value : 0}
+            min={display.min ?? 0}
+            max={display.max ?? 100}
+            unit={display.unit || '%'}
             color="var(--color-primary-6)"
             height="240px"
             loading={loading.value}
@@ -898,6 +1136,8 @@ export default defineComponent({
       }
 
       if (data.kind === 'timeseries') {
+        const display = resolveQueryDisplayValue(widget.query, data)
+        const thresholdLines = resolveQueryThresholdLines(widget.query)
         return widget.visualization === 'bar' ? (
           <BarChart
             data={(data.series?.[0]?.points || []).map((point: any) => ({
@@ -907,6 +1147,9 @@ export default defineComponent({
             color="#165dff"
             height="240px"
             loading={loading.value}
+            yAxisMin={display.min}
+            yAxisMax={display.max}
+            yAxisUnit={display.unit}
           />
         ) : (
           <LineChart
@@ -919,6 +1162,10 @@ export default defineComponent({
             variant="monitor"
             showLegend
             area={widget.visualization === 'line'}
+            yAxisMin={display.min}
+            yAxisMax={display.max}
+            yAxisUnit={display.unit}
+            thresholdLines={thresholdLines}
           />
         )
       }
@@ -1134,6 +1381,7 @@ export default defineComponent({
                         </NButton>
                       </div>
                     )}
+                    {renderWidgetAlertSummary(widget.query)}
                     {renderStoredQueryWidget(widget)}
                   </NCard>
                 </NGridItem>
@@ -1284,6 +1532,135 @@ export default defineComponent({
                       <NSelect v-model:value={widgetForm.value.timeRange} options={queryTimeRangeOptions} />
                     </NFormItem>
                   </NForm>
+                  <div class="custom-dashboard-page__display-rule-panel">
+                    <div class="custom-dashboard-page__display-rule-head">
+                      <div>
+                        <div class="custom-dashboard-page__catalog-title">展示与规则</div>
+                        <div class="custom-dashboard-page__catalog-subtitle">
+                          图表上限直接影响折线/柱状/环图；阈值会随卡片保存，后续可生成告警规则与通知。
+                        </div>
+                      </div>
+                      <NTag size="small" bordered={false} type={widgetForm.value.alertEnabled ? 'warning' : 'info'}>
+                        {widgetForm.value.alertEnabled ? '已配置阈值草稿' : '展示配置'}
+                      </NTag>
+                    </div>
+                    <NForm class="custom-dashboard-page__form-grid custom-dashboard-page__form-grid--three">
+                      <NFormItem label="最小值">
+                        <NInputNumber
+                          value={widgetForm.value.displayMin ?? null}
+                          placeholder="自动"
+                          clearable
+                          onUpdateValue={(value: number | null) => {
+                            widgetForm.value.displayMin = typeof value === 'number' ? value : null
+                          }}
+                        />
+                      </NFormItem>
+                      <NFormItem label="最大值">
+                        <NInputNumber
+                          value={widgetForm.value.displayMax ?? null}
+                          placeholder="例如 100"
+                          clearable
+                          onUpdateValue={(value: number | null) => {
+                            widgetForm.value.displayMax = typeof value === 'number' ? value : null
+                          }}
+                        />
+                      </NFormItem>
+                      <NFormItem label="展示单位">
+                        <NSelect
+                          v-model:value={widgetForm.value.displayUnit}
+                          options={displayUnitOptions}
+                          tag
+                          clearable
+                          placeholder="例如 % / ms"
+                        />
+                      </NFormItem>
+                    </NForm>
+                    <div class="custom-dashboard-page__alert-draft-row">
+                      <div class="custom-dashboard-page__alert-draft-toggle">
+                        <NSwitch
+                          value={Boolean(widgetForm.value.alertEnabled)}
+                          onUpdateValue={(value: boolean) => {
+                            widgetForm.value.alertEnabled = value
+                            if (value) ensureDefaultAlertRules()
+                          }}
+                        />
+                        <div>
+                          <strong>告警阈值草稿</strong>
+                          <span>超过阈值后可触发告警并通过 Email/Webhook/站内通知发送。</span>
+                        </div>
+                      </div>
+                    </div>
+                    {widgetForm.value.alertEnabled ? (
+                      <div class="custom-dashboard-page__alert-rules-editor">
+                        {(widgetForm.value.alertRules || []).map((rule, index) => {
+                          const meta = alertLevelMeta[rule.level]
+                          return (
+                            <div class="custom-dashboard-page__alert-rule-row" key={`${rule.level}-${index}`}>
+                              <div class="custom-dashboard-page__alert-rule-level">
+                                <NTag size="small" bordered={false} type={meta?.tagType || 'warning'}>
+                                  {meta?.label || rule.level}
+                                </NTag>
+                                <NSelect
+                                  value={rule.level}
+                                  options={alertLevelOptions}
+                                  onUpdateValue={(value: QueryAlertRule['level']) =>
+                                    updateAlertRuleDraft(index, { level: value })
+                                  }
+                                />
+                              </div>
+                              <NSelect
+                                value={rule.operator}
+                                options={alertOperatorOptions}
+                                onUpdateValue={(value: QueryAlertRule['operator']) =>
+                                  updateAlertRuleDraft(index, { operator: value })
+                                }
+                              />
+                              <NInputNumber
+                                value={rule.threshold ?? null}
+                                placeholder={rule.level === 'critical' ? '例如 95' : '例如 85'}
+                                onUpdateValue={(value: number | null) => {
+                                  updateAlertRuleDraft(index, { threshold: typeof value === 'number' ? value : 0 })
+                                }}
+                              />
+                              <NInputNumber
+                                value={rule.duration ?? 5}
+                                min={1}
+                                onUpdateValue={(value: number | null) =>
+                                  updateAlertRuleDraft(index, { duration: value || 5 })
+                                }
+                              />
+                              <NSelect
+                                value={rule.channels || ['Email']}
+                                options={alertChannelOptions}
+                                multiple
+                                placeholder="通知渠道"
+                                onUpdateValue={(value: string[]) =>
+                                  updateAlertRuleDraft(index, { channels: value.length ? value : ['Email'] })
+                                }
+                              />
+                              <NButton
+                                size="small"
+                                quaternary
+                                type="error"
+                                disabled={(widgetForm.value.alertRules || []).length <= 1}
+                                onClick={() => removeAlertRuleDraft(index)}>
+                                删除
+                              </NButton>
+                            </div>
+                          )
+                        })}
+                        <div class="custom-dashboard-page__alert-rule-actions">
+                          <NButton size="small" ghost type="primary" onClick={addAlertRuleDraft}>
+                            添加阈值
+                          </NButton>
+                        </div>
+                        <div class="custom-dashboard-page__alert-rule-caption">
+                          橙色警告用于提前关注，红色严重用于立即处理；图表会同步显示对应颜色的阈值线。
+                        </div>
+                      </div>
+                    ) : null}
+                    <div class="custom-dashboard-page__display-rule-summary">{displayConfigHint.value}</div>
+                  </div>
                 </NCard>
               </section>
 

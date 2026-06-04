@@ -61,6 +61,10 @@ export default defineComponent({
   },
   setup(props) {
     const { themeOptions, loadingOptions } = useChartTheme()
+    const updateOptions = {
+      notMerge: true,
+      replaceMerge: ['xAxis', 'yAxis', 'series']
+    }
     const stopWheelPropagation = (event: WheelEvent) => {
       if (event.ctrlKey || event.metaKey) return
       event.stopPropagation()
@@ -88,6 +92,7 @@ export default defineComponent({
         <VChart
           class="chart"
           option={finalOption.value}
+          updateOptions={updateOptions}
           loading={props.loading}
           loadingOptions={loadingOptions.value}
           autoresize={{ throttle: 100 }}

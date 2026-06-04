@@ -82,8 +82,8 @@ describe('overviewRuntimeQueryModel', () => {
 
     expect(result.request.refreshGenerationId).toBe('gen-1')
     expect(result.cards.map((item) => item.cardId)).toEqual(['query-1', 'w1', 'w3'])
-    expect(result.requests).toHaveLength(2)
-    expect(result.requests.map((request) => request.context.timeRange)).toEqual(['-1h', '-7d'])
+    expect(result.requests).toHaveLength(1)
+    expect(result.requests[0].cards.map((card) => card.query.timeRange)).toEqual(['-1h', '-1h', '-7d'])
   })
 
   it('maps query results by widget id', () => {

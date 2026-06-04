@@ -27,6 +27,7 @@ import {
   adaptCardResultsToMetricsAnalysisData,
   buildMetricsExplorerCardQueries,
   hasUsableMetricsExplorerCardResults,
+  PERCENT_VALUE_DISPLAY,
   resolveMetricsExplorerMetricPreset
 } from '@/domains/metrics/queryModel'
 import './MetricsExplorerPage.scss'
@@ -386,6 +387,9 @@ export default defineComponent({
                           data={toBarData(metrics.value.series.cpu?.[0]?.data || [])}
                           height="280px"
                           variant="monitor"
+                          yAxisMin={PERCENT_VALUE_DISPLAY.value.min}
+                          yAxisMax={PERCENT_VALUE_DISPLAY.value.max}
+                          yAxisUnit={PERCENT_VALUE_DISPLAY.value.unit}
                         />
                       ) : (
                         <LineChart
@@ -395,6 +399,9 @@ export default defineComponent({
                           area={chartMode.value === 'area'}
                           variant="monitor"
                           showLegend
+                          yAxisMin={PERCENT_VALUE_DISPLAY.value.min}
+                          yAxisMax={PERCENT_VALUE_DISPLAY.value.max}
+                          yAxisUnit={PERCENT_VALUE_DISPLAY.value.unit}
                         />
                       )}
                     </NCard>
@@ -412,6 +419,9 @@ export default defineComponent({
                           data={toBarData(metrics.value.series.memory?.[0]?.data || [])}
                           height="280px"
                           variant="monitor"
+                          yAxisMin={PERCENT_VALUE_DISPLAY.value.min}
+                          yAxisMax={PERCENT_VALUE_DISPLAY.value.max}
+                          yAxisUnit={PERCENT_VALUE_DISPLAY.value.unit}
                         />
                       ) : (
                         <LineChart
@@ -421,6 +431,9 @@ export default defineComponent({
                           area={chartMode.value === 'area'}
                           variant="monitor"
                           showLegend
+                          yAxisMin={PERCENT_VALUE_DISPLAY.value.min}
+                          yAxisMax={PERCENT_VALUE_DISPLAY.value.max}
+                          yAxisUnit={PERCENT_VALUE_DISPLAY.value.unit}
                         />
                       )}
                     </NCard>

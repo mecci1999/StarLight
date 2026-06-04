@@ -704,7 +704,7 @@ export const normalizeOverviewWidget = <K extends OverviewWidgetKind>(
 }
 
 export const createUserPanelDefinition = (name: string, widgets: OverviewPanelWidget[]): OverviewPanelDefinition => {
-  const normalizedName = name.trim() || '我的面板'
+  const normalizedName = name.trim() || '我的看板'
   const slug = normalizedName
     .toLowerCase()
     .replace(/[^a-z0-9\u4e00-\u9fa5]+/g, '-')
@@ -857,7 +857,7 @@ export const getPanelKindLabel = (kind: OverviewPanelKind) => {
 }
 
 export const getWidgetSizeSpan = (size: OverviewWidgetSize) => {
-  if (size === 'S') return 4
+  if (size === 'S') return 3
   if (size === 'M') return 6
   return 12
 }

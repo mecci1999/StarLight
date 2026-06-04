@@ -65,6 +65,14 @@ const formatNumber = (value: number) => {
   return Number(value.toFixed(absoluteValue >= 10 ? 1 : 2)).toLocaleString()
 }
 
+type ThresholdGuideLine = {
+  value: number
+  label?: string
+  unit?: string
+  color?: string
+  level?: 'critical' | 'warning' | 'info'
+}
+
 export default defineComponent({
   name: 'LineChart',
   props: {
@@ -98,6 +106,34 @@ export default defineComponent({
     showDataZoom: {
       type: Boolean,
       default: false
+    },
+    yAxisMin: {
+      type: Number,
+      default: undefined
+    },
+    yAxisMax: {
+      type: Number,
+      default: undefined
+    },
+    yAxisUnit: {
+      type: String,
+      default: ''
+    },
+    thresholdValue: {
+      type: Number,
+      default: undefined
+    },
+    thresholdLabel: {
+      type: String,
+      default: '阈值'
+    },
+    thresholdUnit: {
+      type: String,
+      default: ''
+    },
+    thresholdLines: {
+      type: Array as () => ThresholdGuideLine[],
+      default: () => []
     }
   },
   setup(props) {
@@ -155,6 +191,49 @@ export default defineComponent({
       return hasMultipleSeries.value ? (isMonitor.value ? 0.11 : 0.085) : isMonitor.value ? 0.13 : 0.095
     })
     const fadeFillOpacity = computed(() => (props.area ? 0.02 : isMonitor.value ? 0.018 : 0.015))
+    const shouldForcePercentScale = computed(() => props.yAxisUnit === '%' && props.yAxisMax === 100)
+    const getThresholdLineColor = (line: ThresholdGuideLine) => {
+      if (line.color) return resolveCssColor(line.color, '#ff7d00')
+      if (line.level === 'critical') return resolveCssColor('var(--color-danger-6)', '#f53f3f')
+      if (line.level === 'info') return resolveCssColor('var(--color-primary-6)', '#165dff')
+      return resolveCssColor('var(--color-warning-6)', '#ff7d00')
+    }
+    const normalizedThresholdLines = computed<ThresholdGuideLine[]>(() => {
+      const lines = props.thresholdLines.filter((line) => typeof line.value === 'number' && Number.isFinite(line.value))
+      if (lines.length) return lines
+      if (typeof props.thresholdValue !== 'number' || !Number.isFinite(props.thresholdValue)) return []
+      return [{ value: props.thresholdValue, label: props.thresholdLabel, unit: props.thresholdUnit, level: 'warning' }]
+    })
+    const thresholdLine = computed(() => {
+      if (!normalizedThresholdLines.value.length) return undefined
+      return {
+        silent: true,
+        symbol: ['none', 'none'],
+        data: normalizedThresholdLines.value.map((line) => {
+          const color = getThresholdLineColor(line)
+          const unit = line.unit || props.yAxisUnit
+          const label = line.label || (line.level === 'critical' ? '严重' : line.level === 'info' ? '提示' : '警告')
+
+          return {
+            yAxis: line.value,
+            lineStyle: {
+              color,
+              width: 1.5,
+              type: 'dashed'
+              // width: line.level === 'critical' ? 1.85 : 1.5,
+              // type: line.level === 'critical' ? 'solid' : 'dashed'
+            },
+            label: {
+              show: true,
+              position: 'insideEndTop',
+              color,
+              fontSize: 11,
+              formatter: `${label} ${formatNumber(line.value)}${unit}`
+            }
+          }
+        })
+      }
+    })
 
     const option = computed(() => ({
       title: {
@@ -199,7 +278,7 @@ export default defineComponent({
                 `<span style="width: 6px; height: 6px; border-radius: 999px; background: ${seriesColor}; flex-shrink: 0;"></span>`,
                 `<span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${item.seriesName}</span>`,
                 `</div>`,
-                `<strong style="color: ${chartTitleColor.value}; font-weight: 500;">${formatNumber(numericValue)}</strong>`,
+                `<strong style="color: ${chartTitleColor.value}; font-weight: 500;">${formatNumber(numericValue)}${props.yAxisUnit}</strong>`,
                 `</div>`
               ].join('')
             }),
@@ -290,7 +369,11 @@ export default defineComponent({
       },
       yAxis: {
         type: 'value',
-        splitNumber: 4,
+        min: shouldForcePercentScale.value ? 0 : props.yAxisMin,
+        max: props.yAxisMax,
+        interval: shouldForcePercentScale.value ? 20 : undefined,
+        splitNumber: shouldForcePercentScale.value ? 5 : 4,
+        scale: false,
         axisLine: {
           show: false
         },
@@ -309,10 +392,10 @@ export default defineComponent({
           color: isMonitor.value ? chartMutedColor.value : chartTextColor.value,
           fontSize: 10,
           margin: 8,
-          formatter: (value: number) => formatNumber(value)
+          formatter: (value: number) => `${formatNumber(value)}${props.yAxisUnit}`
         }
       },
-      series: resolvedSeries.value.map((seriesItem) => ({
+      series: resolvedSeries.value.map((seriesItem, index) => ({
         name: seriesItem.name,
         type: 'line',
         smooth: 0.22,
@@ -360,7 +443,8 @@ export default defineComponent({
         data: seriesItem.data.map((item) => ({
           value: item.value,
           timestamp: item.timestamp
-        }))
+        })),
+        markLine: index === 0 ? thresholdLine.value : undefined
       }))
     }))
 

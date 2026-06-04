@@ -95,15 +95,26 @@ export default defineComponent({
     showDataZoom: {
       type: Boolean,
       default: false
+    },
+    yAxisMin: {
+      type: Number,
+      default: undefined
+    },
+    yAxisMax: {
+      type: Number,
+      default: undefined
+    },
+    yAxisUnit: {
+      type: String,
+      default: ''
     }
   },
   setup(props) {
     const isMonitor = computed(() => props.variant === 'monitor')
     const chartTitleColor = computed(() => resolveCssColor('var(--color-text-2)', '#4e5969'))
     const chartTextColor = computed(() => resolveCssColor('var(--color-text-3)', '#86909c'))
+    const chartMutedColor = computed(() => resolveCssColor('var(--color-text-4)', '#c9cdd4'))
     const softBorderColor = computed(() => resolveCssColor('var(--color-border-1)', '#f2f3f5'))
-    const surfaceColor = computed(() => resolveCssColor('var(--color-bg-2)', '#ffffff'))
-
     const resolvedSeries = computed(() =>
       props.series && props.series.length > 0
         ? props.series.map((seriesItem) => ({
@@ -121,8 +132,17 @@ export default defineComponent({
 
     const categories = computed(() => resolvedSeries.value[0]?.data.map((item) => item.name) || [])
     const hasMultipleSeries = computed(() => resolvedSeries.value.length > 1)
+    const shouldForcePercentScale = computed(() => props.yAxisUnit === '%' && props.yAxisMax === 100)
+    const hasManyCategories = computed(() => categories.value.length > 8)
+    const barFillOpacity = computed(() =>
+      hasMultipleSeries.value ? (isMonitor.value ? 0.15 : 0.12) : isMonitor.value ? 0.18 : 0.14
+    )
+    const activeBarFillOpacity = computed(() => (isMonitor.value ? 0.34 : 0.28))
 
     const option = computed(() => ({
+      animationDuration: isMonitor.value ? 420 : 360,
+      animationEasing: 'cubicOut',
+      backgroundColor: 'transparent',
       title: {
         text: props.title,
         left: 0,
@@ -137,11 +157,15 @@ export default defineComponent({
       tooltip: {
         trigger: 'axis',
         axisPointer: {
-          type: 'shadow',
-          shadowStyle: {
-            color: toRgba(chartTextColor.value, isMonitor.value ? 0.08 : 0.05)
+          type: 'line',
+          label: { show: false },
+          lineStyle: {
+            color: toRgba(chartTextColor.value, isMonitor.value ? 0.24 : 0.16),
+            width: 1
           }
         },
+        borderWidth: 0,
+        extraCssText: 'box-shadow: none; border-radius: 10px;',
         formatter: (params: any) => {
           const items = Array.isArray(params) ? params : [params]
           const heading = items[0]?.axisValue || ''
@@ -160,7 +184,7 @@ export default defineComponent({
                 `<span style="width: 6px; height: 6px; border-radius: 999px; background: ${seriesColor}; flex-shrink: 0;"></span>`,
                 `<span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${item.seriesName}</span>`,
                 `</div>`,
-                `<strong style="color: ${chartTitleColor.value}; font-weight: 500;">${formatNumber(numericValue)}</strong>`,
+                `<strong style="color: ${chartTitleColor.value}; font-weight: 500;">${formatNumber(numericValue)}${props.yAxisUnit}</strong>`,
                 `</div>`
               ].join('')
             }),
@@ -181,8 +205,8 @@ export default defineComponent({
           }
         : undefined,
       grid: {
-        left: isMonitor.value ? 12 : 8,
-        right: isMonitor.value ? 12 : 8,
+        left: isMonitor.value ? 10 : 8,
+        right: isMonitor.value ? 10 : 8,
         bottom: props.showDataZoom ? 24 : isMonitor.value ? 8 : 4,
         containLabel: true,
         top: props.title ? (hasMultipleSeries.value ? 44 : 28) : hasMultipleSeries.value ? 20 : 8
@@ -236,13 +260,24 @@ export default defineComponent({
           show: false
         },
         axisLabel: {
-          color: chartTextColor.value,
-          fontSize: 11,
-          margin: 10
+          color: isMonitor.value ? chartMutedColor.value : chartTextColor.value,
+          fontSize: 10,
+          margin: 9,
+          hideOverlap: true,
+          interval: hasManyCategories.value ? 'auto' : 0,
+          formatter: (value: string) => (String(value).length > 18 ? `${String(value).slice(0, 17)}…` : value)
+        },
+        splitLine: {
+          show: false
         }
       },
       yAxis: {
         type: 'value',
+        min: shouldForcePercentScale.value ? 0 : props.yAxisMin,
+        max: props.yAxisMax,
+        interval: shouldForcePercentScale.value ? 20 : undefined,
+        splitNumber: shouldForcePercentScale.value ? 5 : 4,
+        scale: false,
         axisLine: {
           show: false
         },
@@ -251,36 +286,51 @@ export default defineComponent({
         },
         splitLine: {
           lineStyle: {
-            color: toRgba(softBorderColor.value, isMonitor.value ? 0.9 : 0.96),
-            type: 'solid'
+            color: toRgba(softBorderColor.value, isMonitor.value ? 0.4 : 0.58),
+            width: 1,
+            type: 'dashed',
+            dashOffset: 1.5
           }
         },
         axisLabel: {
-          color: chartTextColor.value,
-          fontSize: 11,
-          margin: 10
+          color: isMonitor.value ? chartMutedColor.value : chartTextColor.value,
+          fontSize: 10,
+          margin: 8,
+          formatter: (value: number) => `${formatNumber(value)}${props.yAxisUnit}`
         }
       },
-      series: resolvedSeries.value.map((seriesItem) => ({
-        name: seriesItem.name,
-        type: 'bar',
-        barMaxWidth: hasMultipleSeries.value ? 18 : 26,
-        itemStyle: {
-          color: toRgba(seriesItem.color, isMonitor.value ? 0.82 : 0.72),
-          borderRadius: [8, 8, 3, 3]
-        },
-        emphasis: {
+      series: resolvedSeries.value
+        .map((seriesItem) => ({
+          name: seriesItem.name,
+          type: 'bar',
+          barGap: hasMultipleSeries.value ? '28%' : '30%',
+          barCategoryGap: hasManyCategories.value ? '42%' : '52%',
+          barMaxWidth: hasMultipleSeries.value ? 16 : 24,
           itemStyle: {
-            color: seriesItem.color
-          }
-        },
-        data: seriesItem.data.map((item) => ({
-          value: item.value,
-          itemStyle: {
-            color: toRgba(seriesItem.color, isMonitor.value ? 0.82 : 0.72)
-          }
+            color: toRgba(seriesItem.color, barFillOpacity.value),
+            borderColor: toRgba(seriesItem.color, isMonitor.value ? 0.18 : 0.12),
+            borderWidth: 1,
+            borderRadius: 0
+          },
+          emphasis: {
+            focus: 'series',
+            itemStyle: {
+              color: toRgba(seriesItem.color, activeBarFillOpacity.value),
+              borderColor: toRgba(seriesItem.color, 0.42),
+              borderWidth: 1
+            }
+          },
+          data: seriesItem.data.map((item) => ({
+            value: item.value,
+            itemStyle: {
+              color: toRgba(seriesItem.color, barFillOpacity.value)
+            }
+          }))
         }))
-      }))
+        .map((seriesItem) => ({
+          ...seriesItem,
+          animationDelay: (index: number) => Math.min(index * 18, 260)
+        }))
     }))
 
     return () => <BaseChart option={option.value} height={props.height} loading={props.loading} />

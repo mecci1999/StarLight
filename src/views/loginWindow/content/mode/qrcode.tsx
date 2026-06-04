@@ -5,6 +5,7 @@ import { useSettingStore } from '@/store/setting'
 import { useNetwork } from '@vueuse/core'
 import { NAvatar, NButton, NCheckbox, NFlex, NInput, NQrCode, NScrollbar, NSkeleton } from 'naive-ui'
 import {
+  getStoredUserInfo,
   getStoredAuthTokens,
   persistAuthTokens,
   syncAuthTokensToTauri,
@@ -19,6 +20,7 @@ import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
 import { emit as emitTauri, listen } from '@tauri-apps/api/event'
 import { type } from '@tauri-apps/plugin-os'
 import { useRouter } from 'vue-router'
+import type { UserInfoType } from '@/types/userInfo'
 // 在文件顶部添加导入语句
 import RefreshIcon from '@/assets/icons/refresh.svg'
 import { useTauriListener } from '@/hooks/useTauriListener'
@@ -150,23 +152,37 @@ export default defineComponent({
               }
 
               // 处理登录成功逻辑
-              if (response.userInfo?.userId) {
+              const loginUserId = response.userInfo?.userId || response.userId || ''
+              const cachedUserInfo = getStoredUserInfo()
+              let resolvedUserInfo =
+                (response.userInfo as Partial<UserInfoType> | undefined) ||
+                (cachedUserInfo?.userId === loginUserId ? cachedUserInfo : undefined)
+              if (!resolvedUserInfo?.userId && loginUserId) {
+                try {
+                  resolvedUserInfo = (await api.getUserInfo(loginUserId)) as Partial<UserInfoType>
+                } catch (error) {
+                  console.warn('扫码登录成功后刷新用户信息失败，将使用登录响应兜底信息。', error)
+                }
+              }
+
+              if (loginUserId) {
                 const storedUser = {
-                  userId: response.userInfo?.userId || response.userId || '',
-                  email: response.userInfo?.email || '',
-                  avatar: response.userInfo?.avatar || 'star_1',
-                  nickName: response.userInfo?.nickName || response.userInfo?.email || '',
-                  client: response.userInfo?.client || 'desktop',
-                  isAdmin: response.userInfo?.isAdmin || false,
-                  status: response.userInfo?.status || 'active',
-                  lastActiveAt: response.userInfo?.lastActiveAt || new Date().toISOString(),
-                  isOnboardingCompleted: response.userInfo?.isOnboardingCompleted
+                  userId: resolvedUserInfo?.userId || loginUserId,
+                  email: resolvedUserInfo?.email || '',
+                  avatar: resolvedUserInfo?.avatar || 'star_1',
+                  nickName:
+                    resolvedUserInfo?.nickName || (resolvedUserInfo as any)?.nickname || resolvedUserInfo?.email || '',
+                  client: resolvedUserInfo?.client || 'desktop',
+                  isAdmin: resolvedUserInfo?.isAdmin || false,
+                  status: resolvedUserInfo?.status || 'active',
+                  lastActiveAt: resolvedUserInfo?.lastActiveAt || new Date().toISOString(),
+                  isOnboardingCompleted: resolvedUserInfo?.isOnboardingCompleted
                 }
                 persistStoredUserInfo(storedUser)
 
                 // 跳转到主页面或关闭登录窗口
                 const isDesktop = getIsDesktop()
-                const targetRoute = resolveAuthLandingRoute(isDesktop, response.userInfo)
+                const targetRoute = resolveAuthLandingRoute(isDesktop, storedUser)
 
                 setTimeout(async () => {
                   if (isDesktop) {

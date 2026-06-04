@@ -213,17 +213,34 @@ export default defineComponent({
           await syncAuthTokensToTauri({ accessToken, refreshToken })
         }
 
+        const loginUserId = res.userId || state.info.userId
+        const cachedUserInfo = getStoredUserInfo()
+        let resolvedUserInfo =
+          (res.userInfo as Partial<UserInfoType> | undefined) ||
+          (cachedUserInfo?.userId === loginUserId ? cachedUserInfo : undefined)
+        if (!resolvedUserInfo?.userId && loginUserId) {
+          try {
+            resolvedUserInfo = (await api.getUserInfo(loginUserId)) as Partial<UserInfoType>
+          } catch (error) {
+            console.warn('登录成功后刷新用户信息失败，将使用登录响应兜底信息。', error)
+          }
+        }
+
         const userInfo: UserInfoType = {
-          userId: res.userId || state.info.userId,
+          userId: resolvedUserInfo?.userId || loginUserId,
           email: state.info.email,
           hash: state.info.remember ? state.info.password : undefined,
-          avatar: res.userInfo?.avatar || state.info.avatar || 'star_1',
-          nickName: res.userInfo?.nickName || state.info.nickname || state.info.email,
-          client: res.userInfo?.client || 'desktop',
-          isAdmin: res.userInfo?.isAdmin || false,
-          status: res.userInfo?.status || 'active',
-          lastActiveAt: res.userInfo?.lastActiveAt || new Date().toISOString(),
-          isOnboardingCompleted: res.userInfo?.isOnboardingCompleted
+          avatar: resolvedUserInfo?.avatar || state.info.avatar || 'star_1',
+          nickName:
+            resolvedUserInfo?.nickName ||
+            (resolvedUserInfo as any)?.nickname ||
+            state.info.nickname ||
+            state.info.email,
+          client: resolvedUserInfo?.client || 'desktop',
+          isAdmin: resolvedUserInfo?.isAdmin || false,
+          status: resolvedUserInfo?.status || 'active',
+          lastActiveAt: resolvedUserInfo?.lastActiveAt || new Date().toISOString(),
+          isOnboardingCompleted: resolvedUserInfo?.isOnboardingCompleted
         }
         persistStoredUserInfo(userInfo)
 
@@ -238,7 +255,7 @@ export default defineComponent({
         // 跳转到主界面
         // 优先使用服务端返回的 isOnboardingCompleted 字段，兼容旧逻辑作为兜底
         const isDesktop = getIsDesktop()
-        const targetRoute = resolveAuthLandingRoute(isDesktop, res.userInfo)
+        const targetRoute = resolveAuthLandingRoute(isDesktop, userInfo)
 
         setTimeout(async () => {
           if (isDesktop) {

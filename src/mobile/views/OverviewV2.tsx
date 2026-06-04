@@ -84,7 +84,7 @@ export default defineComponent({
       <div class="mobile-overview-v2">
         <div class="mobile-overview-v2__header">
           <div>
-            <h2 class="mobile-overview-v2__title">面板</h2>
+            <h2 class="mobile-overview-v2__title">看板</h2>
             <div class="mobile-overview-v2__subtitle">移动端摘要视图</div>
           </div>
           <NButton size="small" secondary type="primary" onClick={loadData}>

@@ -11,6 +11,97 @@
 
 ---
 
+## AI 样式修改执行规范
+
+当用户要求“按照系统样式规范调整”“优化布局/交互/样式”时，默认遵循本节。目标是让后续修改保持同一种 StarLight 产品气质：清爽、专业、信息密度适中，接近主流监控/后台应用，而不是为单个页面临时发挥。
+
+### 1. 样式修改优先级
+
+1. **优先改共享组件**：如果多个页面共用同一种结构，优先修改 shared/layout 或 shared/components，例如 `PageHeader`、`TimeRangeBar`，不要逐页复制样式。
+2. **优先改同目录 SCSS**：新建或调整布局、间距、字号、颜色时，默认改 `Component.scss` / `Page.scss`，不要在 TSX 中继续堆 inline style 或原子类。
+3. **优先使用 token**：颜色、字号、间距、圆角、阴影、动效必须优先使用 `src/styles/variable.scss` 中的 `var(--...)`。
+4. **最小有效改动**：解决当前视觉/交互问题，不顺手重做无关页面结构。
+
+### 2. 页面标题区规范
+
+适用于所有桌面主页面的 `PageHeader`。
+
+- 标题和描述应在**同一行主标题区域**内呈现，而不是上下两行堆叠。
+- 标题使用 `var(--font-size-title-2)`，字重使用 `var(--font-weight-semibold)`。
+- 描述使用 `var(--font-size-body-2)`，颜色使用 `var(--color-text-3)`。
+- 标题与描述之间使用轻量分隔（例如 3px 中性色圆点），避免视觉上粘连。
+- 右侧操作按钮、meta、extra 插槽必须独立在 action 区域，不与标题描述混排。
+- 小屏可以换行，但桌面宽度下应保持“标题 · 描述”的同一行信息结构。
+
+推荐结构：
+
+```tsx
+<header class="page-header">
+  <div class="page-header__main">
+    <h1 class="page-header__title">页面标题</h1>
+    <span class="page-header__subtitle">页面描述</span>
+  </div>
+  <div class="page-header__actions">...</div>
+</header>
+```
+
+### 3. 工具栏与筛选区规范
+
+适用于时间范围、服务搜索、状态筛选、查询操作等控制区。
+
+- 工具栏应按任务分组：主要范围控制在左，实时/刷新/查询操作在右或下一组。
+- 使用语义化 BEM 类名，例如 `time-range-bar__primary`、`time-range-bar__secondary`、`overview-page__service-search`。
+- 控件宽度要克制，避免默认撑满导致视觉失衡：
+  - 服务/主体选择：约 `200px ~ 240px`。
+  - 状态/等级/环境筛选：约 `136px ~ 180px`。
+  - 搜索输入：根据语义控制在 `220px ~ 300px`，只有全局搜索/复杂查询才允许更宽。
+- 同一工具栏内的按钮宽度保持稳定；短按钮可固定为 `64px`。
+- 交互状态要符合语义，例如实时模式关闭时自动刷新选择器应禁用。
+- 小屏下工具栏可以纵向铺满，避免按钮和输入框挤压。
+
+### 4. 卡片、网格与间距规范
+
+- 页面卡片之间的横向和纵向间距必须一致，默认使用 `var(--spacing-4)` / `16px`。
+- Grid 布局优先用 `gap` 统一管理间距，不用子项 margin 拼接间距。
+- Masonry / CSS Grid 手动计算高度时：
+  - 先测量自然内容高度，再设置 `grid-row-end`。
+  - 不要在未确定父级高度时给 grid item/card 直接写 `height: 100%`，这会让卡片折叠成线。
+  - 如需撑满计算后的网格区域，优先设置安全的 `min-height`，并让子卡片继承 `min-height`。
+- 卡片内容不应依赖外部 margin 形成布局节奏；卡片内部使用 padding/gap。
+
+### 5. 字号与信息层级
+
+常用层级：
+
+| 场景 | 字号 | 字重 | 颜色 |
+|------|------|------|------|
+| 页面标题 | `--font-size-title-2` | `--font-weight-semibold` | `--color-text-1` |
+| 页面描述 | `--font-size-body-2` | `--font-weight-regular` | `--color-text-3` |
+| 卡片标题 | `--font-size-title-1` 或 `14px` | `--font-weight-medium` | `--color-text-1` |
+| 卡片说明/辅助信息 | `--font-size-body-1` / `--font-size-body-2` | `--font-weight-regular` | `--color-text-3` |
+| 表格/标签/小控件 | `12px` / `--font-size-body-1` | `--font-weight-medium` 视语义而定 | token 色 |
+
+原则：不要在同一页面制造过多字号层级。内页页面标题不应长期使用展示级大标题，除非是登录页、营销页或空状态 Hero。
+
+### 6. Naive UI 组件定制边界
+
+- 可以通过语义 class 调整 Naive UI 组件的布局宽度、背景、边框、hover 状态。
+- 不要大面积重写 Naive UI 的内部结构；必要时使用 `:deep(...)`，并限定在当前组件根类下。
+- 控件交互语义优先于装饰：禁用态、加载态、可清除、Enter 查询等行为要和视觉调整一起确认。
+
+### 7. 验收清单
+
+每次样式修改完成后至少检查：
+
+- 是否使用了 `var(--...)` token，而不是硬编码主题值。
+- 是否写在同目录 SCSS 中，且类名语义清晰。
+- 是否影响共享组件的所有调用方。
+- 是否存在小屏换行/铺满策略。
+- 是否运行了相关 LSP diagnostics、必要的组件测试和 `npm run build`。
+- 若修改 shared 组件，优先补一条 focused component test 固化结构或关键交互。
+
+---
+
 ## 颜色系统
 
 ### 主色调 - 清新科技蓝

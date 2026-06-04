@@ -1,5 +1,5 @@
 import type { MetricsDatasetScope } from '@/api/metrics'
-import type { CardData, DashboardQueryRequest } from '@/domains/metrics/queryModel'
+import type { CardData } from '@/domains/metrics/queryModel'
 import { buildOverviewWidgetQueryPreviewSpec } from '@/domains/overview/overviewWidgetQueryPreviewModel'
 import type { OverviewPanelWidget, OverviewWidgetKind } from '@/domains/overview/panelModel'
 import type { ServiceItem } from '@/types/monitor'
@@ -54,40 +54,30 @@ export const buildOverviewCardsQueryRequest = (params: {
       query: entry.support.query!
     }))
 
-  const requests = Object.values(
-    cards.reduce(
-      (groups, card) => {
-        const key = `${card.query.scope}:${card.query.timeRange}`
-        if (!groups[key]) {
-          groups[key] = {
-            refreshGenerationId: params.refreshGenerationId || `${Date.now()}`,
-            context: {
-              scope: card.query.scope,
-              timeRange: card.query.timeRange,
-              autoRefresh: false
-            },
-            cards: []
-          }
-        }
-        groups[key].cards.push(card)
-        return groups
-      },
-      {} as Record<string, DashboardQueryRequest>
-    )
-  )
+  const request = {
+    refreshGenerationId: params.refreshGenerationId || `${Date.now()}`,
+    context: {
+      scope: params.scope,
+      timeRange: cards[0]?.query.timeRange || '-1h',
+      autoRefresh: false
+    },
+    cards
+  }
 
   return {
     cards,
-    request: requests[0] || {
-      refreshGenerationId: params.refreshGenerationId || `${Date.now()}`,
-      context: {
-        scope: params.scope,
-        timeRange: '-1h',
-        autoRefresh: false
-      },
-      cards: []
-    },
-    requests
+    request: cards.length
+      ? request
+      : {
+          refreshGenerationId: params.refreshGenerationId || `${Date.now()}`,
+          context: {
+            scope: params.scope,
+            timeRange: '-1h',
+            autoRefresh: false
+          },
+          cards: []
+        },
+    requests: cards.length ? [request] : []
   }
 }
 
@@ -100,8 +90,8 @@ export const createEmptyOverviewPanel = (): {
   widgets: OverviewPanelWidget[]
 } => ({
   id: 'user-overview',
-  name: '我的面板',
-  description: '从空白面板开始，按需新增指标卡片。',
+  name: '我的看板',
+  description: '从空白看板开始，按需新增指标卡片。',
   kind: 'user',
   editable: true,
   widgets: []

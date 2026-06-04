@@ -251,7 +251,7 @@ export default defineComponent({
           <>
             {/* 固定在最顶层 */}
             {props.topWinLable !== void 0 ? (
-              <div class="hover-box" onClick={handleAlwaysOnTop}>
+              <div class="hover-box no-drag" onClick={handleAlwaysOnTop}>
                 <NPopover trigger="hover">
                   {{
                     trigger: () =>
@@ -288,7 +288,7 @@ export default defineComponent({
 
             {/* 最小化 */}
             {props.minW ? (
-              <div class="window-control-btn minimize-btn" onClick={() => appWindow.minimize()}>
+              <div class="window-control-btn minimize-btn no-drag" onClick={() => appWindow.minimize()}>
                 <svg class="window-action-bar__control-icon">
                   <use href="#maximize" />
                 </svg>
@@ -297,7 +297,7 @@ export default defineComponent({
 
             {/* 最大化 */}
             {props.maxW ? (
-              <div class="window-control-btn maximize-btn" onClick={restoreWindow}>
+              <div class="window-control-btn maximize-btn no-drag" onClick={restoreWindow}>
                 {!state.windowMaxmized ? (
                   <svg class="window-action-bar__control-icon">
                     <use href="#rectangle-small" />
@@ -313,7 +313,7 @@ export default defineComponent({
             {props.closeW ? (
               <div
                 class={{
-                  'window-control-btn close-btn': true,
+                  'window-control-btn close-btn no-drag': true,
                   'window-action-bar__close-btn--maximized': state.windowMaxmized
                 }}
                 onClick={handleCloseWin}>
@@ -356,7 +356,13 @@ export default defineComponent({
                   <span>直接退出程序</span>
                 </label>
                 <label class="window-action-bar__modal-option window-action-bar__modal-option--subtle">
-                  <NCheckbox size={'small'} checked={state.tipsRef.notTips} />
+                  <NCheckbox
+                    size={'small'}
+                    checked={state.tipsRef.notTips}
+                    onUpdateChecked={(checked: boolean) => {
+                      state.tipsRef.notTips = checked
+                    }}
+                  />
                   <span>下次不出现此提示</span>
                 </label>
               </NFlex>

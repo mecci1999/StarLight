@@ -129,6 +129,7 @@ throw new AppException('Error message', {
 - New or refactored client components should prefer sibling SCSS files (`Component.tsx` + `Component.scss`) with semantic class names
 - Use SCSS for layout, spacing, typography, borders, colors, shadows, and component structure; avoid adding new atomic utility chains in newly touched components
 - Consume design tokens via `var(--...)` from `@/styles/variable.scss`; do not hardcode theme values in component styles
+- For UI/layout/style changes, follow `docs/STYLE_GUIDE.md`, especially the "AI 样式修改执行规范" section for page headers, toolbars, card spacing, and validation expectations
 
 ## Commit Convention
 

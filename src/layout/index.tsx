@@ -8,7 +8,7 @@ import './index.scss'
 
 export default defineComponent({
   name: 'Layout',
-  setup(props, { slots }) {
+  setup() {
     const loadingPercentage = ref(10)
     const loadingText = ref('正在加载应用...')
 
@@ -53,7 +53,7 @@ export default defineComponent({
     return () => (
       <div id="layout" class="layout-root" data-tauri-drag-region>
         <div class="layout-root__action-bar" data-tauri-drag-region>
-          <WindowActionBar maxW={true} shrink={false} showSlot plain>
+          <WindowActionBar maxW={true} shrink={false} topWinLable="home" showSlot plain>
             {{
               default: () => <Header />
             }}

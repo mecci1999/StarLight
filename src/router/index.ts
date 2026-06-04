@@ -156,6 +156,12 @@ const routes: Array<RouteRecordRaw> = [
         redirect: '/home/investigate/metrics'
       },
       {
+        path: 'settings',
+        name: 'settings',
+        meta: mustGetHomeRouteMeta('settings'),
+        component: () => import('@/domains/settings/pages/SettingsPage')
+      },
+      {
         path: 'admin/ingestion',
         name: 'admin-ingestion',
         meta: mustGetHomeRouteMeta('admin-ingestion'),
@@ -226,7 +232,7 @@ const routes: Array<RouteRecordRaw> = [
         path: 'custom-dashboard',
         name: 'custom-dashboard',
         meta: mustGetHomeRouteMeta('custom-dashboard'),
-        component: () => import('@/domains/overview/pages/CustomDashboardPage')
+        redirect: '/home/overview'
       },
       // 🚨 告警管理模块
       {

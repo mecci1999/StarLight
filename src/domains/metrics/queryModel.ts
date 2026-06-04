@@ -17,6 +17,19 @@ export type MetricSchema = {
   recommendedVisualizations: Array<'number' | 'line' | 'bar' | 'table' | 'donut'>
 }
 
+export type QueryAlertLevel = 'critical' | 'warning' | 'info'
+export type QueryAlertOperator = '>' | '<' | '=' | '>=' | '<='
+
+export type QueryAlertRule = {
+  ruleId?: string
+  level: QueryAlertLevel
+  operator: QueryAlertOperator
+  threshold: number
+  unit?: string
+  duration?: number
+  channels?: string[]
+}
+
 export type QuerySpec = {
   scope: 'tenant' | 'system'
   sourceKind?: 'sdk' | 'darwin-event' | 'auto'
@@ -28,11 +41,42 @@ export type QuerySpec = {
   aggregation: 'latest' | 'avg' | 'sum' | 'max' | 'p95'
   groupBy?: string[]
   filters?: Record<string, string | string[]>
-  compare?: 'previous-period' | 'same-period'
+  compare?:
+    | 'previous-period'
+    | 'same-period'
+    | {
+        enabled?: boolean
+        mode: 'previous-period' | 'previous-day' | 'previous-week'
+        display?: 'relative' | 'absolute' | 'both'
+        directionality?: 'increase_better' | 'decrease_better' | 'neutral'
+      }
   timeRange: string
   granularity?: string
   limit?: number
   visualizationHint?: 'number' | 'line' | 'bar' | 'table' | 'donut'
+  display?: {
+    value?: {
+      min?: number
+      max?: number
+      unit?: string
+    }
+    yAxis?: {
+      min?: number
+      max?: number
+      unit?: string
+    }
+  }
+  alert?: {
+    ruleId?: string
+    enabled: boolean
+    operator: QueryAlertOperator
+    threshold: number
+    unit?: string
+    duration?: number
+    level?: QueryAlertLevel
+    channels?: string[]
+    rules?: QueryAlertRule[]
+  }
   calculation?: {
     type: 'ratio'
     numerator: {
@@ -48,12 +92,63 @@ export type QuerySpec = {
   }
 }
 
+const alertLevelRank: Record<QueryAlertLevel, number> = {
+  critical: 3,
+  warning: 2,
+  info: 1
+}
+
+export const normalizeQueryAlertRules = (alert?: QuerySpec['alert'] | null): QueryAlertRule[] => {
+  if (!alert?.enabled) return []
+
+  const unit = alert.unit || ''
+  const duration = alert.duration || 5
+  const channels = alert.channels?.length ? alert.channels : ['Email']
+  const rules = Array.isArray(alert.rules) ? alert.rules : []
+  const normalizedRules = rules
+    .filter((rule) => typeof rule.threshold === 'number' && Number.isFinite(rule.threshold))
+    .map((rule) => ({
+      ...rule,
+      operator: rule.operator || alert.operator || '>',
+      unit: rule.unit ?? unit,
+      duration: rule.duration || duration,
+      channels: rule.channels?.length ? rule.channels : channels,
+      level: rule.level || 'warning'
+    }))
+
+  if (!normalizedRules.length && typeof alert.threshold === 'number' && Number.isFinite(alert.threshold)) {
+    normalizedRules.push({
+      ruleId: alert.ruleId,
+      level: alert.level || 'warning',
+      operator: alert.operator || '>',
+      threshold: alert.threshold,
+      unit,
+      duration,
+      channels
+    })
+  }
+
+  return normalizedRules.sort((left, right) => {
+    const rankDiff = alertLevelRank[right.level] - alertLevelRank[left.level]
+    if (rankDiff !== 0) return rankDiff
+    return right.threshold - left.threshold
+  })
+}
+
 export type CardData =
   | {
       kind: 'number'
       value: number | null
       unit?: string
-      compare?: { value: number; direction: 'up' | 'down' | 'flat' }
+      compare?: {
+        baselineValue: number | null
+        absoluteDelta: number | null
+        relativeDelta: number | null
+        direction: 'up' | 'down' | 'flat'
+        sentiment: 'good' | 'bad' | 'neutral'
+        label: string
+        display: 'relative' | 'absolute' | 'both'
+      }
       meta?: Record<string, any>
     }
   | {
@@ -133,6 +228,14 @@ export const resolveMetricsExplorerMetricPreset = (metricRef?: string | null): M
 export const isMetricsExplorerMetricSupported = (metricRef?: string | null) =>
   Boolean(resolveMetricsExplorerMetricPreset(metricRef))
 
+export const PERCENT_VALUE_DISPLAY = {
+  value: {
+    min: 0,
+    max: 100,
+    unit: '%'
+  }
+} as const
+
 export const buildMetricsExplorerCardQueries = (params: {
   scope: MetricsDatasetScope
   serviceId?: string | null
@@ -152,7 +255,13 @@ export const buildMetricsExplorerCardQueries = (params: {
     {
       cardId: METRICS_EXPLORER_CARD_IDS.cpu,
       priority: 'high',
-      query: { ...base, metricRef: 'service.cpu.usage', aggregation: 'avg', visualizationHint: 'line' }
+      query: {
+        ...base,
+        metricRef: 'service.cpu.usage',
+        aggregation: 'avg',
+        visualizationHint: 'line',
+        display: PERCENT_VALUE_DISPLAY
+      }
     },
     {
       cardId: METRICS_EXPLORER_CARD_IDS.memory,
@@ -161,7 +270,8 @@ export const buildMetricsExplorerCardQueries = (params: {
         ...base,
         metricRef: SERVICE_MEMORY_USAGE_PERCENT_METRIC_REF,
         aggregation: 'avg',
-        visualizationHint: 'line'
+        visualizationHint: 'line',
+        display: PERCENT_VALUE_DISPLAY
       }
     },
     {

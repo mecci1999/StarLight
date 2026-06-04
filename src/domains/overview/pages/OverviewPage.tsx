@@ -1,5 +1,5 @@
 import { computed, defineComponent, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import {
   NButton,
   NCard,
@@ -17,6 +17,7 @@ import {
   NSelect,
   NSpin,
   NStatistic,
+  NSwitch,
   NTag,
   NThing,
   useMessage
@@ -37,6 +38,7 @@ import {
   saveDashboardState,
   type MetricsDatasetScope
 } from '@/api'
+import { saveAlertRule, updateAlertRule } from '@/api/alerts'
 import type { MetricsAnalysisData, ServiceInstance, ServiceItem } from '@/types/monitor'
 import PageHeader from '@/shared/layout/PageHeader'
 import TimeRangeBar from '@/shared/components/TimeRangeBar'
@@ -112,11 +114,14 @@ import { buildOverviewSnapshotFetchPlan } from '@/domains/overview/overviewSnaps
 import {
   buildOverviewCardsQueryRequest,
   createEmptyOverviewPanel,
-  isOverviewWidgetKindQueryDriven,
-  isOverviewWidgetQueryDriven,
   mapQueryResultsByWidgetId
 } from '@/domains/overview/overviewRuntimeQueryModel'
-import type { CardData, QuerySpec } from '@/domains/metrics/queryModel'
+import {
+  normalizeQueryAlertRules,
+  type CardData,
+  type QueryAlertRule,
+  type QuerySpec
+} from '@/domains/metrics/queryModel'
 import './OverviewPage.scss'
 
 type ScopeValue = { service: string | null }
@@ -156,6 +161,10 @@ type KpiCard = {
 type WidgetEditorMode = 'create' | 'update'
 type WidgetEditorDraft = OverviewPanelWidget
 type OverviewAutoRefreshKey = 'off' | 'auto' | '15s' | '30s' | '1m' | '5m'
+type PersistedOverviewAutoRefreshState = {
+  autoRefresh: OverviewAutoRefreshKey
+  updatedAt?: number
+}
 type OverviewMetricDiscoveryPreset = {
   key: string
   displayedMetrics: OverviewWidgetDisplayMetricKey[]
@@ -173,6 +182,7 @@ type OverviewMetricDiscoveryPreset = {
 
 const PANEL_STATE_STORAGE_KEY = 'starlight_overview_panel_state_v5'
 const DEFAULT_VIEW_STORAGE_KEY = 'starlight_overview_default_view_v5'
+const AUTO_REFRESH_STORAGE_KEY = 'starlight_overview_auto_refresh_v1'
 const DEFAULT_PANEL_ID = 'user-overview'
 const DEFAULT_SCOPE: ScopeValue = { service: null }
 const compareWindowOptions = [
@@ -209,6 +219,8 @@ const overviewAutoRefreshOptions: Array<{ label: string; value: OverviewAutoRefr
   { label: '1 分钟', value: '1m' },
   { label: '5 分钟', value: '5m' }
 ]
+const isOverviewAutoRefreshKey = (value: string): value is OverviewAutoRefreshKey =>
+  overviewAutoRefreshOptions.some((option) => option.value === value)
 const editorGranularityOptions: Array<{ label: string; value: OverviewWidgetTimeGranularity }> = [
   { label: '小时', value: 'hour' },
   { label: '天', value: 'day' },
@@ -253,6 +265,48 @@ const widgetVisualizationOptions: Record<OverviewWidgetVisualization, { label: s
 const comparisonEditorOptions: Array<{ label: string; value: OverviewCompareWindow; description: string }> = [
   { label: '环比上期', value: 'previous-period', description: '与上一等长周期进行对比。' },
   { label: '同比时间范围', value: 'same-period', description: '对照同类时间窗口查看趋势变化。' }
+]
+const queryCompareModeOptions: Array<{ label: string; value: 'previous-period' | 'previous-day' | 'previous-week' }> = [
+  { label: '上一周期', value: 'previous-period' },
+  { label: '昨天同一时间', value: 'previous-day' },
+  { label: '上周同一时间', value: 'previous-week' }
+]
+const queryCompareDisplayOptions: Array<{ label: string; value: 'relative' | 'absolute' | 'both' }> = [
+  { label: '百分比', value: 'relative' },
+  { label: '绝对差值', value: 'absolute' },
+  { label: '两者都显示', value: 'both' }
+]
+const queryCompareDirectionalityOptions: Array<{
+  label: string
+  value: 'increase_better' | 'decrease_better' | 'neutral'
+}> = [
+  { label: '上升更好', value: 'increase_better' },
+  { label: '下降更好', value: 'decrease_better' },
+  { label: '仅展示趋势', value: 'neutral' }
+]
+const queryDisplayUnitOptions = [
+  { label: '百分比 (%)', value: '%' },
+  { label: '毫秒 (ms)', value: 'ms' },
+  { label: '请求数 (request)', value: 'request' },
+  { label: '次数 (count)', value: 'count' },
+  { label: '无单位', value: '' }
+]
+const queryAlertOperatorOptions = [
+  { label: '大于 >', value: '>' as const },
+  { label: '大于等于 >=', value: '>=' as const },
+  { label: '小于 <', value: '<' as const },
+  { label: '小于等于 <=', value: '<=' as const },
+  { label: '等于 =', value: '=' as const }
+]
+const queryAlertLevelOptions = [
+  { label: '警告', value: 'warning' as const },
+  { label: '严重', value: 'critical' as const },
+  { label: '提示', value: 'info' as const }
+]
+const queryAlertChannelOptions = [
+  { label: 'Email', value: 'Email' },
+  { label: 'Webhook', value: 'Webhook' },
+  { label: '站内通知', value: 'InApp' }
 ]
 const displayToggleLabels = {
   showTotal: { label: '合计', description: '显示所选指标的总量。' },
@@ -589,6 +643,7 @@ const getRouteForQuickPivot = (key: OverviewQuickPivotLinkKey) => {
 export default defineComponent({
   name: 'OverviewPageV2',
   setup() {
+    const route = useRoute()
     const router = useRouter()
     const timeStore = useTimeStore()
     const message = useMessage()
@@ -646,8 +701,10 @@ export default defineComponent({
     const activePanelId = ref(DEFAULT_PANEL_ID)
     const editMode = ref(false)
     const showWidgetEditor = ref(false)
+    const widgetEditorSaving = ref(false)
     const widgetEditorMode = ref<WidgetEditorMode>('create')
     const widgetEditorDraft = ref<WidgetEditorDraft>(buildWidgetDraft('metric-summary', []))
+    const routePrefillApplied = ref(false)
     const useLegacyWidgetEditor = false
     const showPanelModal = ref(false)
     const editorPreviewLoading = ref(false)
@@ -742,6 +799,18 @@ export default defineComponent({
         return true
       } catch (error) {
         console.error('Failed to restore overview panel state:', error)
+        return false
+      }
+    }
+
+    const restoreAutoRefreshState = async () => {
+      try {
+        const saved = await getDashboardState<PersistedOverviewAutoRefreshState | null>(AUTO_REFRESH_STORAGE_KEY, null)
+        if (!saved || !isOverviewAutoRefreshKey(saved.autoRefresh)) return false
+        autoRefreshSetting.value = saved.autoRefresh
+        return true
+      } catch (error) {
+        console.error('Failed to restore overview auto-refresh state:', error)
         return false
       }
     }
@@ -846,6 +915,9 @@ export default defineComponent({
     ]
     const queryCardDraft = computed(() => (widgetEditorDraft.value.config as { query: QuerySpec }).query)
     const queryEditMode = computed(() => widgetEditorState.value.queryEditMode || 'form-builder')
+    const queryStatementDraft = computed(
+      () => parseQuerySpecJson(editorRawQueryScript.value).query || queryCardDraft.value
+    )
     const darwinServiceOptions = computed(() =>
       services.value.map((service) => ({
         label: service.name,
@@ -1051,6 +1123,15 @@ export default defineComponent({
       })
     }
 
+    const saveAutoRefreshState = (autoRefresh: OverviewAutoRefreshKey) => {
+      saveDashboardState<PersistedOverviewAutoRefreshState>(AUTO_REFRESH_STORAGE_KEY, {
+        autoRefresh,
+        updatedAt: Date.now()
+      }).catch((error) => {
+        console.error('Failed to persist overview auto-refresh state:', error)
+      })
+    }
+
     const clearOverviewAutoRefresh = () => {
       if (autoRefreshTimer.value) {
         clearInterval(autoRefreshTimer.value)
@@ -1062,7 +1143,7 @@ export default defineComponent({
       pageVisible.value = document.visibilityState === 'visible'
       if (pageVisible.value && effectiveAutoRefreshInterval.value) {
         timeStore.refreshTime()
-        loadOverview()
+        loadOverview({ silent: true })
       }
     }
 
@@ -1073,7 +1154,7 @@ export default defineComponent({
 
       autoRefreshTimer.value = setInterval(() => {
         timeStore.refreshTime()
-        loadOverview()
+        loadOverview({ silent: true })
       }, interval)
     }
 
@@ -1094,8 +1175,32 @@ export default defineComponent({
       updatePanels(nextPanels)
     }
 
+    const normalizeAccessibleQuery = (query: QuerySpec): QuerySpec => {
+      const user = getStoredUserInfo()
+      const nextScope = canAccessMetricsDatasetScope(query.scope, user)
+        ? query.scope
+        : getPreferredMetricsDatasetScope(user)
+      const sourceKind = (query.sourceKind || 'auto') as NonNullable<QuerySpec['sourceKind']>
+      const nextSourceKind = canUseMetricsSourceKind(sourceKind, user) ? sourceKind : 'auto'
+
+      return {
+        ...query,
+        scope: nextScope,
+        sourceKind: nextSourceKind
+      }
+    }
+
     const normalizeEditorState = (widget: WidgetEditorDraft): WidgetEditorDraft => {
-      const normalized = normalizeOverviewWidget(widget)
+      const normalizedWidget = normalizeOverviewWidget(widget)
+      const normalized =
+        normalizedWidget.kind === 'query-card'
+          ? {
+              ...normalizedWidget,
+              config: {
+                query: normalizeAccessibleQuery((normalizedWidget.config as { query: QuerySpec }).query)
+              }
+            }
+          : normalizedWidget
       const nextEditor = buildOverviewWidgetEditorState(normalized)
       const allowedRanges = editorTimeRangeCatalog[nextEditor.timeGranularity]
       const hasCurrentRange = allowedRanges.some((item) => item.value === nextEditor.timeRange)
@@ -1111,6 +1216,7 @@ export default defineComponent({
     }
 
     const updateWidgetDraft = (patch: Partial<WidgetEditorDraft>) => {
+      const previousEditor = buildOverviewWidgetEditorState(widgetEditorDraft.value)
       const mergedDraft = {
         ...widgetEditorDraft.value,
         ...patch,
@@ -1138,6 +1244,18 @@ export default defineComponent({
       }
 
       widgetEditorDraft.value = normalizeEditorState(mergedDraft)
+      const nextEditor = buildOverviewWidgetEditorState(widgetEditorDraft.value)
+
+      if (
+        widgetEditorDraft.value.kind === 'query-card' &&
+        queryEditMode.value === 'query-statement' &&
+        nextEditor.timeRange !== previousEditor.timeRange
+      ) {
+        updateRawQueryScript((query) => ({
+          ...query,
+          timeRange: `-${nextEditor.timeRange}`
+        }))
+      }
     }
 
     const updateQueryCardDraft = (queryPatch: Partial<QuerySpec>) => {
@@ -1149,6 +1267,405 @@ export default defineComponent({
           }
         } as any
       })
+    }
+
+    const updateQueryDisplayValueDraft = (valuePatch: NonNullable<NonNullable<QuerySpec['display']>['value']>) => {
+      updateQueryCardDraft({
+        display: {
+          ...(queryCardDraft.value.display || {}),
+          value: {
+            ...(queryCardDraft.value.display?.value || {}),
+            ...valuePatch
+          }
+        }
+      })
+    }
+
+    const normalizeQueryCompareConfig = (compare: QuerySpec['compare']) => {
+      if (typeof compare === 'string') {
+        return {
+          enabled: true,
+          mode: compare === 'same-period' ? ('previous-day' as const) : ('previous-period' as const),
+          display: 'relative' as const,
+          directionality: 'neutral' as const
+        }
+      }
+
+      return {
+        enabled: compare?.enabled !== false,
+        mode: compare?.mode || ('previous-period' as const),
+        display: compare?.display || ('relative' as const),
+        directionality: compare?.directionality || ('neutral' as const)
+      }
+    }
+
+    const updateQueryCompareDraft = (comparePatch: Partial<ReturnType<typeof normalizeQueryCompareConfig>>) => {
+      updateQueryCardDraft({
+        compare: {
+          ...normalizeQueryCompareConfig(queryCardDraft.value.compare),
+          ...comparePatch
+        }
+      })
+    }
+
+    const updateQueryAlertDraft = (alertPatch: Partial<NonNullable<QuerySpec['alert']>>) => {
+      updateQueryCardDraft({
+        alert: {
+          enabled: false,
+          operator: '>',
+          threshold: 0,
+          unit: queryCardDraft.value.display?.value?.unit || queryCardDraft.value.display?.yAxis?.unit || '',
+          duration: 5,
+          level: 'warning',
+          channels: ['Email'],
+          ...(queryCardDraft.value.alert || {}),
+          ...alertPatch
+        }
+      })
+    }
+
+    const replaceRawQueryScript = (query: QuerySpec) => {
+      editorRawQueryScript.value = JSON.stringify({ type: 'queryspec', version: 1, query }, null, 2)
+      editorScriptValidation.value = null
+      editorPreviewData.value = null
+      editorPreviewError.value = ''
+    }
+
+    const updateRawQueryScript = (updater: (query: QuerySpec) => QuerySpec) => {
+      const parsed = parseQuerySpecJson(editorRawQueryScript.value)
+      replaceRawQueryScript(updater(parsed.query || queryCardDraft.value))
+    }
+
+    const updateRawQueryDisplayValueDraft = (valuePatch: NonNullable<NonNullable<QuerySpec['display']>['value']>) => {
+      updateRawQueryScript((query) => ({
+        ...query,
+        display: {
+          ...(query.display || {}),
+          value: {
+            ...(query.display?.value || {}),
+            ...valuePatch
+          }
+        }
+      }))
+    }
+
+    const updateRawQueryCompareDraft = (comparePatch: Partial<ReturnType<typeof normalizeQueryCompareConfig>>) => {
+      updateRawQueryScript((query) => ({
+        ...query,
+        compare: {
+          ...normalizeQueryCompareConfig(query.compare),
+          ...comparePatch
+        }
+      }))
+    }
+
+    const updateRawQueryAlertDraft = (alertPatch: Partial<NonNullable<QuerySpec['alert']>>) => {
+      updateRawQueryScript((query) => ({
+        ...query,
+        alert: {
+          enabled: false,
+          operator: '>',
+          threshold: 0,
+          unit: query.display?.value?.unit || query.display?.yAxis?.unit || '',
+          duration: 5,
+          level: 'warning',
+          channels: ['Email'],
+          ...(query.alert || {}),
+          ...alertPatch
+        }
+      }))
+    }
+
+    const resolveQueryAlertUnit = (query: QuerySpec) =>
+      query.alert?.unit || query.display?.value?.unit || query.display?.yAxis?.unit || ''
+
+    const buildDefaultQueryAlertRules = (query: QuerySpec): QueryAlertRule[] => {
+      const unit = resolveQueryAlertUnit(query)
+      const currentThreshold =
+        typeof query.alert?.threshold === 'number' ? query.alert.threshold : unit === '%' ? 85 : 80
+      const warningThreshold = unit === '%' ? Math.min(100, currentThreshold || 85) : currentThreshold
+      const criticalThreshold =
+        unit === '%' ? Math.min(100, Math.max(warningThreshold + 10, 95)) : warningThreshold + 10
+
+      return [
+        {
+          level: 'warning',
+          operator: query.alert?.operator || '>',
+          threshold: warningThreshold,
+          unit,
+          duration: 5,
+          channels: ['Email']
+        },
+        {
+          level: 'critical',
+          operator: query.alert?.operator || '>',
+          threshold: criticalThreshold,
+          unit,
+          duration: 3,
+          channels: ['Email']
+        }
+      ]
+    }
+
+    const buildQueryAlertPatchFromRules = (
+      query: QuerySpec,
+      rules: QueryAlertRule[]
+    ): Partial<NonNullable<QuerySpec['alert']>> => {
+      const unit = resolveQueryAlertUnit(query)
+      const nextRules = rules.map((rule) => ({
+        ...rule,
+        operator: rule.operator || query.alert?.operator || '>',
+        unit: rule.unit ?? unit,
+        duration: rule.duration || 5,
+        channels: rule.channels?.length ? rule.channels : ['Email'],
+        level: rule.level || 'warning'
+      }))
+      const primaryRule = nextRules.find((rule) => rule.level === 'warning') || nextRules[0]
+
+      return {
+        enabled: true,
+        operator: primaryRule?.operator || query.alert?.operator || '>',
+        threshold: primaryRule?.threshold ?? query.alert?.threshold ?? 0,
+        unit: primaryRule?.unit ?? unit,
+        duration: primaryRule?.duration || query.alert?.duration || 5,
+        level: primaryRule?.level || query.alert?.level || 'warning',
+        channels: primaryRule?.channels?.length
+          ? primaryRule.channels
+          : query.alert?.channels?.length
+            ? query.alert.channels
+            : ['Email'],
+        rules: nextRules
+      }
+    }
+
+    const getEditableQueryAlertRules = (query: QuerySpec): QueryAlertRule[] => {
+      const unit = resolveQueryAlertUnit(query)
+      const inheritedDuration = query.alert?.duration || 5
+      const inheritedChannels = query.alert?.channels?.length ? query.alert.channels : ['Email']
+      const rawRules = Array.isArray(query.alert?.rules) ? query.alert.rules : []
+      const orderedRules = rawRules
+        .filter((rule) => typeof rule.threshold === 'number' && Number.isFinite(rule.threshold))
+        .map((rule) => ({
+          ...rule,
+          operator: rule.operator || query.alert?.operator || '>',
+          unit: rule.unit ?? unit,
+          duration: rule.duration || inheritedDuration,
+          channels: rule.channels?.length ? rule.channels : inheritedChannels,
+          level: rule.level || 'warning'
+        }))
+
+      if (orderedRules.length) return orderedRules
+
+      if (query.alert?.enabled && typeof query.alert.threshold === 'number' && Number.isFinite(query.alert.threshold)) {
+        return [
+          {
+            ruleId: query.alert.ruleId,
+            level: query.alert.level || 'warning',
+            operator: query.alert.operator || '>',
+            threshold: query.alert.threshold,
+            unit,
+            duration: inheritedDuration,
+            channels: inheritedChannels
+          }
+        ]
+      }
+
+      return buildDefaultQueryAlertRules(query)
+    }
+
+    const setQueryAlertEnabled = (enabled: boolean, mode: OverviewWidgetQueryEditMode) => {
+      const query = mode === 'query-statement' ? queryStatementDraft.value : queryCardDraft.value
+      const patch = enabled ? buildQueryAlertPatchFromRules(query, getEditableQueryAlertRules(query)) : { enabled }
+      if (mode === 'query-statement') {
+        updateRawQueryAlertDraft(patch)
+      } else {
+        updateQueryAlertDraft(patch)
+      }
+    }
+
+    const updateQueryAlertRuleDraft = (
+      mode: OverviewWidgetQueryEditMode,
+      index: number,
+      patch: Partial<QueryAlertRule>
+    ) => {
+      const query = mode === 'query-statement' ? queryStatementDraft.value : queryCardDraft.value
+      const rules = [...getEditableQueryAlertRules(query)]
+      const currentRule = rules[index]
+      if (!currentRule) return
+      rules[index] = { ...currentRule, ...patch }
+      const alertPatch = buildQueryAlertPatchFromRules(query, rules)
+      if (mode === 'query-statement') {
+        updateRawQueryAlertDraft(alertPatch)
+      } else {
+        updateQueryAlertDraft(alertPatch)
+      }
+    }
+
+    const addQueryAlertRuleDraft = (mode: OverviewWidgetQueryEditMode) => {
+      const query = mode === 'query-statement' ? queryStatementDraft.value : queryCardDraft.value
+      const rules = getEditableQueryAlertRules(query)
+      const unit = resolveQueryAlertUnit(query)
+      const maxThreshold = rules.reduce(
+        (max, rule) => (typeof rule.threshold === 'number' ? Math.max(max, rule.threshold) : max),
+        unit === '%' ? 75 : 0
+      )
+      const nextRules = [
+        ...rules,
+        {
+          level: 'warning' as const,
+          operator: '>' as const,
+          threshold: unit === '%' ? Math.min(100, maxThreshold + 10) : maxThreshold + 10,
+          unit,
+          duration: 5,
+          channels: ['Email']
+        }
+      ]
+      const alertPatch = buildQueryAlertPatchFromRules(query, nextRules)
+      if (mode === 'query-statement') {
+        updateRawQueryAlertDraft(alertPatch)
+      } else {
+        updateQueryAlertDraft(alertPatch)
+      }
+    }
+
+    const removeQueryAlertRuleDraft = (mode: OverviewWidgetQueryEditMode, index: number) => {
+      const query = mode === 'query-statement' ? queryStatementDraft.value : queryCardDraft.value
+      const rules = getEditableQueryAlertRules(query)
+      if (rules.length <= 1) return
+      const nextRules = rules.filter((_, ruleIndex) => ruleIndex !== index)
+      const alertPatch = buildQueryAlertPatchFromRules(query, nextRules)
+      if (mode === 'query-statement') {
+        updateRawQueryAlertDraft(alertPatch)
+      } else {
+        updateQueryAlertDraft(alertPatch)
+      }
+    }
+
+    const renderQueryAlertRulesEditor = (query: QuerySpec, mode: OverviewWidgetQueryEditMode) => {
+      const rules = getEditableQueryAlertRules(query)
+
+      return (
+        <div class="overview-page__query-alert-rules-editor">
+          {rules.map((rule, index) => {
+            const meta = alertLevelMeta[rule.level]
+            return (
+              <div class="overview-page__query-alert-rule-row" key={`${rule.level}-${rule.threshold}-${index}`}>
+                <div class="overview-page__query-alert-rule-title">
+                  <NTag size="small" bordered={false} type={meta?.tagType || 'warning'}>
+                    {meta?.label || rule.level}
+                  </NTag>
+                  <span>阈值 {index + 1}</span>
+                  <NButton
+                    size="tiny"
+                    quaternary
+                    type="error"
+                    disabled={rules.length <= 1}
+                    onClick={() => removeQueryAlertRuleDraft(mode, index)}>
+                    删除
+                  </NButton>
+                </div>
+                <div class="overview-page__query-alert-rule-fields">
+                  <label class="overview-page__query-alert-rule-field">
+                    <span>级别</span>
+                    <NSelect
+                      value={rule.level}
+                      options={queryAlertLevelOptions}
+                      onUpdateValue={(value: QueryAlertRule['level']) =>
+                        updateQueryAlertRuleDraft(mode, index, { level: value })
+                      }
+                    />
+                  </label>
+                  <label class="overview-page__query-alert-rule-field">
+                    <span>条件</span>
+                    <NSelect
+                      value={rule.operator}
+                      options={queryAlertOperatorOptions}
+                      onUpdateValue={(value: QueryAlertRule['operator']) =>
+                        updateQueryAlertRuleDraft(mode, index, { operator: value })
+                      }
+                    />
+                  </label>
+                  <label class="overview-page__query-alert-rule-field">
+                    <span>阈值</span>
+                    <NInputNumber
+                      value={rule.threshold ?? null}
+                      placeholder={rule.level === 'critical' ? '例如 95' : '例如 85'}
+                      onUpdateValue={(value: number | null) =>
+                        updateQueryAlertRuleDraft(mode, index, { threshold: typeof value === 'number' ? value : 0 })
+                      }
+                    />
+                  </label>
+                  <label class="overview-page__query-alert-rule-field">
+                    <span>持续(分钟)</span>
+                    <NInputNumber
+                      value={rule.duration ?? 5}
+                      min={1}
+                      onUpdateValue={(value: number | null) =>
+                        updateQueryAlertRuleDraft(mode, index, { duration: value || 5 })
+                      }
+                    />
+                  </label>
+                  <label class="overview-page__query-alert-rule-field overview-page__query-alert-rule-field--wide">
+                    <span>通知渠道</span>
+                    <NSelect
+                      value={rule.channels || ['Email']}
+                      options={queryAlertChannelOptions}
+                      multiple
+                      placeholder="通知渠道"
+                      onUpdateValue={(value: string[]) =>
+                        updateQueryAlertRuleDraft(mode, index, { channels: value.length ? value : ['Email'] })
+                      }
+                    />
+                  </label>
+                </div>
+              </div>
+            )
+          })}
+          <div class="overview-page__query-alert-rule-actions">
+            <NButton size="small" type="primary" onClick={() => addQueryAlertRuleDraft(mode)}>
+              添加阈值
+            </NButton>
+          </div>
+          <div class="overview-page__query-alert-rule-caption">
+            可同时配置多条阈值，例如警告阈值提前关注、严重阈值立即处理；图表与告警规则会同步使用这些阈值。
+          </div>
+        </div>
+      )
+    }
+
+    const alertLevelMeta = {
+      critical: { label: '严重', tagType: 'error' as const, color: 'var(--color-danger-6)' },
+      warning: { label: '警告', tagType: 'warning' as const, color: 'var(--color-warning-6)' },
+      info: { label: '提示', tagType: 'info' as const, color: 'var(--color-primary-6)' }
+    }
+    const alertLevelPriority: Record<QueryAlertRule['level'], number> = {
+      critical: 3,
+      warning: 2,
+      info: 1
+    }
+
+    const buildAlertRulesFromOverviewQuery = (title: string, query: QuerySpec) => {
+      const rules = normalizeQueryAlertRules(query.alert)
+      if (!rules.length) return []
+      return rules.map((rule) => ({
+        id: rule.ruleId,
+        name: `${title} ${alertLevelMeta[rule.level]?.label || rule.level}阈值告警`,
+        service: query.subject.type === 'service' ? query.subject.id || 'all' : 'all',
+        metric: query.metricRef,
+        operator: rule.operator,
+        threshold: rule.threshold,
+        unit: rule.unit || query.display?.value?.unit || query.display?.yAxis?.unit || '',
+        duration: rule.duration || 5,
+        level: rule.level || 'warning',
+        enabled: true,
+        channels: rule.channels?.length ? rule.channels : ['Email']
+      }))
+    }
+
+    const persistAlertRuleForOverviewQuery = async (title: string, query: QuerySpec) => {
+      const rules = buildAlertRulesFromOverviewQuery(title, query)
+      if (!rules.length) return []
+      return Promise.all(rules.map((rule) => (rule.id ? updateAlertRule(rule as any) : saveAlertRule(rule))))
     }
 
     const applySchemaMetricToQueryDraft = (item: MetricsCatalogSchemaItem) => {
@@ -1170,6 +1687,8 @@ export default defineComponent({
       const nextSubject = item.subjectKinds.includes(queryCardDraft.value.subject?.type || 'system')
         ? queryCardDraft.value.subject || { type: 'system' as const }
         : { type: item.subjectKinds[0] || 'system' }
+      const isPercentMetric =
+        item.unit === '%' || item.name.toLowerCase().includes('cpu') || item.name.toLowerCase().includes('percent')
 
       updateQueryCardDraft({
         metricRef: item.name,
@@ -1177,7 +1696,16 @@ export default defineComponent({
         visualizationHint: nextVisualization,
         scope: nextScope,
         sourceKind: nextSourceKind,
-        subject: nextSubject
+        subject: nextSubject,
+        display: {
+          ...(queryCardDraft.value.display || {}),
+          value: isPercentMetric
+            ? { min: 0, max: 100, unit: '%' }
+            : {
+                ...(queryCardDraft.value.display?.value || {}),
+                unit: item.unit || queryCardDraft.value.display?.value?.unit || ''
+              }
+        }
       })
 
       if (queryEditMode.value === 'query-statement') {
@@ -1209,6 +1737,8 @@ export default defineComponent({
       const nextSubject = item.subjectKinds.includes(baseQuery.subject?.type || 'system')
         ? baseQuery.subject || { type: 'system' as const }
         : { type: item.subjectKinds[0] || 'system' }
+      const isPercentMetric =
+        item.unit === '%' || item.name.toLowerCase().includes('cpu') || item.name.toLowerCase().includes('percent')
       const nextQuery: QuerySpec = {
         ...baseQuery,
         metricRef: item.name,
@@ -1216,7 +1746,16 @@ export default defineComponent({
         visualizationHint: nextVisualization,
         scope: nextScope,
         sourceKind: nextSourceKind,
-        subject: nextSubject
+        subject: nextSubject,
+        display: {
+          ...(baseQuery.display || {}),
+          value: isPercentMetric
+            ? { min: 0, max: 100, unit: '%' }
+            : {
+                ...(baseQuery.display?.value || {}),
+                unit: item.unit || baseQuery.display?.value?.unit || ''
+              }
+        }
       }
 
       editorRawQueryScript.value = JSON.stringify({ type: 'queryspec', version: 1, query: nextQuery }, null, 2)
@@ -1409,6 +1948,68 @@ export default defineComponent({
       showWidgetEditor.value = true
     }
 
+    const openCreateWidgetFromRoutePrefill = () => {
+      if (routePrefillApplied.value || !currentPanelEditable.value || route.query.startAdd !== '1') return
+      const prefillMetric = typeof route.query.prefillMetric === 'string' ? route.query.prefillMetric : ''
+      if (!prefillMetric) return
+
+      const matchingMetric = metricsSchemaItems.value.find((item) => item.name === prefillMetric)
+      if (!matchingMetric && metricsSchemaSource.value === 'empty') return
+
+      routePrefillApplied.value = true
+      resetWidgetDraftForKind('query-card')
+      const title =
+        typeof route.query.prefillTitle === 'string' && route.query.prefillTitle.trim()
+          ? route.query.prefillTitle.trim()
+          : matchingMetric?.description && matchingMetric.description !== '暂无描述'
+            ? matchingMetric.description
+            : prefillMetric
+      const prefillType = typeof route.query.prefillType === 'string' ? route.query.prefillType : ''
+      const visualization =
+        prefillType === 'stat'
+          ? 'number'
+          : prefillType === 'distribution'
+            ? 'bar'
+            : matchingMetric?.recommendedVisualizations[0] || 'line'
+
+      updateWidgetDraft({
+        title,
+        editor: {
+          ...widgetEditorState.value,
+          queryEditMode: 'form-builder',
+          visualization: visualization as OverviewWidgetVisualization
+        }
+      })
+
+      if (matchingMetric) {
+        applySchemaMetricToQueryDraft(matchingMetric)
+      } else {
+        updateQueryCardDraft({ metricRef: prefillMetric })
+      }
+
+      widgetEditorMode.value = 'create'
+      showWidgetEditor.value = true
+    }
+
+    const loadMetricsSchemaForRoutePrefill = () => {
+      if (routePrefillApplied.value || route.query.startAdd !== '1') return
+      fetchMetricsSchema({
+        scope: datasetScope.value,
+        serviceId: typeof route.query.serviceId === 'string' ? route.query.serviceId : undefined
+      })
+        .then((payload) => {
+          const result = loadMetricsCatalogFallback(payload)
+          metricsSchemaItems.value = result.items
+          metricsSchemaSource.value = result.source
+          openCreateWidgetFromRoutePrefill()
+        })
+        .catch(() => {
+          metricsSchemaItems.value = []
+          metricsSchemaSource.value = 'unavailable'
+          openCreateWidgetFromRoutePrefill()
+        })
+    }
+
     const openEditWidget = (widget: OverviewPanelWidget) => {
       if (!currentPanelEditable.value) return
       widgetEditorDraft.value = normalizeEditorState(cloneValue(widget))
@@ -1426,77 +2027,137 @@ export default defineComponent({
     }
 
     const applyWidgetDraft = async () => {
+      if (widgetEditorSaving.value) return
       if (!currentPanelEditable.value) return
-      if (widgetEditorDraft.value.kind === 'query-card' && queryEditMode.value === 'query-statement') {
-        if (!applyRawQueryScriptToDraft()) return
-      }
-      const syncedDraft = syncDraftMetricSelection(widgetEditorDraft.value)
-      const validationMessage = validateWidgetDraftBeforeSave(syncedDraft)
-      if (validationMessage) {
-        message.warning(validationMessage)
-        return
-      }
+      widgetEditorSaving.value = true
+      try {
+        if (widgetEditorDraft.value.kind === 'query-card' && queryEditMode.value === 'query-statement') {
+          if (!applyRawQueryScriptToDraft()) return
+        }
+        const syncedDraft = syncDraftMetricSelection(widgetEditorDraft.value)
+        const validationMessage = validateWidgetDraftBeforeSave(syncedDraft)
+        if (validationMessage) {
+          message.warning(validationMessage)
+          return
+        }
 
-      if (syncedDraft.kind === 'query-card') {
-        const query = (syncedDraft.config as any)?.query as QuerySpec | undefined
-        if (query) {
-          const validation = await validateMetricQuery(query, query.scope || datasetScope.value)
-          if (!validation.valid) {
-            message.warning(validation.issues[0] || '当前查询配置未通过校验')
-            return
+        if (syncedDraft.kind === 'query-card') {
+          const query = (syncedDraft.config as any)?.query as QuerySpec | undefined
+          if (query) {
+            const validation = await validateMetricQuery(query, query.scope || datasetScope.value)
+            if (!validation.valid) {
+              message.warning(validation.issues[0] || '当前查询配置未通过校验')
+              return
+            }
           }
         }
-      }
 
-      console.log('[Overview:AddWidget] applyWidgetDraft:before', {
-        mode: widgetEditorMode.value,
-        draft: cloneValue(syncedDraft),
-        currentPanelId: currentPanel.value?.id,
-        currentPanelWidgets:
-          currentPanel.value?.widgets?.map((widget) => ({
+        console.log('[Overview:AddWidget] applyWidgetDraft:before', {
+          mode: widgetEditorMode.value,
+          draft: cloneValue(syncedDraft),
+          currentPanelId: currentPanel.value?.id,
+          currentPanelWidgets:
+            currentPanel.value?.widgets?.map((widget) => ({
+              id: widget.id,
+              kind: widget.kind,
+              capability: widget.capability,
+              size: widget.size
+            })) || []
+        })
+
+        const normalizedDraft = syncDraftMetricSelection(syncedDraft)
+        if (normalizedDraft.kind === 'query-card') {
+          const query = (normalizedDraft.config as { query: QuerySpec }).query
+          const existingWidget =
+            widgetEditorMode.value === 'update'
+              ? currentPanel.value?.widgets.find((widget) => widget.id === normalizedDraft.id)
+              : null
+          const existingRules =
+            existingWidget?.kind === 'query-card'
+              ? normalizeQueryAlertRules((existingWidget.config as { query: QuerySpec }).query.alert)
+              : []
+          if (existingRules.length && query.alert?.enabled) {
+            const nextRules = normalizeQueryAlertRules(query.alert).map((rule) => ({
+              ...rule,
+              ruleId: rule.ruleId || existingRules.find((item) => item.level === rule.level)?.ruleId
+            }))
+            const alert = query.alert
+            query.alert = {
+              enabled: alert?.enabled ?? true,
+              operator: alert?.operator || '>',
+              threshold: alert?.threshold ?? 0,
+              unit: alert?.unit,
+              duration: alert?.duration,
+              level: alert?.level,
+              channels: alert?.channels,
+              ruleId: nextRules[0]?.ruleId,
+              rules: nextRules
+            }
+          }
+
+          try {
+            const rules = await persistAlertRuleForOverviewQuery(normalizedDraft.title, query)
+            if (rules.length) {
+              const nextRules = normalizeQueryAlertRules(query.alert).map((rule, index) => ({
+                ...rule,
+                ruleId: rules[index]?.id || rule.ruleId
+              }))
+              const alert = query.alert
+              query.alert = {
+                enabled: alert?.enabled ?? true,
+                operator: alert?.operator || '>',
+                threshold: alert?.threshold ?? 0,
+                unit: alert?.unit,
+                duration: alert?.duration,
+                level: alert?.level,
+                channels: alert?.channels,
+                ruleId: nextRules[0]?.ruleId,
+                rules: nextRules
+              }
+            }
+          } catch (error) {
+            console.error('Failed to persist overview widget alert rule:', error)
+            message.warning('卡片会继续保存，但告警规则创建失败，请稍后到告警规则页补建')
+          }
+        }
+
+        if (widgetEditorMode.value === 'create') {
+          replaceCurrentPanel((panel) => ({
+            ...panel,
+            widgets: [...panel.widgets, cloneValue(normalizedDraft)]
+          }))
+          message.success('组件已添加到当前面板')
+        } else {
+          replaceCurrentPanel((panel) => ({
+            ...panel,
+            widgets: panel.widgets.map((widget) =>
+              widget.id === normalizedDraft.id ? cloneValue(normalizedDraft) : widget
+            )
+          }))
+          message.success('组件配置已更新')
+        }
+
+        showWidgetEditor.value = false
+        console.log('[Overview:AddWidget] applyWidgetDraft:after', {
+          currentPanelId: currentPanel.value?.id,
+          panelWidgets:
+            currentPanel.value?.widgets?.map((widget) => ({
+              id: widget.id,
+              kind: widget.kind,
+              capability: widget.capability,
+              size: widget.size
+            })) || [],
+          currentVisibleWidgets: currentVisibleWidgets.value.map((widget) => ({
             id: widget.id,
             kind: widget.kind,
             capability: widget.capability,
             size: widget.size
-          })) || []
-      })
-
-      const normalizedDraft = syncDraftMetricSelection(syncedDraft)
-
-      if (widgetEditorMode.value === 'create') {
-        replaceCurrentPanel((panel) => ({
-          ...panel,
-          widgets: [...panel.widgets, cloneValue(normalizedDraft)]
-        }))
-        message.success('组件已添加到当前面板')
-      } else {
-        replaceCurrentPanel((panel) => ({
-          ...panel,
-          widgets: panel.widgets.map((widget) =>
-            widget.id === normalizedDraft.id ? cloneValue(normalizedDraft) : widget
-          )
-        }))
-        message.success('组件配置已更新')
+          }))
+        })
+        loadOverview()
+      } finally {
+        widgetEditorSaving.value = false
       }
-
-      showWidgetEditor.value = false
-      console.log('[Overview:AddWidget] applyWidgetDraft:after', {
-        currentPanelId: currentPanel.value?.id,
-        panelWidgets:
-          currentPanel.value?.widgets?.map((widget) => ({
-            id: widget.id,
-            kind: widget.kind,
-            capability: widget.capability,
-            size: widget.size
-          })) || [],
-        currentVisibleWidgets: currentVisibleWidgets.value.map((widget) => ({
-          id: widget.id,
-          kind: widget.kind,
-          capability: widget.capability,
-          size: widget.size
-        }))
-      })
-      loadOverview()
     }
 
     const resizeWidget = (widgetId: string, size: OverviewWidgetSize) => {
@@ -1611,7 +2272,7 @@ export default defineComponent({
     }
 
     const getWidgetMasonrySpan = (size: OverviewWidgetSize) => {
-      if (size === 'S') return 'span 4'
+      if (size === 'S') return 'span 3'
       if (size === 'M') return 'span 6'
       return '1 / -1'
     }
@@ -1631,20 +2292,24 @@ export default defineComponent({
       if (!orderedShells.length) return
 
       container.style.removeProperty('grid-auto-rows')
-      orderedShells.forEach(({ gridItem }) => gridItem.style.removeProperty('grid-row-end'))
+      orderedShells.forEach(({ gridItem }) => {
+        gridItem.style.removeProperty('grid-row-end')
+        gridItem.style.removeProperty('min-height')
+      })
 
       if (typeof window === 'undefined' || window.innerWidth <= 960) return
 
-      const firstShell = orderedShells[0].shell
       const computedStyle = window.getComputedStyle(container)
       const rowGap = Number.parseFloat(computedStyle.rowGap || computedStyle.gap || '16') || 16
-      const baseRow = Math.max(8, Math.round((firstShell.getBoundingClientRect().width || 0) / 24) || 12)
+      const baseRow = 1
 
       container.style.gridAutoRows = `${baseRow}px`
 
       orderedShells.forEach(({ shell, gridItem }) => {
-        const rowSpan = Math.max(1, Math.ceil((shell.getBoundingClientRect().height + rowGap) / (baseRow + rowGap)))
+        const measuredHeight = shell.getBoundingClientRect().height
+        const rowSpan = Math.max(1, Math.ceil((measuredHeight + rowGap) / (baseRow + rowGap)))
         gridItem.style.gridRowEnd = `span ${rowSpan}`
+        gridItem.style.minHeight = `${rowSpan * baseRow + (rowSpan - 1) * rowGap}px`
       })
     }
 
@@ -1770,19 +2435,89 @@ export default defineComponent({
       loadOverview()
     }
 
-    const loadOverview = async () => {
-      loading.value = true
+    const loadOverview = async (options: { silent?: boolean } = {}) => {
+      const silent = Boolean(options.silent)
+      if (!silent) loading.value = true
       try {
         const overviewTimeRange = toOverviewTimeRange(timeStore.timeRange)
-        const catalogRes = await fetchCatalogServices({
+        const visibleWidgets = currentVisibleWidgets.value
+        const normalizeTrendSnapshot = (payload: any): TrendSnapshot => ({
+          requests: Array.isArray(payload?.requests)
+            ? payload.requests
+            : Array.isArray(payload?.series?.requests)
+              ? payload.series.requests
+              : [],
+          errors: Array.isArray(payload?.errors)
+            ? payload.errors
+            : Array.isArray(payload?.series?.errors)
+              ? payload.series.errors
+              : [],
+          latency: Array.isArray(payload?.latency)
+            ? payload.latency
+            : Array.isArray(payload?.series?.latency)
+              ? payload.series.latency
+              : []
+        })
+        const needTrendOverall = visibleWidgets.some((widget) => {
+          if (widget.kind === 'trend') {
+            const groupBy = (widget.config as TrendConfig).groupBy as OverviewTrendGroupBy | undefined
+            return groupBy === 'overall' || !groupBy
+          }
+          return [
+            'metric-summary',
+            'query-card',
+            'darwin-infra-summary',
+            'darwin-infra-trend',
+            'darwin-instance-table'
+          ].includes(widget.kind)
+        })
+        const needTrendEnv = visibleWidgets.some(
+          (widget) => widget.kind === 'trend' && (widget.config as TrendConfig).groupBy === 'env'
+        )
+        const needTrendTeam = visibleWidgets.some(
+          (widget) => widget.kind === 'trend' && (widget.config as TrendConfig).groupBy === 'team'
+        )
+        const needRiskServices = visibleWidgets.some((widget) => widget.kind === 'risk-service')
+        const needIncidents = visibleWidgets.some((widget) => widget.kind === 'incident')
+        const needIngestStatus = visibleWidgets.some((widget) => widget.kind === 'ingest-status')
+        const needQueryCards = visibleWidgets.some((widget) =>
+          [
+            'query-card',
+            'metric-summary',
+            'trend',
+            'darwin-infra-summary',
+            'darwin-infra-trend',
+            'darwin-instance-table'
+          ].includes(widget.kind)
+        )
+
+        const catalogPromise = fetchCatalogServices({
           keyword: scopeValue.value.service || undefined,
           page: 1,
           pageSize: 100,
           scope: datasetScope.value
         })
+        const overviewDataPromise = Promise.all([
+          fetchOverviewSummary({ timeRange: overviewTimeRange, scope: datasetScope.value }),
+          needTrendOverall
+            ? fetchOverviewTrends({ timeRange: overviewTimeRange, groupBy: 'overall', scope: datasetScope.value })
+            : Promise.resolve(null),
+          needTrendEnv
+            ? fetchOverviewTrends({ timeRange: overviewTimeRange, groupBy: 'env', scope: datasetScope.value })
+            : Promise.resolve(null),
+          needTrendTeam
+            ? fetchOverviewTrends({ timeRange: overviewTimeRange, groupBy: 'team', scope: datasetScope.value })
+            : Promise.resolve(null),
+          needRiskServices ? fetchOverviewRiskServices({ scope: datasetScope.value }) : Promise.resolve(null),
+          needIngestStatus ? fetchOverviewIngestStatus({ scope: datasetScope.value }) : Promise.resolve(null),
+          needIncidents
+            ? fetchOverviewIncidents({ timeRange: overviewTimeRange, scope: datasetScope.value })
+            : Promise.resolve([])
+        ])
 
+        const catalogRes = await catalogPromise
         const catalogItems = catalogRes?.items || []
-        services.value = catalogItems.map((item: any) => ({
+        const nextServices = catalogItems.map((item: any) => ({
           id: item.identity?.id,
           name: item.identity?.name,
           owner: item.identity?.owner,
@@ -1804,58 +2539,77 @@ export default defineComponent({
           instances: item.instanceCount,
           lastDeploy: item.lastDeployAt
         }))
+        services.value = nextServices
 
-        const needTrendOverall = currentVisibleWidgets.value.some((widget) => {
-          if (widget.kind === 'trend') {
-            const groupBy = (widget.config as TrendConfig).groupBy as OverviewTrendGroupBy | undefined
-            return groupBy === 'overall' || !groupBy
-          }
-          return [
-            'metric-summary',
-            'query-card',
-            'darwin-infra-summary',
-            'darwin-infra-trend',
-            'darwin-instance-table'
-          ].includes(widget.kind)
+        const visibleWidgetRanges = Array.from(
+          new Set(
+            visibleWidgets
+              .filter((widget) => {
+                if (widget.kind !== 'metric-summary' && widget.kind !== 'trend') return false
+                return !buildOverviewWidgetQueryPreviewSpec({
+                  widget,
+                  scope: datasetScope.value,
+                  scopedServiceName: scopeValue.value.service,
+                  services: nextServices
+                }).supported
+              })
+              .map((widget) => buildOverviewWidgetEditorState(widget).timeRange)
+          )
+        )
+        const pageWidgetRange = timeStore.timeRange
+        const snapshotFetchPlan = buildOverviewSnapshotFetchPlan({
+          visibleWidgetRanges,
+          pageWidgetRange
         })
-        const needTrendEnv = currentVisibleWidgets.value.some(
-          (widget) => widget.kind === 'trend' && (widget.config as TrendConfig).groupBy === 'env'
-        )
-        const needTrendTeam = currentVisibleWidgets.value.some(
-          (widget) => widget.kind === 'trend' && (widget.config as TrendConfig).groupBy === 'team'
-        )
-        const needRiskServices = currentVisibleWidgets.value.some((widget) => widget.kind === 'risk-service')
-        const needIncidents = currentVisibleWidgets.value.some((widget) => widget.kind === 'incident')
-        const needIngestStatus = currentVisibleWidgets.value.some((widget) => widget.kind === 'ingest-status')
-        const needQueryCards = currentVisibleWidgets.value.some((widget) =>
-          [
-            'query-card',
-            'metric-summary',
-            'trend',
-            'darwin-infra-summary',
-            'darwin-infra-trend',
-            'darwin-instance-table'
-          ].includes(widget.kind)
-        )
+        const snapshotDataPromise = Promise.all([
+          needQueryCards
+            ? Promise.all(
+                snapshotFetchPlan.summaryFetchRanges.map(
+                  async (range) =>
+                    [
+                      range,
+                      (await fetchOverviewSummary({ timeRange: `-${range}`, scope: datasetScope.value }))?.totals || {}
+                    ] as const
+                )
+              )
+            : Promise.resolve([]),
+          needQueryCards
+            ? Promise.all(
+                snapshotFetchPlan.trendFetchPairs
+                  .filter(({ groupBy }) => {
+                    if (groupBy === 'overall') return needTrendOverall
+                    if (groupBy === 'env') return needTrendEnv
+                    return needTrendTeam
+                  })
+                  .map(
+                    async ({ range, groupBy }) =>
+                      [
+                        `${range}:${groupBy}`,
+                        normalizeTrendSnapshot(
+                          await fetchOverviewTrends({ timeRange: `-${range}`, groupBy, scope: datasetScope.value })
+                        )
+                      ] as const
+                  )
+              )
+            : Promise.resolve([])
+        ])
+
+        const { requests, cards } = buildOverviewCardsQueryRequest({
+          widgets: visibleWidgets,
+          scope: datasetScope.value,
+          scopedServiceName: scopeValue.value.service,
+          services: nextServices,
+          refreshGenerationId: `${Date.now()}`
+        })
+        const queryCardsPromise =
+          cards.length && needQueryCards
+            ? Promise.all(requests.map((request) => queryMetricCards(request))).then((responses) =>
+                mapQueryResultsByWidgetId(responses.flatMap((response) => response?.items || []))
+              )
+            : Promise.resolve({} as Record<string, CardData | null>)
 
         const [summaryRes, overallTrendRes, envTrendRes, teamTrendRes, riskRes, ingestRes, incidentsRes] =
-          await Promise.all([
-            fetchOverviewSummary({ timeRange: overviewTimeRange, scope: datasetScope.value }),
-            needTrendOverall
-              ? fetchOverviewTrends({ timeRange: overviewTimeRange, groupBy: 'overall', scope: datasetScope.value })
-              : Promise.resolve(null),
-            needTrendEnv
-              ? fetchOverviewTrends({ timeRange: overviewTimeRange, groupBy: 'env', scope: datasetScope.value })
-              : Promise.resolve(null),
-            needTrendTeam
-              ? fetchOverviewTrends({ timeRange: overviewTimeRange, groupBy: 'team', scope: datasetScope.value })
-              : Promise.resolve(null),
-            needRiskServices ? fetchOverviewRiskServices({ scope: datasetScope.value }) : Promise.resolve(null),
-            needIngestStatus ? fetchOverviewIngestStatus({ scope: datasetScope.value }) : Promise.resolve(null),
-            needIncidents
-              ? fetchOverviewIncidents({ timeRange: overviewTimeRange, scope: datasetScope.value })
-              : Promise.resolve([])
-          ])
+          await overviewDataPromise
 
         const totals = summaryRes?.totals || {}
         summary.value = {
@@ -1873,51 +2627,13 @@ export default defineComponent({
           recentDegradedServices: Array.isArray(riskRes?.recentDegradedServices) ? riskRes.recentDegradedServices : []
         }
 
-        const normalizeTrendSnapshot = (payload: any): TrendSnapshot => ({
-          requests: Array.isArray(payload?.requests)
-            ? payload.requests
-            : Array.isArray(payload?.series?.requests)
-              ? payload.series.requests
-              : [],
-          errors: Array.isArray(payload?.errors)
-            ? payload.errors
-            : Array.isArray(payload?.series?.errors)
-              ? payload.series.errors
-              : [],
-          latency: Array.isArray(payload?.latency)
-            ? payload.latency
-            : Array.isArray(payload?.series?.latency)
-              ? payload.series.latency
-              : []
-        })
-
         trendsByGroup.value = {
           overall: normalizeTrendSnapshot(overallTrendRes || {}),
           env: normalizeTrendSnapshot(envTrendRes || {}),
           team: normalizeTrendSnapshot(teamTrendRes || {})
         }
-        const visibleWidgetRanges = Array.from(
-          new Set(currentVisibleWidgets.value.map((widget) => buildOverviewWidgetEditorState(widget).timeRange))
-        )
-        const pageWidgetRange = timeStore.timeRange
-        const snapshotFetchPlan = buildOverviewSnapshotFetchPlan({
-          visibleWidgetRanges,
-          pageWidgetRange
-        })
-        const rangeScopedSummaries = [
-          [pageWidgetRange, totals] as const,
-          ...(needQueryCards
-            ? await Promise.all(
-                snapshotFetchPlan.summaryFetchRanges.map(
-                  async (range) =>
-                    [
-                      range,
-                      (await fetchOverviewSummary({ timeRange: `-${range}`, scope: datasetScope.value }))?.totals || {}
-                    ] as const
-                )
-              )
-            : [])
-        ]
+        const [extraRangeSummaries, extraRangeTrends] = await snapshotDataPromise
+        const rangeScopedSummaries = [[pageWidgetRange, totals] as const, ...extraRangeSummaries]
         const rangeScopedTrends = [
           ...(['overall', 'env', 'team'] as OverviewTrendGroupBy[])
             .filter((groupBy) => {
@@ -1938,25 +2654,7 @@ export default defineComponent({
                   )
                 ] as const
             ),
-          ...(needQueryCards
-            ? await Promise.all(
-                snapshotFetchPlan.trendFetchPairs
-                  .filter(({ groupBy }) => {
-                    if (groupBy === 'overall') return needTrendOverall
-                    if (groupBy === 'env') return needTrendEnv
-                    return needTrendTeam
-                  })
-                  .map(
-                    async ({ range, groupBy }) =>
-                      [
-                        `${range}:${groupBy}`,
-                        normalizeTrendSnapshot(
-                          await fetchOverviewTrends({ timeRange: `-${range}`, groupBy, scope: datasetScope.value })
-                        )
-                      ] as const
-                  )
-              )
-            : [])
+          ...extraRangeTrends
         ]
 
         widgetTrendSnapshots.value = Object.fromEntries(rangeScopedTrends) as Record<string, TrendSnapshot>
@@ -1976,20 +2674,7 @@ export default defineComponent({
           Record<string, any>
         >
 
-        const { requests, cards } = buildOverviewCardsQueryRequest({
-          widgets: currentVisibleWidgets.value,
-          scope: datasetScope.value,
-          scopedServiceName: scopeValue.value.service,
-          services: services.value,
-          refreshGenerationId: `${Date.now()}`
-        })
-
-        if (cards.length && needQueryCards) {
-          const responses = await Promise.all(requests.map((request) => queryMetricCards(request)))
-          queryWidgetResults.value = mapQueryResultsByWidgetId(responses.flatMap((response) => response?.items || []))
-        } else {
-          queryWidgetResults.value = {}
-        }
+        queryWidgetResults.value = await queryCardsPromise
 
         dataReady.value = {
           catalog: true,
@@ -2014,7 +2699,9 @@ export default defineComponent({
         console.error('Failed to load overview v2:', error)
         autoRefreshFailureCount.value += 1
       } finally {
-        loading.value = false
+        if (!silent) loading.value = false
+        await nextTick()
+        layoutWidgetMasonry()
         syncOverviewAutoRefresh()
       }
     }
@@ -2154,60 +2841,247 @@ export default defineComponent({
       return '未知'
     }
 
-    const renderQueryDrivenWidget = (widget: OverviewPanelWidget) => {
+    const formatQueryNumberValue = (value: number) => {
+      if (!Number.isFinite(value)) return '0'
+      const absoluteValue = Math.abs(value)
+      if (absoluteValue >= 1000000000)
+        return `${Number((value / 1000000000).toFixed(absoluteValue >= 10000000000 ? 0 : 1))}B`
+      if (absoluteValue >= 1000000) return `${Number((value / 1000000).toFixed(absoluteValue >= 10000000 ? 0 : 1))}M`
+      if (absoluteValue >= 1000) return `${Number((value / 1000).toFixed(absoluteValue >= 10000 ? 0 : 1))}K`
+      if (Number.isInteger(value)) return value.toLocaleString()
+      return Number(value.toFixed(absoluteValue >= 10 ? 1 : 2)).toLocaleString()
+    }
+
+    const formatQueryCompareValue = (compare: NonNullable<Extract<CardData, { kind: 'number' }>['compare']>) => {
+      const absolute =
+        typeof compare.absoluteDelta === 'number'
+          ? `${compare.absoluteDelta > 0 ? '+' : ''}${formatQueryNumberValue(compare.absoluteDelta)}`
+          : '—'
+      const relative =
+        typeof compare.relativeDelta === 'number'
+          ? `${compare.relativeDelta > 0 ? '+' : ''}${compare.relativeDelta.toFixed(1)}%`
+          : '—'
+      if (compare.display === 'absolute') return absolute
+      if (compare.display === 'both') return `${relative} · ${absolute}`
+      return relative
+    }
+
+    const formatQueryCompareTitle = (compare: NonNullable<Extract<CardData, { kind: 'number' }>['compare']>) => {
+      const baseline =
+        typeof compare.baselineValue === 'number'
+          ? `基线 ${formatQueryNumberValue(compare.baselineValue)}`
+          : '暂无基线数据'
+      const delta =
+        typeof compare.absoluteDelta === 'number' ? `差值 ${formatQueryNumberValue(compare.absoluteDelta)}` : '暂无差值'
+      const relative =
+        typeof compare.relativeDelta === 'number' ? `变化 ${compare.relativeDelta.toFixed(1)}%` : '暂无变化率'
+      return `${compare.label}，${baseline}，${delta}，${relative}`
+    }
+
+    const renderQueryNumberTrend = (compare?: Extract<CardData, { kind: 'number' }>['compare']) => {
+      if (!compare) return null
+      const tone = compare.sentiment === 'neutral' ? compare.direction : compare.sentiment
+      const trendPath =
+        compare.direction === 'up'
+          ? 'M2.75 11.25L6.25 7.75L9.25 9.75L13.25 4.75'
+          : compare.direction === 'down'
+            ? 'M2.75 4.75L6.25 8.25L9.25 6.25L13.25 11.25'
+            : 'M2.75 8H13.25'
+      return (
+        <div
+          class={[
+            'overview-page__query-number-trend',
+            `overview-page__query-number-trend--${compare.sentiment}`,
+            `overview-page__query-number-trend--${compare.direction}`,
+            `overview-page__query-number-trend--tone-${tone}`
+          ]}
+          title={formatQueryCompareTitle(compare)}
+          aria-label={formatQueryCompareTitle(compare)}>
+          <svg class="overview-page__query-number-trend-icon" viewBox="0 0 16 16" aria-hidden="true">
+            <path d={trendPath} />
+            <circle
+              cx="13.25"
+              cy={compare.direction === 'down' ? '11.25' : compare.direction === 'up' ? '4.75' : '8'}
+              r="1.35"
+            />
+          </svg>
+          <span class="overview-page__query-number-trend-value">{formatQueryCompareValue(compare)}</span>
+        </div>
+      )
+    }
+
+    const resolveQueryDisplayValue = (query: QuerySpec | null | undefined, data?: CardData | null) => {
+      const valueDisplay = query?.display?.value
+      const yAxisDisplay = query?.display?.yAxis
+      const dataUnit = data && 'unit' in data ? data.unit : ''
+      return {
+        min: valueDisplay?.min ?? yAxisDisplay?.min,
+        max: valueDisplay?.max ?? yAxisDisplay?.max,
+        unit: valueDisplay?.unit ?? yAxisDisplay?.unit ?? dataUnit ?? ''
+      }
+    }
+
+    const resolveQueryThresholdLines = (query: QuerySpec | null | undefined) =>
+      normalizeQueryAlertRules(query?.alert).map((rule) => ({
+        value: rule.threshold,
+        label: alertLevelMeta[rule.level]?.label || '阈值',
+        unit: rule.unit || query?.display?.value?.unit || query?.display?.yAxis?.unit || '',
+        level: rule.level,
+        color: alertLevelMeta[rule.level]?.color
+      }))
+
+    const isQueryAlertRuleMatched = (value: number, rule: QueryAlertRule) => {
+      if (!Number.isFinite(value) || !Number.isFinite(rule.threshold)) return false
+      if (rule.operator === '>') return value > rule.threshold
+      if (rule.operator === '>=') return value >= rule.threshold
+      if (rule.operator === '<') return value < rule.threshold
+      if (rule.operator === '<=') return value <= rule.threshold
+      return value === rule.threshold
+    }
+
+    const resolveNumberAlertLevel = (
+      query: QuerySpec | null | undefined,
+      value: unknown
+    ): QueryAlertRule['level'] | null => {
+      if (typeof value !== 'number' || !Number.isFinite(value)) return null
+      const matchedRules = normalizeQueryAlertRules(query?.alert).filter((rule) => isQueryAlertRuleMatched(value, rule))
+      if (!matchedRules.length) return null
+      return matchedRules.sort((left, right) => alertLevelPriority[right.level] - alertLevelPriority[left.level])[0]
+        .level
+    }
+
+    const renderWidgetAlertSummary = (widget: OverviewPanelWidget) => {
+      if (widget.kind !== 'query-card') return null
+      const query = (widget as OverviewPanelWidget<'query-card'>).config.query
+      const rules = normalizeQueryAlertRules(query.alert)
+      if (!rules.length) return null
+      return (
+        <div class="overview-page__widget-alert-summary">
+          {rules.map((rule) => {
+            const channels = rule.channels?.length ? rule.channels.join('、') : 'Email'
+            const meta = alertLevelMeta[rule.level]
+            return (
+              <span class="overview-page__widget-alert-rule" key={`${rule.level}-${rule.threshold}`}>
+                <NTag size="small" bordered={false} type={meta?.tagType || 'warning'}>
+                  {meta?.label || rule.level}
+                </NTag>
+                <span>
+                  {rule.operator} {rule.threshold}
+                  {rule.unit || query.display?.value?.unit || query.display?.yAxis?.unit || ''}，持续{' '}
+                  {rule.duration || 5} 分钟，通知 {channels}
+                </span>
+              </span>
+            )
+          })}
+        </div>
+      )
+    }
+
+    const renderQueryDrivenWidget = (widget: OverviewPanelWidget, query?: QuerySpec) => {
       const cardData = queryWidgetResults.value[widget.id]
+      const queryCardConfig =
+        widget.kind === 'query-card' ? (widget as OverviewPanelWidget<'query-card'>).config.query : null
+      const effectiveQuery = queryCardConfig || query
+      const display = resolveQueryDisplayValue(effectiveQuery, cardData)
+      const thresholdLines = resolveQueryThresholdLines(effectiveQuery)
+      const renderWithAlertSummary = (content: any) => (
+        <div class="overview-page__query-card-body">
+          {renderWidgetAlertSummary(widget)}
+          {content}
+        </div>
+      )
       if (!cardData) {
-        return <NEmpty description={`${widget.title} 当前暂无查询结果。`} class="overview-page__future-empty" />
+        return renderWithAlertSummary(
+          <NEmpty description={`${widget.title} 当前暂无查询结果。`} class="overview-page__future-empty" />
+        )
       }
 
       if (cardData.kind === 'number') {
-        return widget.editor?.visualization === 'donut' ? (
-          <GaugeChart
-            value={typeof cardData.value === 'number' ? cardData.value : 0}
-            color="var(--color-primary-6)"
-            height={widget.size === 'L' ? '260px' : '220px'}
-            loading={loading.value}
-          />
-        ) : (
-          <NStatistic label={widget.title} value={cardData.value ?? '未知'} />
+        const numberAlertLevel = resolveNumberAlertLevel(effectiveQuery, cardData.value)
+        return renderWithAlertSummary(
+          widget.editor?.visualization === 'donut' ? (
+            <GaugeChart
+              value={typeof cardData.value === 'number' ? cardData.value : 0}
+              min={display.min ?? 0}
+              max={display.max ?? 100}
+              unit={display.unit || '%'}
+              color="var(--color-primary-6)"
+              height={widget.size === 'L' ? '260px' : '220px'}
+              loading={loading.value}
+            />
+          ) : (
+            <div class="overview-page__query-number-card">
+              <div class="overview-page__query-number-accent" />
+              <div class="overview-page__query-number-value-row">
+                <div class="overview-page__query-number-primary">
+                  <strong
+                    class={[
+                      'overview-page__query-number-value',
+                      numberAlertLevel ? `overview-page__query-number-value--${numberAlertLevel}` : ''
+                    ]}>
+                    {typeof cardData.value === 'number'
+                      ? formatQueryNumberValue(cardData.value)
+                      : (cardData.value ?? '未知')}
+                  </strong>
+                  {display.unit ? <span class="overview-page__query-number-unit">{display.unit}</span> : null}
+                </div>
+                {renderQueryNumberTrend(cardData.compare)}
+              </div>
+              <div class="overview-page__query-number-meta">
+                <span>{effectiveQuery?.metricRef || 'QuerySpec'}</span>
+                <span>{effectiveQuery?.aggregation || 'latest'}</span>
+              </div>
+            </div>
+          )
         )
       }
 
       if (cardData.kind === 'timeseries') {
-        return widget.editor?.visualization === 'bar' ? (
-          <BarChart
-            data={(cardData.series?.[0]?.points || []).map((point) => ({
-              name: new Date(point.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-              value: point.value
-            }))}
-            height={widget.size === 'L' ? '260px' : '220px'}
-            variant="monitor"
-          />
-        ) : (
-          <LineChart
-            series={(cardData.series || []).map((series) => ({
-              name: series.name,
-              data: series.points
-            }))}
-            title=""
-            height={widget.size === 'L' ? '260px' : '220px'}
-            area={widget.editor?.visualization === 'line'}
-            variant="monitor"
-            showLegend
-          />
+        return renderWithAlertSummary(
+          widget.editor?.visualization === 'bar' ? (
+            <BarChart
+              data={(cardData.series?.[0]?.points || []).map((point) => ({
+                name: new Date(point.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                value: point.value
+              }))}
+              height={widget.size === 'L' ? '260px' : '220px'}
+              variant="monitor"
+              yAxisMin={display.min}
+              yAxisMax={display.max}
+              yAxisUnit={display.unit}
+            />
+          ) : (
+            <LineChart
+              series={(cardData.series || []).map((series) => ({
+                name: series.name,
+                data: series.points
+              }))}
+              title=""
+              height={widget.size === 'L' ? '260px' : '220px'}
+              area={widget.editor?.visualization === 'line'}
+              variant="monitor"
+              showLegend
+              yAxisMin={display.min}
+              yAxisMax={display.max}
+              yAxisUnit={display.unit}
+              thresholdLines={thresholdLines}
+            />
+          )
         )
       }
 
       if (cardData.kind === 'distribution') {
-        return widget.editor?.visualization === 'donut' ? (
-          <PieChart data={cardData.items || []} height={widget.size === 'L' ? '260px' : '220px'} variant="monitor" />
-        ) : (
-          <BarChart data={cardData.items || []} height={widget.size === 'L' ? '260px' : '220px'} variant="monitor" />
+        return renderWithAlertSummary(
+          widget.editor?.visualization === 'donut' ? (
+            <PieChart data={cardData.items || []} height={widget.size === 'L' ? '260px' : '220px'} variant="monitor" />
+          ) : (
+            <BarChart data={cardData.items || []} height={widget.size === 'L' ? '260px' : '220px'} variant="monitor" />
+          )
         )
       }
 
       if (cardData.kind === 'table') {
-        return (
+        return renderWithAlertSummary(
           <ResultTable
             columns={(cardData.columns || []).map((column) => ({ title: column.label, key: column.key })) as any}
             data={(cardData.rows || []) as any}
@@ -2217,7 +3091,9 @@ export default defineComponent({
         )
       }
 
-      return <NEmpty description={`${widget.title} 当前暂无查询结果。`} class="overview-page__future-empty" />
+      return renderWithAlertSummary(
+        <NEmpty description={`${widget.title} 当前暂无查询结果。`} class="overview-page__future-empty" />
+      )
     }
 
     const filteredRiskServices = (widget: OverviewPanelWidget<'risk-service'>) => {
@@ -2690,6 +3566,62 @@ export default defineComponent({
       <NEmpty description={`${widget.title} 当前暂无可显示数据。`} class="overview-page__future-empty" />
     )
 
+    const renderOverviewSkeleton = () => {
+      const skeletonCards = [
+        { key: 'hero', size: 'L', lines: 4, chart: true },
+        { key: 'health', size: 'S', lines: 3, chart: false },
+        { key: 'latency', size: 'S', lines: 3, chart: false },
+        { key: 'trend', size: 'M', lines: 3, chart: true },
+        { key: 'incidents', size: 'M', lines: 5, chart: false },
+        { key: 'ingest', size: 'S', lines: 4, chart: false }
+      ] as const
+
+      return (
+        <div class="overview-page__skeleton" aria-busy="true" aria-label="看板数据加载中">
+          <div class="overview-page__skeleton-header">
+            <div>
+              <div class="overview-page__skeleton-kicker" />
+              <div class="overview-page__skeleton-title" />
+            </div>
+            <div class="overview-page__skeleton-status">
+              <span />
+              正在并行加载指标、服务与卡片数据
+            </div>
+          </div>
+          <div class="overview-page__masonry-grid overview-page__skeleton-grid">
+            {skeletonCards.map((card) => (
+              <div
+                key={card.key}
+                class="overview-page__grid-item"
+                style={{ gridColumn: getWidgetMasonrySpan(card.size as OverviewWidgetSize) }}>
+                <div
+                  class={['overview-page__skeleton-card', `overview-page__skeleton-card--${card.size.toLowerCase()}`]}>
+                  <div class="overview-page__skeleton-card-top">
+                    <div class="overview-page__skeleton-card-title" />
+                    <div class="overview-page__skeleton-pill" />
+                  </div>
+                  <div class="overview-page__skeleton-card-subtitle" />
+                  {card.chart ? (
+                    <div class="overview-page__skeleton-chart">
+                      <span />
+                      <span />
+                      <span />
+                      <span />
+                    </div>
+                  ) : null}
+                  <div class="overview-page__skeleton-lines">
+                    {Array.from({ length: card.lines }).map((_, index) => (
+                      <span key={index} />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )
+    }
+
     const renderWidgetBody = (widget: OverviewPanelWidget) => {
       const runtimeSupport = buildOverviewWidgetQueryPreviewSpec({
         widget,
@@ -2698,7 +3630,7 @@ export default defineComponent({
         services: services.value
       })
       if (runtimeSupport.supported) {
-        return renderQueryDrivenWidget(widget)
+        return renderQueryDrivenWidget(widget, runtimeSupport.query)
       }
 
       switch (widget.kind) {
@@ -2745,12 +3677,12 @@ export default defineComponent({
       document.addEventListener('visibilitychange', handleOverviewVisibilityChange)
       window.addEventListener('resize', handleWidgetMasonryResize)
       isRestoringOverviewState.value = true
-      await restoreSavedDefaultView()
-      await restorePanelState()
+      await Promise.all([restoreSavedDefaultView(), restorePanelState(), restoreAutoRefreshState()])
       await nextTick()
       layoutWidgetMasonry()
       isRestoringOverviewState.value = false
       loadOverview()
+      loadMetricsSchemaForRoutePrefill()
     })
 
     onBeforeUnmount(() => {
@@ -2799,7 +3731,18 @@ export default defineComponent({
         if (!editable && editMode.value) {
           editMode.value = false
         }
+        if (editable) openCreateWidgetFromRoutePrefill()
       }
+    )
+
+    watch(
+      () => [
+        metricsSchemaItems.value.length,
+        metricsSchemaSource.value,
+        route.query.startAdd,
+        route.query.prefillMetric
+      ],
+      () => openCreateWidgetFromRoutePrefill()
     )
 
     watch(
@@ -3118,6 +4061,125 @@ export default defineComponent({
                     </label>
                   </div>
                 </div>
+
+                <div class="overview-page__query-builder-step overview-page__query-display-rule-panel">
+                  <div class="overview-page__query-builder-step-header">
+                    <span>3</span>
+                    <div>
+                      <div class="overview-page__editor-query-title">展示与规则</div>
+                      <div class="overview-page__editor-query-subtitle">
+                        设置图表最大值和单位；启用阈值后，保存卡片会同步创建或更新告警规则。
+                      </div>
+                    </div>
+                  </div>
+                  <div class="overview-page__darwin-settings-grid">
+                    <label class="overview-page__darwin-settings-field">
+                      <span>最小值</span>
+                      <NInputNumber
+                        value={queryCardDraft.value.display?.value?.min ?? null}
+                        placeholder="自动"
+                        clearable
+                        onUpdateValue={(value: number | null) =>
+                          updateQueryDisplayValueDraft({ min: typeof value === 'number' ? value : undefined })
+                        }
+                      />
+                    </label>
+                    <label class="overview-page__darwin-settings-field">
+                      <span>最大值</span>
+                      <NInputNumber
+                        value={queryCardDraft.value.display?.value?.max ?? null}
+                        placeholder="例如 100"
+                        clearable
+                        onUpdateValue={(value: number | null) =>
+                          updateQueryDisplayValueDraft({ max: typeof value === 'number' ? value : undefined })
+                        }
+                      />
+                    </label>
+                    <label class="overview-page__darwin-settings-field">
+                      <span>展示单位</span>
+                      <NSelect
+                        value={queryCardDraft.value.display?.value?.unit || ''}
+                        options={queryDisplayUnitOptions}
+                        tag
+                        clearable
+                        placeholder="例如 % / ms"
+                        onUpdateValue={(value: string | null) => {
+                          const unit = value || ''
+                          updateQueryDisplayValueDraft({ unit })
+                          if (queryCardDraft.value.alert?.enabled) updateQueryAlertDraft({ unit })
+                        }}
+                      />
+                    </label>
+                  </div>
+                  {queryCardDraft.value.visualizationHint === 'number' ? (
+                    <div class="overview-page__query-compare-panel">
+                      <div class="overview-page__query-compare-toggle-row">
+                        <NSwitch
+                          value={Boolean(
+                            queryCardDraft.value.compare &&
+                            normalizeQueryCompareConfig(queryCardDraft.value.compare).enabled
+                          )}
+                          onUpdateValue={(value: boolean) =>
+                            value
+                              ? updateQueryCompareDraft({ enabled: true })
+                              : updateQueryCardDraft({ compare: undefined })
+                          }
+                        />
+                        <div>
+                          <strong>对比时间段</strong>
+                          <span>仅数值卡支持趋势徽章，会展示在数值与单位同一行右侧。</span>
+                        </div>
+                      </div>
+                      {queryCardDraft.value.compare ? (
+                        <div class="overview-page__query-compare-grid">
+                          <label class="overview-page__darwin-settings-field">
+                            <span>对比窗口</span>
+                            <NSelect
+                              value={normalizeQueryCompareConfig(queryCardDraft.value.compare).mode}
+                              options={queryCompareModeOptions}
+                              onUpdateValue={(value: 'previous-period' | 'previous-day' | 'previous-week') =>
+                                updateQueryCompareDraft({ mode: value })
+                              }
+                            />
+                          </label>
+                          <label class="overview-page__darwin-settings-field">
+                            <span>展示方式</span>
+                            <NSelect
+                              value={normalizeQueryCompareConfig(queryCardDraft.value.compare).display}
+                              options={queryCompareDisplayOptions}
+                              onUpdateValue={(value: 'relative' | 'absolute' | 'both') =>
+                                updateQueryCompareDraft({ display: value })
+                              }
+                            />
+                          </label>
+                          <label class="overview-page__darwin-settings-field overview-page__darwin-settings-field--full">
+                            <span>趋势语义</span>
+                            <NSelect
+                              value={normalizeQueryCompareConfig(queryCardDraft.value.compare).directionality}
+                              options={queryCompareDirectionalityOptions}
+                              onUpdateValue={(value: 'increase_better' | 'decrease_better' | 'neutral') =>
+                                updateQueryCompareDraft({ directionality: value })
+                              }
+                            />
+                          </label>
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
+                  <div class="overview-page__query-alert-toggle-row">
+                    <NSwitch
+                      value={Boolean(queryCardDraft.value.alert?.enabled)}
+                      onUpdateValue={(value: boolean) => setQueryAlertEnabled(value, 'form-builder')}
+                    />
+                    <div>
+                      <strong>告警阈值</strong>
+                      <span>超过阈值后触发告警，并按选择的渠道发送通知。</span>
+                    </div>
+                  </div>
+                  {queryCardDraft.value.alert?.enabled
+                    ? renderQueryAlertRulesEditor(queryCardDraft.value, 'form-builder')
+                    : null}
+                </div>
               </>
             ) : (
               <div class="overview-page__query-script-editor">
@@ -3128,16 +4190,7 @@ export default defineComponent({
                       保存的是完整查询语句；切回表单前不会自动拆解覆盖字段。
                     </div>
                   </div>
-                  <NButton
-                    size="small"
-                    ghost
-                    onClick={() =>
-                      (editorRawQueryScript.value = JSON.stringify(
-                        { type: 'queryspec', version: 1, query: queryCardDraft.value },
-                        null,
-                        2
-                      ))
-                    }>
+                  <NButton size="small" ghost onClick={() => replaceRawQueryScript(queryCardDraft.value)}>
                     从当前表单生成模板
                   </NButton>
                 </div>
@@ -3155,6 +4208,124 @@ export default defineComponent({
                   <code>metricRef</code>
                   <code>aggregation</code>
                   <code>timeRange</code>
+                </div>
+                <div class="overview-page__query-builder-step overview-page__query-display-rule-panel">
+                  <div class="overview-page__query-builder-step-header">
+                    <span>3</span>
+                    <div>
+                      <div class="overview-page__editor-query-title">展示与规则</div>
+                      <div class="overview-page__editor-query-subtitle">
+                        这里会直接改写上方 QuerySpec JSON 的 display 和 alert 字段，保存查询语句时一并生效。
+                      </div>
+                    </div>
+                  </div>
+                  <div class="overview-page__darwin-settings-grid">
+                    <label class="overview-page__darwin-settings-field">
+                      <span>最小值</span>
+                      <NInputNumber
+                        value={queryStatementDraft.value.display?.value?.min ?? null}
+                        placeholder="自动"
+                        clearable
+                        onUpdateValue={(value: number | null) =>
+                          updateRawQueryDisplayValueDraft({ min: typeof value === 'number' ? value : undefined })
+                        }
+                      />
+                    </label>
+                    <label class="overview-page__darwin-settings-field">
+                      <span>最大值</span>
+                      <NInputNumber
+                        value={queryStatementDraft.value.display?.value?.max ?? null}
+                        placeholder="例如 100"
+                        clearable
+                        onUpdateValue={(value: number | null) =>
+                          updateRawQueryDisplayValueDraft({ max: typeof value === 'number' ? value : undefined })
+                        }
+                      />
+                    </label>
+                    <label class="overview-page__darwin-settings-field">
+                      <span>展示单位</span>
+                      <NSelect
+                        value={queryStatementDraft.value.display?.value?.unit || ''}
+                        options={queryDisplayUnitOptions}
+                        tag
+                        clearable
+                        placeholder="例如 % / ms"
+                        onUpdateValue={(value: string | null) => {
+                          const unit = value || ''
+                          updateRawQueryDisplayValueDraft({ unit })
+                          if (queryStatementDraft.value.alert?.enabled) updateRawQueryAlertDraft({ unit })
+                        }}
+                      />
+                    </label>
+                  </div>
+                  {queryStatementDraft.value.visualizationHint === 'number' ? (
+                    <div class="overview-page__query-compare-panel">
+                      <div class="overview-page__query-compare-toggle-row">
+                        <NSwitch
+                          value={Boolean(
+                            queryStatementDraft.value.compare &&
+                            normalizeQueryCompareConfig(queryStatementDraft.value.compare).enabled
+                          )}
+                          onUpdateValue={(value: boolean) =>
+                            value
+                              ? updateRawQueryCompareDraft({ enabled: true })
+                              : updateRawQueryScript((query) => ({ ...query, compare: undefined }))
+                          }
+                        />
+                        <div>
+                          <strong>对比时间段</strong>
+                          <span>直接写入 QuerySpec compare 字段，仅数值卡展示趋势徽章。</span>
+                        </div>
+                      </div>
+                      {queryStatementDraft.value.compare ? (
+                        <div class="overview-page__query-compare-grid">
+                          <label class="overview-page__darwin-settings-field">
+                            <span>对比窗口</span>
+                            <NSelect
+                              value={normalizeQueryCompareConfig(queryStatementDraft.value.compare).mode}
+                              options={queryCompareModeOptions}
+                              onUpdateValue={(value: 'previous-period' | 'previous-day' | 'previous-week') =>
+                                updateRawQueryCompareDraft({ mode: value })
+                              }
+                            />
+                          </label>
+                          <label class="overview-page__darwin-settings-field">
+                            <span>展示方式</span>
+                            <NSelect
+                              value={normalizeQueryCompareConfig(queryStatementDraft.value.compare).display}
+                              options={queryCompareDisplayOptions}
+                              onUpdateValue={(value: 'relative' | 'absolute' | 'both') =>
+                                updateRawQueryCompareDraft({ display: value })
+                              }
+                            />
+                          </label>
+                          <label class="overview-page__darwin-settings-field overview-page__darwin-settings-field--full">
+                            <span>趋势语义</span>
+                            <NSelect
+                              value={normalizeQueryCompareConfig(queryStatementDraft.value.compare).directionality}
+                              options={queryCompareDirectionalityOptions}
+                              onUpdateValue={(value: 'increase_better' | 'decrease_better' | 'neutral') =>
+                                updateRawQueryCompareDraft({ directionality: value })
+                              }
+                            />
+                          </label>
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
+                  <div class="overview-page__query-alert-toggle-row">
+                    <NSwitch
+                      value={Boolean(queryStatementDraft.value.alert?.enabled)}
+                      onUpdateValue={(value: boolean) => setQueryAlertEnabled(value, 'query-statement')}
+                    />
+                    <div>
+                      <strong>告警阈值</strong>
+                      <span>超过阈值后触发告警，并按选择的渠道发送通知。</span>
+                    </div>
+                  </div>
+                  {queryStatementDraft.value.alert?.enabled
+                    ? renderQueryAlertRulesEditor(queryStatementDraft.value, 'query-statement')
+                    : null}
                 </div>
               </div>
             )}
@@ -3389,6 +4560,8 @@ export default defineComponent({
       }
 
       if (editorPreviewData.value.kind === 'timeseries') {
+        const display = resolveQueryDisplayValue(currentEditorQuerySupport.value.query, editorPreviewData.value)
+        const thresholdLines = resolveQueryThresholdLines(currentEditorQuerySupport.value.query)
         return currentEditorQuerySupport.value.query?.visualizationHint === 'bar' ? (
           <BarChart
             data={(editorPreviewData.value.series?.[0]?.points || []).map((point: any) => ({
@@ -3397,6 +4570,9 @@ export default defineComponent({
             }))}
             height="220px"
             variant="monitor"
+            yAxisMin={display.min}
+            yAxisMax={display.max}
+            yAxisUnit={display.unit}
           />
         ) : (
           <LineChart
@@ -3409,6 +4585,10 @@ export default defineComponent({
             area={currentEditorQuerySupport.value.query?.visualizationHint === 'line'}
             variant="monitor"
             showLegend
+            yAxisMin={display.min}
+            yAxisMax={display.max}
+            yAxisUnit={display.unit}
+            thresholdLines={thresholdLines}
           />
         )
       }
@@ -3448,20 +4628,31 @@ export default defineComponent({
       editorScriptLoading.value = false
     }
 
-    const currentEditorQuerySupport = computed(() =>
-      buildOverviewWidgetQueryPreviewSpec({
+    const currentEditorQuerySupport = computed(() => {
+      if (widgetEditorDraft.value.kind === 'query-card' && queryEditMode.value === 'query-statement') {
+        const parsed = parseQuerySpecJson(editorRawQueryScript.value)
+        return parsed.query
+          ? { supported: true, query: parsed.query }
+          : { supported: false, reason: parsed.issues[0] || 'QuerySpec JSON 未通过解析' }
+      }
+
+      return buildOverviewWidgetQueryPreviewSpec({
         widget: normalizeEditorState(widgetEditorDraft.value),
         scope: datasetScope.value,
         scopedServiceName: scopeValue.value.service,
         services: services.value
       })
-    )
+    })
     const currentEditorQuerySignature = computed(() => JSON.stringify(currentEditorQuerySupport.value))
 
     watch(
       () => [showWidgetEditor.value, widgetEditorDraft.value.id, queryEditMode.value],
       () => {
-        if (showWidgetEditor.value && widgetEditorDraft.value.kind === 'query-card') {
+        if (
+          showWidgetEditor.value &&
+          widgetEditorDraft.value.kind === 'query-card' &&
+          !editorRawQueryScript.value.trim()
+        ) {
           editorRawQueryScript.value = JSON.stringify(
             { type: 'queryspec', version: 1, query: queryCardDraft.value },
             null,
@@ -3493,7 +4684,7 @@ export default defineComponent({
           return
         }
 
-        const result = await previewMetricCard(support.query, datasetScope.value)
+        const result = await previewMetricCard(support.query, support.query.scope || datasetScope.value)
         if (querySignature !== currentEditorQuerySignature.value) return
         editorPreviewData.value = result.data || null
         if (!result.data) {
@@ -3978,13 +5169,7 @@ export default defineComponent({
 
     return () => (
       <div class="overview-page">
-        <PageHeader
-          title="面板"
-          subtitle={
-            isAdminUser.value
-              ? '集中查看 Darwin 系统运行状态、关键事件和排查入口。'
-              : '集中查看系统健康、风险服务和关键事件，支持保存常用面板布局。'
-          }>
+        <PageHeader title="看板" subtitle={'集中查看系统健康、风险服务和关键事件，支持保存常用看板布局。'}>
           {{
             actions: () => (
               <NButton
@@ -4000,53 +5185,64 @@ export default defineComponent({
           }}
         </PageHeader>
 
-        <TimeRangeBar
-          value={timeStore.timeRange}
-          live={timeStore.isLive}
-          options={timeRangeOptions.value}
-          autoRefreshValue={autoRefreshSetting.value}
-          autoRefreshOptions={overviewAutoRefreshOptions}
-          autoRefreshHint={autoRefreshHint.value}
-          onUpdate:value={(range) => {
-            timeStore.setTimeRange(range)
-          }}
-          onUpdate:live={(value: boolean) => {
-            timeStore.isLive = value
-            if (value) timeStore.refreshTime()
-            loadOverview()
-          }}
-          onUpdate:autoRefresh={(value: string) => {
-            autoRefreshFailureCount.value = 0
-            autoRefreshSetting.value = value as OverviewAutoRefreshKey
-            const shouldRefreshImmediately =
-              timeStore.isLive && (value === 'auto' ? Boolean(recommendedAutoRefreshInterval.value) : value !== 'off')
-            if (shouldRefreshImmediately) {
-              timeStore.refreshTime()
-              loadOverview()
-            }
-          }}
-          onRefresh={() => {
-            autoRefreshFailureCount.value = 0
-            timeStore.refreshTime()
-            loadOverview()
-          }}
-        />
-
-        <NCard bordered={false} class="overview-page__search-bar">
-          <div class="overview-page__search-bar-row">
-            <NInput
-              value={scopeValue.value.service || ''}
-              placeholder="搜索服务名称，筛选当前可添加和可查询的服务范围"
-              onUpdate:value={(value: string) => {
-                scopeValue.value = { service: value || null }
-              }}
-              onKeydown={(event: KeyboardEvent) => {
-                if (event.key === 'Enter') loadOverview()
-              }}
-            />
-            <NButton secondary onClick={loadOverview}>
-              搜索
-            </NButton>
+        <NCard bordered={false} class="overview-page__control-panel">
+          <div class="overview-page__control-toolbar">
+            <div class="overview-page__time-control-shell">
+              <TimeRangeBar
+                value={timeStore.timeRange}
+                live={timeStore.isLive}
+                options={timeRangeOptions.value}
+                autoRefreshValue={autoRefreshSetting.value}
+                autoRefreshOptions={overviewAutoRefreshOptions}
+                autoRefreshHint={autoRefreshHint.value}
+                onUpdate:value={(range) => {
+                  timeStore.setTimeRange(range)
+                }}
+                onUpdate:live={(value: boolean) => {
+                  timeStore.isLive = value
+                  if (value) timeStore.refreshTime()
+                  loadOverview()
+                }}
+                onUpdate:autoRefresh={(value: string) => {
+                  if (!isOverviewAutoRefreshKey(value)) return
+                  autoRefreshFailureCount.value = 0
+                  autoRefreshSetting.value = value
+                  if (!isRestoringOverviewState.value) saveAutoRefreshState(value)
+                  const shouldRefreshImmediately =
+                    timeStore.isLive &&
+                    (value === 'auto' ? Boolean(recommendedAutoRefreshInterval.value) : value !== 'off')
+                  if (shouldRefreshImmediately) {
+                    timeStore.refreshTime()
+                    loadOverview({ silent: true })
+                  }
+                }}
+                onRefresh={() => {
+                  autoRefreshFailureCount.value = 0
+                  timeStore.refreshTime()
+                  loadOverview()
+                }}
+              />
+            </div>
+            <div class="overview-page__service-search">
+              <NInput
+                value={scopeValue.value.service || ''}
+                placeholder="全部服务"
+                clearable
+                onUpdate:value={(value: string) => {
+                  scopeValue.value = { service: value || null }
+                }}
+                onKeydown={(event: KeyboardEvent) => {
+                  if (event.key === 'Enter') loadOverview()
+                }}
+              />
+              <NButton
+                class="overview-page__service-search-button"
+                type="primary"
+                secondary
+                onClick={() => loadOverview()}>
+                搜索
+              </NButton>
+            </div>
           </div>
         </NCard>
 
@@ -4081,9 +5277,7 @@ export default defineComponent({
         ) : null}
 
         {loading.value ? (
-          <div class="overview-page__loading">
-            <NSpin size="large" />
-          </div>
+          renderOverviewSkeleton()
         ) : currentVisibleWidgets.value.length ? (
           <div class={['overview-page__grid-shell', reorderState.value?.active ? 'is-reordering' : '']}>
             <div ref={(element) => setWidgetGridRef(element as Element | null)} class="overview-page__masonry-grid">
@@ -4164,8 +5358,10 @@ export default defineComponent({
               </NFormItem>
             </NForm>
             <div class="overview-page__modal-actions">
-              <NButton onClick={() => (showWidgetEditor.value = false)}>取消</NButton>
-              <NButton type="primary" onClick={applyWidgetDraft}>
+              <NButton disabled={widgetEditorSaving.value} onClick={() => (showWidgetEditor.value = false)}>
+                取消
+              </NButton>
+              <NButton type="primary" loading={widgetEditorSaving.value} onClick={applyWidgetDraft}>
                 {widgetEditorMode.value === 'create' ? '添加组件' : '保存配置'}
               </NButton>
             </div>
@@ -4174,6 +5370,7 @@ export default defineComponent({
           <OverviewAnalyticsWidgetEditor
             show={showWidgetEditor.value}
             mode={widgetEditorMode.value}
+            confirmLoading={widgetEditorSaving.value}
             draft={normalizeEditorState(widgetEditorDraft.value)}
             widgetTypeOptions={widgetTypeOptions.value.map((item) => ({ label: item.label, value: item.value }))}
             granularityOptions={editorGranularityOptions}

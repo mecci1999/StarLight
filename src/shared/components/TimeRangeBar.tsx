@@ -1,5 +1,5 @@
 import { defineComponent, computed } from 'vue'
-import { NButton, NSpace, NSwitch, NText, NSelect, NCard } from 'naive-ui'
+import { NButton, NSwitch, NText, NSelect, NCard } from 'naive-ui'
 import type { TimeRangeKey } from '@/store/useTimeStore'
 import './TimeRangeBar.scss'
 
@@ -53,35 +53,55 @@ export default defineComponent({
     return () => (
       <NCard bordered={false} class="time-range-bar">
         <div class="time-range-bar__content">
-          <NSpace align="center" wrap>
-            <NText depth={3}>时间范围</NText>
-            <NSelect
-              class="time-range-select"
-              value={props.value}
-              options={localizedOptions.value}
-              disabled={props.disabled}
-              onUpdateValue={(value: TimeRangeKey) => emit('update:value', value)}
-            />
-          </NSpace>
-          <NSpace align="center">
-            <NText depth={3}>实时模式</NText>
-            <NSwitch value={props.live} onUpdateValue={(value: boolean) => emit('update:live', value)} />
-            {props.autoRefreshOptions.length ? <NText depth={3}>自动刷新</NText> : null}
-            {props.autoRefreshOptions.length ? (
+          <div class="time-range-bar__primary">
+            <label class="time-range-bar__field">
+              <span class="time-range-bar__label">时间范围</span>
               <NSelect
-                class="time-range-select time-range-select--refresh"
-                value={props.autoRefreshValue}
-                options={props.autoRefreshOptions}
+                class="time-range-bar__select time-range-bar__select--range"
+                value={props.value}
+                options={localizedOptions.value}
                 disabled={props.disabled}
-                onUpdateValue={(value: string) => emit('update:autoRefresh', value)}
+                onUpdateValue={(value: TimeRangeKey) => emit('update:value', value)}
               />
+            </label>
+          </div>
+
+          <div class="time-range-bar__secondary">
+            <label class="time-range-bar__live-toggle">
+              <span class="time-range-bar__label">实时模式</span>
+              <NSwitch
+                value={props.live}
+                disabled={props.disabled}
+                onUpdateValue={(value: boolean) => emit('update:live', value)}
+              />
+            </label>
+            {props.autoRefreshOptions.length ? (
+              <label class="time-range-bar__field time-range-bar__field--refresh">
+                <span class="time-range-bar__label">自动刷新</span>
+                <NSelect
+                  class="time-range-bar__select time-range-bar__select--refresh"
+                  value={props.autoRefreshValue}
+                  options={props.autoRefreshOptions}
+                  disabled={props.disabled || !props.live}
+                  onUpdateValue={(value: string) => emit('update:autoRefresh', value)}
+                />
+              </label>
             ) : null}
-            <NButton size="small" secondary type="primary" onClick={() => emit('refresh')} disabled={props.disabled}>
+            <NButton
+              class="time-range-bar__refresh-button"
+              size="small"
+              secondary
+              type="primary"
+              onClick={() => emit('refresh')}
+              disabled={props.disabled}>
               刷新时间
             </NButton>
-          </NSpace>
+          </div>
+
           {props.autoRefreshOptions.length && props.autoRefreshHint ? (
-            <NText depth={3}>{props.autoRefreshHint}</NText>
+            <NText class="time-range-bar__hint" depth={3}>
+              {props.autoRefreshHint}
+            </NText>
           ) : null}
         </div>
       </NCard>

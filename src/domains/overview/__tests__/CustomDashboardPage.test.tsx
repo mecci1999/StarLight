@@ -16,7 +16,9 @@ const apiMocks = vi.hoisted(() => ({
   saveDashboardState: vi.fn(),
   fetchOverviewSummary: vi.fn(),
   fetchRealtimeOverview: vi.fn(),
-  fetchAlerts: vi.fn()
+  fetchAlerts: vi.fn(),
+  saveAlertRule: vi.fn(),
+  updateAlertRule: vi.fn()
 }))
 const authState = vi.hoisted(() => ({
   user: { isAdmin: false }
@@ -46,7 +48,9 @@ vi.mock('@/api', () => ({
 }))
 
 vi.mock('@/api/alerts', () => ({
-  fetchAlerts: apiMocks.fetchAlerts
+  fetchAlerts: apiMocks.fetchAlerts,
+  saveAlertRule: apiMocks.saveAlertRule,
+  updateAlertRule: apiMocks.updateAlertRule
 }))
 
 vi.mock('vue-router', () => ({
@@ -123,21 +127,69 @@ vi.mock('naive-ui', () => {
     }
   })
 
+  const inputNumberLike = defineComponent({
+    name: 'StubInputNumber',
+    props: ['value', 'placeholder', 'min', 'onUpdateValue'],
+    emits: ['update:value'],
+    setup(props, { emit }) {
+      const updateValue = (nextValue: number | null) => {
+        emit('update:value', nextValue)
+        props.onUpdateValue?.(nextValue)
+      }
+      return () =>
+        h('input', {
+          value: props.value ?? '',
+          placeholder: props.placeholder,
+          type: 'number',
+          min: props.min,
+          onInput: (event: Event) => {
+            const value = (event.target as HTMLInputElement).value
+            updateValue(value === '' ? null : Number(value))
+          }
+        })
+    }
+  })
+
+  const switchLike = defineComponent({
+    name: 'StubSwitch',
+    props: ['value', 'onUpdateValue'],
+    emits: ['update:value'],
+    setup(props, { emit }) {
+      const updateValue = (nextValue: boolean) => {
+        emit('update:value', nextValue)
+        props.onUpdateValue?.(nextValue)
+      }
+      return () =>
+        h('input', {
+          type: 'checkbox',
+          checked: Boolean(props.value),
+          onChange: (event: Event) => updateValue((event.target as HTMLInputElement).checked)
+        })
+    }
+  })
+
   const selectLike = defineComponent({
     name: 'StubSelect',
-    props: ['value', 'options', 'placeholder', 'disabled'],
+    props: ['value', 'options', 'placeholder', 'disabled', 'tag'],
     emits: ['update:value'],
     setup(props, { emit }) {
       return () =>
-        h(
-          'select',
-          {
-            value: props.value,
-            disabled: props.disabled,
-            onChange: (event: Event) => emit('update:value', (event.target as HTMLSelectElement).value)
-          },
-          (props.options || []).map((option: any) => h('option', { value: option.value }, option.label))
-        )
+        props.tag
+          ? h('input', {
+              value: props.value,
+              placeholder: props.placeholder,
+              disabled: props.disabled,
+              onInput: (event: Event) => emit('update:value', (event.target as HTMLInputElement).value)
+            })
+          : h(
+              'select',
+              {
+                value: props.value,
+                disabled: props.disabled,
+                onChange: (event: Event) => emit('update:value', (event.target as HTMLSelectElement).value)
+              },
+              (props.options || []).map((option: any) => h('option', { value: option.value }, option.label))
+            )
     }
   })
 
@@ -199,24 +251,38 @@ vi.mock('naive-ui', () => {
       }
     }),
     NInput: inputLike,
+    NInputNumber: inputNumberLike,
     NSelect: selectLike,
+    NSwitch: switchLike,
     useMessage: () => ({ success: vi.fn(), warning: vi.fn(), error: vi.fn(), info: vi.fn() })
   }
 })
 
 vi.mock('@/components/charts/GaugeChart', () => ({
   default: defineComponent({
-    setup: () => () => h('div', { 'data-component': 'gauge-chart' }, 'gauge-chart')
+    props: ['max', 'unit'],
+    setup: (props) => () => h('div', { 'data-component': 'gauge-chart' }, `gauge-chart:${props.max}:${props.unit}`)
   })
 }))
 vi.mock('@/components/charts/LineChart', () => ({
   default: defineComponent({
-    setup: () => () => h('div', { 'data-component': 'line-chart' }, 'line-chart')
+    props: ['yAxisMax', 'yAxisUnit', 'thresholdValue', 'thresholdUnit', 'thresholdLines'],
+    setup: (props) => () =>
+      h(
+        'div',
+        { 'data-component': 'line-chart' },
+        `line-chart:${props.yAxisMax}:${props.yAxisUnit}:${
+          (props.thresholdLines || []).map((line: any) => `${line.label}:${line.value}:${line.unit}`).join('|') ||
+          `${props.thresholdValue}:${props.thresholdUnit}`
+        }`
+      )
   })
 }))
 vi.mock('@/components/charts/BarChart', () => ({
   default: defineComponent({
-    setup: () => () => h('div', { 'data-component': 'bar-chart' }, 'bar-chart')
+    props: ['yAxisMax', 'yAxisUnit'],
+    setup: (props) => () =>
+      h('div', { 'data-component': 'bar-chart' }, `bar-chart:${props.yAxisMax}:${props.yAxisUnit}`)
   })
 }))
 vi.mock('@/components/charts/PieChart', () => ({
@@ -254,6 +320,8 @@ describe('CustomDashboardPage route context reactivity', () => {
     apiMocks.fetchMetricsExplorer.mockResolvedValue({ series: {}, qps: [], responseTime: [] })
     apiMocks.fetchCatalogServices.mockResolvedValue({ items: [] })
     apiMocks.fetchAlerts.mockResolvedValue([])
+    apiMocks.saveAlertRule.mockResolvedValue({ id: 'rule-1' })
+    apiMocks.updateAlertRule.mockResolvedValue({ id: 'rule-1' })
     apiMocks.fetchRealtimeOverview.mockResolvedValue({ summary: {} })
     apiMocks.fetchMetricsSchema.mockResolvedValue({ items: [] })
     apiMocks.queryMetricCards.mockResolvedValue({ items: [] })
@@ -404,9 +472,11 @@ describe('CustomDashboardPage route context reactivity', () => {
     await applyButton!.trigger('click')
     await flushPromises()
 
-    expect((wrapper.find('input[placeholder="例如 service.cpu.usage"]').element as HTMLInputElement).value).toBe(
-      'service.memory.usage.percent'
-    )
+    expect(
+      wrapper
+        .findAll('input')
+        .some((input) => (input.element as HTMLInputElement).value === 'service.memory.usage.percent')
+    ).toBe(true)
     expect(wrapper.text()).toContain('JSON 配置已应用到表单')
   })
 
@@ -493,7 +563,12 @@ describe('CustomDashboardPage route context reactivity', () => {
       items: [{ cardId: 'raw-card-1', status: 'success', data: { kind: 'number', value: 48 } }]
     })
 
-    const wrapper = mount(CustomDashboardPage, { props: { startInEditMode: true } })
+    const wrapper = mount(CustomDashboardPage)
+    await flushPromises()
+
+    const editModeButton = wrapper.findAll('button').find((item) => item.text() === '编辑布局')
+    expect(editModeButton).toBeTruthy()
+    await editModeButton!.trigger('click')
     await flushPromises()
 
     const editButton = wrapper.findAll('button').find((item) => item.text() === '编辑组件')
@@ -517,7 +592,7 @@ describe('CustomDashboardPage route context reactivity', () => {
     const wrapper = mount(CustomDashboardPage)
     await flushPromises()
 
-    const metricRefInput = wrapper.find('input[placeholder="例如 service.cpu.usage"]')
+    const metricRefInput = wrapper.find('input[placeholder*="指标"], input[placeholder="例如 service.cpu.usage"]')
     await metricRefInput.setValue('service.cpu.usage')
 
     const visualizationSelect = wrapper
@@ -536,5 +611,274 @@ describe('CustomDashboardPage route context reactivity', () => {
     expect(apiMocks.previewMetricCard).toHaveBeenCalled()
     expect(previewPanel.text()).toContain('gauge-chart')
     expect(previewPanel.text()).not.toContain('service.cpu.usage:73')
+  })
+
+  it('passes display max and unit settings to query card charts', async () => {
+    apiMocks.getDashboardState.mockResolvedValue([
+      {
+        id: 'percent-line-card',
+        title: 'CPU 百分比',
+        visualization: 'line',
+        query: {
+          scope: 'tenant',
+          sourceKind: 'auto',
+          subject: { type: 'system' },
+          metricRef: 'service.cpu.usage',
+          aggregation: 'avg',
+          timeRange: '-5m',
+          visualizationHint: 'line',
+          display: { value: { max: 100, unit: '%' } }
+        }
+      }
+    ])
+    apiMocks.queryMetricCards.mockResolvedValue({
+      items: [
+        {
+          cardId: 'percent-line-card',
+          status: 'success',
+          data: {
+            kind: 'timeseries',
+            series: [{ name: 'CPU', points: [{ timestamp: Date.now(), value: 64 }] }]
+          }
+        }
+      ]
+    })
+
+    const wrapper = mount(CustomDashboardPage)
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('line-chart:100:%')
+  })
+
+  it('passes alert thresholds to query card line charts as guide lines', async () => {
+    apiMocks.getDashboardState.mockResolvedValue([
+      {
+        id: 'percent-line-card',
+        title: 'CPU 百分比',
+        visualization: 'line',
+        query: {
+          scope: 'tenant',
+          sourceKind: 'auto',
+          subject: { type: 'system' },
+          metricRef: 'service.cpu.usage',
+          aggregation: 'avg',
+          timeRange: '-5m',
+          visualizationHint: 'line',
+          display: { value: { max: 100, unit: '%' } },
+          alert: {
+            enabled: true,
+            operator: '>',
+            threshold: 80,
+            unit: '%',
+            duration: 5,
+            level: 'warning',
+            channels: ['Email']
+          }
+        }
+      }
+    ])
+    apiMocks.queryMetricCards.mockResolvedValue({
+      items: [
+        {
+          cardId: 'percent-line-card',
+          status: 'success',
+          data: {
+            kind: 'timeseries',
+            series: [{ name: 'CPU', points: [{ timestamp: Date.now(), value: 64 }] }]
+          }
+        }
+      ]
+    })
+
+    const wrapper = mount(CustomDashboardPage)
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('line-chart:100:%:警告:80:%')
+  })
+
+  it('saves builder display limits and creates alert rules from thresholds', async () => {
+    apiMocks.validateMetricQuery.mockResolvedValue({ valid: true, issues: [], supported: true })
+    const wrapper = mount(CustomDashboardPage)
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('展示与规则')
+
+    const maxInput = wrapper.find('input[placeholder="例如 100"]')
+    expect(maxInput.exists()).toBe(true)
+    await maxInput.setValue('100')
+
+    const alertSwitch = wrapper.find('input[type="checkbox"]')
+    expect(alertSwitch.exists()).toBe(true)
+    await alertSwitch.setValue(true)
+    await flushPromises()
+
+    const thresholdInput = wrapper.find('input[placeholder="例如 85"]')
+    expect(thresholdInput.exists()).toBe(true)
+    await thresholdInput.setValue('80')
+
+    const saveButton = wrapper.findAll('button').find((item) => item.text() === '确认')
+    expect(saveButton).toBeTruthy()
+    await saveButton!.trigger('click')
+    await flushPromises()
+
+    expect(apiMocks.validateMetricQuery).toHaveBeenCalledWith(
+      expect.objectContaining({
+        display: { value: { min: 0, max: 100, unit: '%' } },
+        alert: expect.objectContaining({
+          enabled: true,
+          operator: '>',
+          threshold: 80,
+          unit: '%',
+          rules: expect.arrayContaining([
+            expect.objectContaining({ level: 'warning', threshold: 80 }),
+            expect.objectContaining({ level: 'critical', threshold: 95 })
+          ])
+        })
+      }),
+      'system'
+    )
+    expect(apiMocks.saveDashboardState).toHaveBeenLastCalledWith(
+      'starlight_dashboard_layout',
+      expect.arrayContaining([
+        expect.objectContaining({
+          query: expect.objectContaining({
+            display: { value: { min: 0, max: 100, unit: '%' } },
+            alert: expect.objectContaining({
+              enabled: true,
+              threshold: 80,
+              rules: expect.arrayContaining([
+                expect.objectContaining({ level: 'warning', threshold: 80 }),
+                expect.objectContaining({ level: 'critical', threshold: 95 })
+              ])
+            })
+          })
+        })
+      ])
+    )
+    expect(apiMocks.saveAlertRule).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: 'CPU 趋势 警告阈值告警',
+        service: 'svc-1',
+        metric: 'service.cpu.usage',
+        operator: '>',
+        threshold: 80,
+        unit: '%',
+        duration: 5,
+        level: 'warning',
+        enabled: true,
+        channels: ['Email']
+      })
+    )
+    expect(apiMocks.saveAlertRule).toHaveBeenCalledWith(
+      expect.objectContaining({
+        name: 'CPU 趋势 严重阈值告警',
+        threshold: 95,
+        duration: 3,
+        level: 'critical'
+      })
+    )
+    expect(apiMocks.saveDashboardState).toHaveBeenLastCalledWith(
+      'starlight_dashboard_layout',
+      expect.arrayContaining([
+        expect.objectContaining({
+          query: expect.objectContaining({
+            alert: expect.objectContaining({
+              enabled: true,
+              threshold: 80,
+              ruleId: 'rule-1',
+              rules: expect.arrayContaining([
+                expect.objectContaining({ level: 'warning', threshold: 80, ruleId: 'rule-1' }),
+                expect.objectContaining({ level: 'critical', threshold: 95, ruleId: 'rule-1' })
+              ])
+            })
+          })
+        })
+      ])
+    )
+    expect(wrapper.text()).toContain('警告')
+    expect(wrapper.text()).toContain('严重')
+    expect(wrapper.text()).toContain('> 80%，持续 5 分钟，通知 Email')
+  })
+
+  it('lets users add another alert threshold in the card builder', async () => {
+    const wrapper = mount(CustomDashboardPage)
+    await flushPromises()
+
+    const alertSwitch = wrapper.find('input[type="checkbox"]')
+    await alertSwitch.setValue(true)
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('添加阈值')
+    expect(wrapper.findAll('input[placeholder="例如 85"]')).toHaveLength(1)
+
+    const addThresholdButton = wrapper.findAll('button').find((item) => item.text() === '添加阈值')
+    expect(addThresholdButton).toBeTruthy()
+    await addThresholdButton!.trigger('click')
+    await flushPromises()
+
+    expect(wrapper.findAll('input[placeholder="例如 85"]')).toHaveLength(2)
+  })
+
+  it('updates existing alert rules when editing threshold cards', async () => {
+    routeState.query = { scope: 'system', serviceId: 'svc-1', prefillTitle: '', startAdd: '0' }
+    authState.user = { isAdmin: true }
+    apiMocks.getDashboardState.mockResolvedValue([
+      {
+        id: 'cpu-card',
+        title: 'CPU 百分比',
+        visualization: 'line',
+        sourceMode: 'form-builder',
+        query: {
+          scope: 'system',
+          sourceKind: 'auto',
+          subject: { type: 'service', id: 'svc-1' },
+          metricRef: 'service.cpu.usage',
+          aggregation: 'avg',
+          timeRange: '-5m',
+          visualizationHint: 'line',
+          display: { value: { min: 0, max: 100, unit: '%' } },
+          alert: {
+            ruleId: 'rule-1',
+            enabled: true,
+            operator: '>',
+            threshold: 75,
+            unit: '%',
+            duration: 5,
+            level: 'warning',
+            channels: ['Email']
+          }
+        }
+      }
+    ])
+    apiMocks.queryMetricCards.mockResolvedValue({ items: [] })
+    apiMocks.validateMetricQuery.mockResolvedValue({ valid: true, issues: [], supported: true })
+
+    const wrapper = mount(CustomDashboardPage, { props: { startInEditMode: true } })
+    await flushPromises()
+
+    const editButton = wrapper.findAll('button').find((item) => item.text() === '编辑组件')
+    expect(editButton).toBeTruthy()
+    await editButton!.trigger('click')
+    await flushPromises()
+
+    const thresholdInput = wrapper.find('input[placeholder="例如 85"]')
+    expect(thresholdInput.exists()).toBe(true)
+    await thresholdInput.setValue('85')
+
+    const saveButton = wrapper.findAll('button').find((item) => item.text() === '确认')
+    expect(saveButton).toBeTruthy()
+    await saveButton!.trigger('click')
+    await flushPromises()
+
+    expect(apiMocks.saveAlertRule).not.toHaveBeenCalled()
+    expect(apiMocks.updateAlertRule).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'rule-1',
+        service: 'svc-1',
+        metric: 'service.cpu.usage',
+        threshold: 85,
+        unit: '%'
+      })
+    )
   })
 })

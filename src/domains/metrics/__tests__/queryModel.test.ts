@@ -26,8 +26,11 @@ describe('queryModel', () => {
       METRICS_EXPLORER_CARD_IDS.responseTime,
       METRICS_EXPLORER_CARD_IDS.requestStats
     ])
+    const cpuCard = request.cards.find((card) => card.cardId === METRICS_EXPLORER_CARD_IDS.cpu)
     const memoryCard = request.cards.find((card) => card.cardId === METRICS_EXPLORER_CARD_IDS.memory)
+    expect(cpuCard?.query.display?.value).toEqual({ min: 0, max: 100, unit: '%' })
     expect(memoryCard?.query.metricRef).toBe(SERVICE_MEMORY_USAGE_PERCENT_METRIC_REF)
+    expect(memoryCard?.query.display?.value).toEqual({ min: 0, max: 100, unit: '%' })
     expect(request.cards[0].query.subject).toEqual({ type: 'service', id: 'svc-1' })
   })
 

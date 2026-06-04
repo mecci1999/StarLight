@@ -6,7 +6,7 @@ export default defineComponent({
   setup() {
     return () => (
       <CustomDashboardPage
-        pageTitle="面板"
+        pageTitle="看板"
         pageSubtitle="拖拽组件，连接数据，快速构建可视化平台"
         storageKey="starlight_service_overview_layout"
         templateStorageKey="starlight_service_overview_templates"

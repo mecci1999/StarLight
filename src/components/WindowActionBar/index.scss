@@ -12,6 +12,14 @@
   user-select: none;
   -webkit-app-region: drag;
 
+  .no-drag,
+  button,
+  input,
+  .n-button,
+  .n-popover {
+    -webkit-app-region: no-drag;
+  }
+
   &--with-slot {
     justify-content: space-between;
   }

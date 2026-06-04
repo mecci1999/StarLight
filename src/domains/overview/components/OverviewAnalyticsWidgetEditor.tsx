@@ -40,6 +40,7 @@ export default defineComponent({
     showComparisonSelector: { type: Boolean, default: true },
     showDisplayOptions: { type: Boolean, default: true },
     showVisualizationOptions: { type: Boolean, default: true },
+    confirmLoading: { type: Boolean, default: false },
     settingsSectionTitle: { type: String, default: '专项设置' },
     settingsSectionDescription: { type: String, default: '补充当前卡片专属的数据来源和展示限制。' }
   },
@@ -490,8 +491,10 @@ export default defineComponent({
           ),
           footer: () => (
             <div class="overview-analytics-editor__footer">
-              <NButton onClick={() => handleDrawerVisibility(false)}>取消</NButton>
-              <NButton type="primary" onClick={() => emit('confirm')}>
+              <NButton disabled={props.confirmLoading} onClick={() => handleDrawerVisibility(false)}>
+                取消
+              </NButton>
+              <NButton type="primary" loading={props.confirmLoading} onClick={() => emit('confirm')}>
                 {props.mode === 'create' ? '添加卡片' : '保存配置'}
               </NButton>
             </div>

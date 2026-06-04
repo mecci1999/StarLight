@@ -146,7 +146,14 @@ describe('overviewWidgetQueryPreviewModel', () => {
           metricRef: SERVICE_MEMORY_USAGE_PERCENT_METRIC_REF,
           aggregation: 'avg',
           timeRange: '-1h',
-          visualizationHint: 'line'
+          visualizationHint: 'line',
+          display: {
+            value: {
+              min: 0,
+              max: 100,
+              unit: '%'
+            }
+          }
         }
       },
       editor: { timeRange: '4h', visualization: 'bar' }
@@ -158,6 +165,7 @@ describe('overviewWidgetQueryPreviewModel', () => {
     expect(result.query?.subject).toEqual({ type: 'service', id: 'svc-1' })
     expect(result.query?.timeRange).toBe('-4h')
     expect(result.query?.visualizationHint).toBe('bar')
+    expect(result.query?.display?.value).toEqual({ min: 0, max: 100, unit: '%' })
   })
 
   it('requires target service for darwin instance table', () => {

@@ -72,7 +72,7 @@ const createSidebarModule = (
 
 export const HOME_SIDEBAR_MODULES: HomeSidebarModule[] = [
   createSidebarModule('service-overview', '/home/overview', ['/home/overview-v2', '/home/service-overview'], {
-    title: '面板',
+    title: '看板',
     group: 'overview',
     icon: icons.overview,
     order: 10,
@@ -126,14 +126,6 @@ export const HOME_SIDEBAR_MODULES: HomeSidebarModule[] = [
     order: 65,
     visibility: 'sidebar',
     sidebarKey: 'metrics-catalog'
-  }),
-  createSidebarModule('custom-dashboard', '/home/custom-dashboard', undefined, {
-    title: '自定义看板',
-    group: 'overview',
-    icon: icons.overview,
-    order: 70,
-    visibility: 'sidebar',
-    sidebarKey: 'custom-dashboard'
   }),
   createSidebarModule('trace-explorer', '/home/investigate/traces', ['/home/trace-v2', '/home/trace-explorer'], {
     title: '链路追踪',
@@ -228,6 +220,7 @@ export const HOME_ROUTE_META_BY_NAME: Record<string, HomeRouteMeta> = {
   'investigate-metrics': routeMeta('metrics-analysis'),
   'metrics-catalog': routeMeta('metrics-catalog'),
   'metrics-v2': routeMeta('metrics-analysis'),
+  settings: routeMeta('admin-ingestion', { title: '应用设置', visibility: 'hidden', sidebarKey: 'admin-ingestion' }),
   'admin-ingestion': routeMeta('admin-ingestion'),
   'admin-ingestion-v2': routeMeta('admin-ingestion', { visibility: 'hidden' }),
   'admin-onboarding-v2': {
@@ -246,7 +239,11 @@ export const HOME_ROUTE_META_BY_NAME: Record<string, HomeRouteMeta> = {
   'instance-monitor': routeMeta('instance-monitor'),
   'real-time-monitor': routeMeta('real-time-monitor'),
   'metrics-analysis': routeMeta('metrics-analysis', { visibility: 'hidden' }),
-  'custom-dashboard': routeMeta('custom-dashboard'),
+  'custom-dashboard': routeMeta('service-overview', {
+    title: '看板',
+    visibility: 'hidden',
+    sidebarKey: 'service-overview'
+  }),
   'alert-list': routeMeta('alert-list'),
   'alerts-inbox-incident': routeMeta('alert-list', { title: '告警收件箱', visibility: 'hidden' }),
   'alerts-inbox': routeMeta('alert-list', { title: '告警收件箱', visibility: 'hidden' }),

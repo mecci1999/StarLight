@@ -290,12 +290,12 @@ export default defineComponent({
     const startCardCreation = (item: MetricsCatalogSchemaItem) => {
       const preset = mapMetricToDashboardPreset(item)
       if (!preset) {
-        message.warning('当前指标还不能直接映射到现有看板组件，请先到指标分析页查看')
+        message.warning('当前指标还不能直接映射到现有面板卡片，请先到指标分析页查看')
         return
       }
 
       router.push({
-        path: '/home/custom-dashboard',
+        path: '/home/overview',
         query: {
           prefillMetric: preset.metric,
           prefillType: preset.type,

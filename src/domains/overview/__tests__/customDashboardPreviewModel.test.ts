@@ -34,8 +34,70 @@ describe('customDashboardPreviewModel', () => {
       scope: 'system',
       metricRef: 'service.cpu.usage',
       aggregation: 'avg',
-      visualizationHint: 'line'
+      visualizationHint: 'line',
+      display: { value: { unit: '%' } }
     })
+  })
+
+  it('maps builder display and alert controls into QuerySpec', () => {
+    const query = buildCustomDashboardQuerySpec(
+      {
+        ...baseDraft,
+        displayMin: 0,
+        displayMax: 100,
+        displayUnit: '%',
+        alertEnabled: true,
+        alertOperator: '>',
+        alertThreshold: 80,
+        alertDuration: 5,
+        alertLevel: 'warning',
+        alertChannels: ['Email', 'Webhook']
+      },
+      'tenant'
+    )
+
+    expect(query?.display?.value).toEqual({ min: 0, max: 100, unit: '%' })
+    expect(query?.alert).toEqual({
+      enabled: true,
+      operator: '>',
+      threshold: 80,
+      unit: '%',
+      duration: 5,
+      level: 'warning',
+      channels: ['Email', 'Webhook'],
+      rules: [
+        {
+          level: 'warning',
+          operator: '>',
+          threshold: 80,
+          unit: '%',
+          duration: 5,
+          channels: ['Email', 'Webhook']
+        }
+      ]
+    })
+  })
+
+  it('maps multi-level alert rules into QuerySpec while keeping legacy fields', () => {
+    const query = buildCustomDashboardQuerySpec(
+      {
+        ...baseDraft,
+        displayUnit: '%',
+        alertEnabled: true,
+        alertRules: [
+          { level: 'warning', operator: '>', threshold: 85, duration: 5, channels: ['Email'] },
+          { level: 'critical', operator: '>', threshold: 95, duration: 3, channels: ['Email', 'Webhook'] }
+        ]
+      },
+      'tenant'
+    )
+
+    expect(query?.alert?.threshold).toBe(85)
+    expect(query?.alert?.level).toBe('warning')
+    expect(query?.alert?.rules).toEqual([
+      { level: 'warning', operator: '>', threshold: 85, unit: '%', duration: 5, channels: ['Email'] },
+      { level: 'critical', operator: '>', threshold: 95, unit: '%', duration: 3, channels: ['Email', 'Webhook'] }
+    ])
   })
 
   it('returns null for alerts preview queries', () => {
@@ -106,8 +168,15 @@ describe('customDashboardPreviewModel', () => {
       aggregation: 'latest',
       visualization: 'donut',
       timeRange: '-15m',
-      groupBy: ['service']
+      groupBy: ['service'],
+      alertEnabled: false
     })
+  })
+
+  it('validates alert threshold drafts before saving', () => {
+    expect(
+      validateCustomDashboardDraft({ ...baseDraft, alertEnabled: true, alertThreshold: null, alertRules: [] }).issues
+    ).toContain('启用告警时需要填写触发阈值')
   })
 
   it('accepts structured ratio calculations in pasted QuerySpec JSON', () => {
@@ -132,6 +201,57 @@ describe('customDashboardPreviewModel', () => {
 
     expect(result.issues).toEqual([])
     expect(result.query?.calculation).toEqual(query.calculation)
+  })
+
+  it('accepts display value settings in pasted QuerySpec JSON', () => {
+    const query = {
+      scope: 'tenant' as const,
+      sourceKind: 'auto' as const,
+      subject: { type: 'system' as const },
+      metricRef: 'service.cpu.usage',
+      aggregation: 'avg' as const,
+      timeRange: '-5m',
+      visualizationHint: 'line' as const,
+      display: {
+        value: {
+          max: 100,
+          unit: '%'
+        },
+        yAxis: {
+          max: 100,
+          unit: '%'
+        }
+      }
+    }
+
+    const result = parseQuerySpecJson(JSON.stringify({ type: 'queryspec', version: 1, query }))
+
+    expect(result.issues).toEqual([])
+    expect(result.query?.display?.value).toEqual({ max: 100, unit: '%' })
+    expect(result.query?.display?.yAxis).toEqual({ max: 100, unit: '%' })
+  })
+
+  it('accepts queryspec wrapper objects from pasted QuerySpec JSON', () => {
+    const query = {
+      scope: 'tenant' as const,
+      sourceKind: 'auto' as const,
+      subject: { type: 'system' as const },
+      metricRef: 'service.qps',
+      aggregation: 'sum' as const,
+      timeRange: '-1h',
+      visualizationHint: 'line' as const,
+      display: {
+        value: {
+          min: 0,
+          unit: 'count/s'
+        }
+      }
+    }
+
+    const result = parseQuerySpecJson(JSON.stringify({ queryspec: { type: 'queryspec', version: 1, query } }))
+
+    expect(result.issues).toEqual([])
+    expect(result.query).toEqual(query)
   })
 
   it('returns readable issues for invalid QuerySpec JSON', () => {

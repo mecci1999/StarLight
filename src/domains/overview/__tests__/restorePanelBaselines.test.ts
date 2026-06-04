@@ -5,7 +5,7 @@ describe('restore panel baselines', () => {
   it('keeps persisted baselines separate from edited saved panels across restore', () => {
     const savedPanel: OverviewPanelDefinition = {
       id: 'user-panel',
-      name: '我的面板',
+      name: '我的看板',
       description: '已编辑版本',
       kind: 'user',
       editable: true,
@@ -25,7 +25,7 @@ describe('restore panel baselines', () => {
 
     const savedBaseline: OverviewPanelDefinition = {
       id: 'user-panel',
-      name: '我的面板',
+      name: '我的看板',
       description: '初始版本',
       kind: 'user',
       editable: true,
