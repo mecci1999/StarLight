@@ -111,7 +111,8 @@
   &__preview-meta,
   &__type-description,
   &__size-description,
-  &__check-description {
+  &__check-description,
+  &__hint {
     color: var(--color-text-3);
     font-size: 12px;
     line-height: 1.6;
@@ -144,6 +145,10 @@
     color: var(--color-text-2);
     font-size: 13px;
     font-weight: var(--font-weight-medium);
+  }
+
+  &__hint {
+    margin-top: -2px;
   }
 
   &__type-grid {

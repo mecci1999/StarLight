@@ -4,6 +4,7 @@ import * as alerts from './alerts'
 import * as subscription from './subscription'
 import * as auth from './auth'
 import * as user from './user'
+import * as videoUpscale from './videoUpscale'
 import url from './url'
 
 const api = {
@@ -13,6 +14,7 @@ const api = {
   subscription,
   auth,
   user,
+  videoUpscale,
   url
 }
 
@@ -22,5 +24,6 @@ export * from './alerts'
 export * from './subscription'
 export * from './auth'
 export * from './user'
+export * from './videoUpscale'
 
 export default api

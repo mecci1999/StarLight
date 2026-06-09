@@ -12,6 +12,7 @@ import type {
   OverviewWidgetVisualization,
   OverviewWidgetKind
 } from '@/domains/overview/panelModel'
+import { normalizeWidgetTags } from '@/domains/overview/panelModel'
 import './OverviewAnalyticsWidgetEditor.scss'
 
 type Option<T extends string> = {
@@ -27,6 +28,7 @@ export default defineComponent({
     mode: { type: String as PropType<'create' | 'update'>, required: true },
     draft: { type: Object as PropType<OverviewPanelWidget>, required: true },
     widgetTypeOptions: { type: Array as PropType<Array<Option<OverviewWidgetKind>>>, required: true },
+    tagOptions: { type: Array as PropType<Array<Option<string>>>, default: () => [] },
     granularityOptions: { type: Array as PropType<Array<Option<OverviewWidgetTimeGranularity>>>, required: true },
     timeRangeOptions: { type: Array as PropType<Array<Option<OverviewWidgetEditorTimeRange>>>, required: true },
     metricOptions: { type: Array as PropType<Array<Option<OverviewWidgetDisplayMetricKey>>>, required: true },
@@ -124,6 +126,11 @@ export default defineComponent({
       emit('update:draft', patch)
     }
 
+    const updateTags = (value: Array<string | number> | string | number | null) => {
+      const tags = Array.isArray(value) ? value : value ? [value] : []
+      updateDraft({ tags: normalizeWidgetTags(tags) })
+    }
+
     const updateEditor = (patch: Partial<OverviewWidgetEditorState>) => {
       emit('update:draft', {
         editor: {
@@ -176,6 +183,21 @@ export default defineComponent({
               placeholder="用于展示在卡片头部的描述文案"
               onUpdate:value={(value: string) => updateDraft({ description: value })}
             />
+          </label>
+          <label class="overview-analytics-editor__field overview-analytics-editor__field--full">
+            <span class="overview-analytics-editor__label">卡片标签</span>
+            <NSelect
+              value={props.draft.tags || []}
+              multiple
+              filterable
+              tag
+              clearable
+              maxTagCount="responsive"
+              options={props.tagOptions}
+              placeholder="输入后回车创建标签，例如：核心服务、CPU、告警"
+              onUpdateValue={updateTags}
+            />
+            <span class="overview-analytics-editor__hint">标签只用于当前前端面板筛选，不会触发额外接口请求。</span>
           </label>
           <label class="overview-analytics-editor__field overview-analytics-editor__field--full">
             <span class="overview-analytics-editor__label">备注</span>

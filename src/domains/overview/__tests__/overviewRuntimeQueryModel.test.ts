@@ -86,6 +86,43 @@ describe('overviewRuntimeQueryModel', () => {
     expect(result.requests[0].cards.map((card) => card.query.timeRange)).toEqual(['-1h', '-1h', '-7d'])
   })
 
+  it('marks query-card requests as auto-refresh when requested', () => {
+    const widgets = [
+      {
+        id: 'query-auto-refresh',
+        title: '开放查询卡',
+        kind: 'query-card',
+        size: 'M',
+        capability: 'metrics',
+        description: '',
+        config: {
+          query: {
+            scope: 'system',
+            sourceKind: 'darwin-event',
+            subject: { type: 'system' },
+            metricRef: 'service.cpu.usage',
+            aggregation: 'avg',
+            timeRange: '-1h',
+            visualizationHint: 'line'
+          }
+        },
+        editor: { timeRange: '1h', visualization: 'line', displayedMetrics: [] }
+      }
+    ] as unknown as OverviewPanelWidget[]
+
+    const result = buildOverviewCardsQueryRequest({
+      widgets,
+      scope: 'system',
+      scopedServiceName: null,
+      services,
+      refreshGenerationId: 'auto-refresh-1',
+      autoRefresh: true
+    })
+
+    expect(result.request.context.autoRefresh).toBe(true)
+    expect(result.requests[0].context.autoRefresh).toBe(true)
+  })
+
   it('maps query results by widget id', () => {
     expect(
       mapQueryResultsByWidgetId([

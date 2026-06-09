@@ -55,6 +55,11 @@ export default defineComponent({
                 <NTag size="small" bordered={false} type="info">
                   {capabilityLabels[props.widget.capability]}
                 </NTag>
+                {(props.widget.tags || []).map((tag) => (
+                  <NTag key={tag} size="small" bordered={false} type="success" class="panel-widget-card__tag">
+                    {tag}
+                  </NTag>
+                ))}
               </div>
             </div>
             <div class="panel-widget-card__description">{props.widget.description}</div>

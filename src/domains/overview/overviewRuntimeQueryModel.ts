@@ -33,6 +33,7 @@ export const buildOverviewCardsQueryRequest = (params: {
   scopedServiceName: string | null
   services: ServiceItem[]
   refreshGenerationId?: string
+  autoRefresh?: boolean
 }) => {
   const cards = params.widgets
     .map((widget) => ({
@@ -59,7 +60,7 @@ export const buildOverviewCardsQueryRequest = (params: {
     context: {
       scope: params.scope,
       timeRange: cards[0]?.query.timeRange || '-1h',
-      autoRefresh: false
+      autoRefresh: Boolean(params.autoRefresh)
     },
     cards
   }
@@ -73,7 +74,7 @@ export const buildOverviewCardsQueryRequest = (params: {
           context: {
             scope: params.scope,
             timeRange: '-1h',
-            autoRefresh: false
+            autoRefresh: Boolean(params.autoRefresh)
           },
           cards: []
         },

@@ -162,6 +162,12 @@ const routes: Array<RouteRecordRaw> = [
         component: () => import('@/domains/settings/pages/SettingsPage')
       },
       {
+        path: 'video-upscale',
+        name: 'video-upscale',
+        meta: mustGetHomeRouteMeta('video-upscale'),
+        redirect: '/home/overview'
+      },
+      {
         path: 'admin/ingestion',
         name: 'admin-ingestion',
         meta: mustGetHomeRouteMeta('admin-ingestion'),

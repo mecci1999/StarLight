@@ -72,6 +72,7 @@ import {
   type QueryAlertRule,
   type QuerySpec
 } from '@/domains/metrics/queryModel'
+import type { AlertRuleItem } from '@/types/monitor'
 import './CustomDashboardPage.scss'
 
 type QueryDashboardWidget = {
@@ -83,6 +84,8 @@ type QueryDashboardWidget = {
 }
 
 type CustomDashboardCardSourceMode = 'form-builder' | 'query-statement'
+type DashboardTagType = 'default' | 'success' | 'warning'
+type DashboardAlertRuleDraft = Omit<AlertRuleItem, 'id'> & { id?: string }
 
 export default defineComponent({
   name: 'CustomDashboardPage',
@@ -104,6 +107,7 @@ export default defineComponent({
     )
     const datasetScope = ref<MetricsDatasetScope>(routeContext.value.datasetScope)
     const isEditMode = ref(props.startInEditMode)
+    const isLargeScreenMode = ref(false)
     const loading = ref(true)
     const realtimeData = ref<any>({})
     const trendData = ref<any>({})
@@ -186,6 +190,8 @@ export default defineComponent({
       { label: '15 分钟', value: '-15m' },
       { label: '1 小时', value: '-1h' },
       { label: '4 小时', value: '-4h' },
+      { label: '6 小时', value: '-6h' },
+      { label: '12 小时', value: '-12h' },
       { label: '1 天', value: '-1d' },
       { label: '7 天', value: '-7d' },
       { label: '30 天', value: '-30d' }
@@ -219,6 +225,12 @@ export default defineComponent({
       { label: 'Webhook', value: 'Webhook' },
       { label: '站内通知', value: 'InApp' }
     ]
+
+    const largeScreenReadonlyHint = '大屏模式仅用于监控展示，请退出大屏模式后再进行编辑或配置操作'
+
+    const showLargeScreenReadonlyPrompt = () => {
+      message.warning(largeScreenReadonlyHint)
+    }
 
     const mappedCatalogItems = computed(() =>
       filterMetricsCatalog(catalogItems.value, catalogFilters.value)
@@ -355,7 +367,7 @@ export default defineComponent({
       return new Date(normalized).toLocaleString()
     }
 
-    const getMetricFreshnessType = (item: MetricsCatalogSchemaItem) => {
+    const getMetricFreshnessType = (item: MetricsCatalogSchemaItem): DashboardTagType => {
       if (!item.lastSeenAt) return 'default'
       const normalized = item.lastSeenAt < 10000000000 ? item.lastSeenAt * 1000 : item.lastSeenAt
       const ageMs = Date.now() - normalized
@@ -410,7 +422,7 @@ export default defineComponent({
       if (context.prefillTitle) {
         widgetForm.value.title = context.prefillTitle
       }
-      if (context.startAdd) {
+      if (context.startAdd && !isLargeScreenMode.value) {
         showAddModal.value = true
       }
 
@@ -640,6 +652,10 @@ export default defineComponent({
     }
 
     const openAddWidgetModal = () => {
+      if (isLargeScreenMode.value) {
+        showLargeScreenReadonlyPrompt()
+        return
+      }
       resetModalAssistState()
       resetWidgetForm()
       applyRouteContext(routeContext.value)
@@ -653,6 +669,10 @@ export default defineComponent({
     }
 
     const openEditWidgetModal = (widget: QueryDashboardWidget) => {
+      if (isLargeScreenMode.value) {
+        showLargeScreenReadonlyPrompt()
+        return
+      }
       resetModalAssistState()
       editingWidgetId.value = widget.id
       cardSourceMode.value = widget.sourceMode || 'form-builder'
@@ -667,6 +687,41 @@ export default defineComponent({
       rawQueryScript.value = JSON.stringify({ type: 'queryspec', version: 1, query: widget.query }, null, 2)
       compiledScript.value = rawQueryScript.value
       showAddModal.value = true
+    }
+
+    const enterLargeScreenMode = async () => {
+      isLargeScreenMode.value = true
+      isEditMode.value = false
+      if (showAddModal.value) {
+        closeWidgetModal()
+      }
+
+      try {
+        if (!document.fullscreenElement) {
+          await document.documentElement.requestFullscreen()
+        }
+      } catch (error) {
+        console.warn('Failed to enter fullscreen dashboard mode:', error)
+      }
+    }
+
+    const exitLargeScreenMode = async () => {
+      isLargeScreenMode.value = false
+      try {
+        if (document.fullscreenElement) {
+          await document.exitFullscreen()
+        }
+      } catch (error) {
+        console.warn('Failed to exit fullscreen dashboard mode:', error)
+      }
+    }
+
+    const toggleLargeScreenMode = () => {
+      if (isLargeScreenMode.value) {
+        exitLargeScreenMode()
+      } else {
+        enterLargeScreenMode()
+      }
     }
 
     const getActiveDraftQuery = () => {
@@ -881,12 +936,12 @@ export default defineComponent({
       }
     }
 
-    const buildAlertRulesFromQuery = (title: string, query: QuerySpec) => {
+    const buildAlertRulesFromQuery = (title: string, query: QuerySpec): DashboardAlertRuleDraft[] => {
       const rules = normalizeQueryAlertRules(query.alert)
       if (!rules.length) return []
       const service = query.subject.type === 'service' ? query.subject.id || 'all' : 'all'
       return rules.map((rule) => ({
-        id: rule.ruleId,
+        ...(rule.ruleId ? { id: rule.ruleId } : {}),
         name: `${title} ${alertLevelMeta[rule.level]?.label || rule.level}阈值告警`,
         service,
         metric: query.metricRef,
@@ -903,7 +958,12 @@ export default defineComponent({
     const createAlertRuleForQuery = async (title: string, query: QuerySpec) => {
       const rules = buildAlertRulesFromQuery(title, query)
       if (!rules.length) return []
-      return Promise.all(rules.map((rule) => (rule.id ? updateAlertRule(rule as any) : saveAlertRule(rule))))
+      return Promise.all(
+        rules.map((rule) => {
+          if (!rule.id) return saveAlertRule(rule)
+          return updateAlertRule({ ...rule, id: rule.id })
+        })
+      )
     }
 
     const renderWidgetAlertSummary = (query: QuerySpec) => {
@@ -1031,6 +1091,11 @@ export default defineComponent({
     }
 
     const handleAddDashboard = async () => {
+      if (isLargeScreenMode.value) {
+        showLargeScreenReadonlyPrompt()
+        return
+      }
+
       const title = widgetForm.value.title.trim()
       if (!title) {
         message.warning('请输入组件名称')
@@ -1105,6 +1170,11 @@ export default defineComponent({
     }
 
     const removeWidget = (id: string) => {
+      if (isLargeScreenMode.value) {
+        showLargeScreenReadonlyPrompt()
+        return
+      }
+
       customWidgets.value = customWidgets.value.filter((widget) => widget.id !== id)
       const nextResults = { ...widgetResults.value }
       delete nextResults[id]
@@ -1194,24 +1264,51 @@ export default defineComponent({
     }
 
     return () => (
-      <div class="custom-dashboard-page">
+      <div class={['custom-dashboard-page', isLargeScreenMode.value ? 'custom-dashboard-page--large-screen' : '']}>
         <div class="custom-dashboard-page__header">
           <div>
-            <h1 class="custom-dashboard-page__title">{props.pageTitle}</h1>
-            <p class="custom-dashboard-page__subtitle">{props.pageSubtitle}</p>
+            {isLargeScreenMode.value ? <div class="custom-dashboard-page__kicker">Starlight Monitor Wall</div> : null}
+            <h1 class="custom-dashboard-page__title">{isLargeScreenMode.value ? '监控大屏' : props.pageTitle}</h1>
+            <p class="custom-dashboard-page__subtitle">
+              {isLargeScreenMode.value ? '只读展示模式 · 自动刷新关键指标、趋势与告警态势' : props.pageSubtitle}
+            </p>
           </div>
           {!props.hideControls && (
             <NSpace>
-              <NButton type="primary" onClick={openAddWidgetModal}>
+              <NButton type="primary" secondary={isLargeScreenMode.value} onClick={openAddWidgetModal}>
                 添加组件
               </NButton>
-              <NButton onClick={() => (isEditMode.value = !isEditMode.value)}>
+              <NButton
+                onClick={() => {
+                  if (isLargeScreenMode.value) {
+                    showLargeScreenReadonlyPrompt()
+                    return
+                  }
+                  isEditMode.value = !isEditMode.value
+                }}>
                 {isEditMode.value ? '完成编辑' : '编辑布局'}
               </NButton>
               <NButton onClick={loadData}>刷新数据</NButton>
+              <NButton type={isLargeScreenMode.value ? 'warning' : 'primary'} ghost onClick={toggleLargeScreenMode}>
+                {isLargeScreenMode.value ? '退出大屏模式' : '大屏模式'}
+              </NButton>
             </NSpace>
           )}
         </div>
+
+        {isLargeScreenMode.value ? (
+          <div class="custom-dashboard-page__large-screen-banner">
+            <div>
+              <strong>只读监控展示中</strong>
+              <span>
+                当前模式隐藏编辑流程，适合投屏、值班室和 NOC 场景。需要调整卡片或告警规则时，请先退出大屏模式。
+              </span>
+            </div>
+            <NTag bordered={false} type="success">
+              Auto Refresh · 5s
+            </NTag>
+          </div>
+        ) : null}
 
         <NGrid cols={4} xGap={16} yGap={16} class="custom-dashboard-page__stats-grid">
           <NGridItem>
@@ -1365,7 +1462,7 @@ export default defineComponent({
               {customWidgets.value.map((widget) => (
                 <NGridItem key={widget.id}>
                   <NCard title={widget.title} bordered={false} class="custom-dashboard-page__widget-card">
-                    {isEditMode.value && (
+                    {isEditMode.value && !isLargeScreenMode.value && (
                       <div class="custom-dashboard-page__widget-actions">
                         <NTag
                           size="small"
@@ -1729,7 +1826,7 @@ export default defineComponent({
                           <div class="custom-dashboard-page__catalog-item-main">
                             <div class="custom-dashboard-page__catalog-item-headline">
                               <div class="custom-dashboard-page__catalog-item-name">{item.name}</div>
-                              <NTag size="small" bordered={false} type={getMetricFreshnessType(item) as any}>
+                              <NTag size="small" bordered={false} type={getMetricFreshnessType(item)}>
                                 {getMetricFreshnessLabel(item)}
                               </NTag>
                             </div>

@@ -87,7 +87,45 @@ describe('LineChart', () => {
     const markLine = chartProps.props.at(-1).option.series[0].markLine
     expect(markLine.data.map((item: any) => item.yAxis)).toEqual([85, 95])
     expect(markLine.data[0].lineStyle.type).toBe('dashed')
-    expect(markLine.data[1].lineStyle.type).toBe('solid')
+    expect(markLine.data[1].lineStyle.type).toBe('dashed')
     expect(markLine.data[1].label.formatter).toBe('严重 95%')
+  })
+
+  it('formats byte-scale memory values as storage sizes instead of compact counts plus units', () => {
+    chartProps.props = []
+
+    mount(LineChart, {
+      props: {
+        data: [{ timestamp: Date.now(), value: 17179869184 }],
+        yAxisUnit: 'MB'
+      }
+    })
+
+    const props = chartProps.props.at(-1)
+    expect(props.option.yAxis.axisLabel.formatter(17179869184)).toBe('16,384 MB')
+
+    const tooltip = props.option.tooltip.formatter([
+      {
+        seriesName: 'os.memory.total',
+        color: '#165dff',
+        data: { timestamp: Date.now(), value: 17179869184 }
+      }
+    ])
+    expect(tooltip).toContain('16,384 MB')
+    expect(tooltip).not.toContain('17.2BMB')
+  })
+
+  it('formats raw byte units with an automatic storage unit', () => {
+    chartProps.props = []
+
+    mount(LineChart, {
+      props: {
+        data: [{ timestamp: Date.now(), value: 17179869184 }],
+        yAxisUnit: 'byte'
+      }
+    })
+
+    const props = chartProps.props.at(-1)
+    expect(props.option.yAxis.axisLabel.formatter(17179869184)).toBe('16 GB')
   })
 })

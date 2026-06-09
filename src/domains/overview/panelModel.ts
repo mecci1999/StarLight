@@ -11,12 +11,27 @@ export type OverviewWidgetEditorTimeRange =
   | '30m'
   | '1h'
   | '4h'
+  | '6h'
+  | '12h'
   | '1d'
   | '2d'
   | '7d'
   | '14d'
   | '30d'
 export type OverviewWidgetQueryEditMode = 'form-builder' | 'query-statement'
+
+export const normalizeWidgetTags = (tags: unknown): string[] => {
+  if (!Array.isArray(tags)) return []
+
+  const seen = new Set<string>()
+  return tags
+    .map((tag) => String(tag || '').trim())
+    .filter((tag) => {
+      if (!tag || seen.has(tag)) return false
+      seen.add(tag)
+      return true
+    })
+}
 export type OverviewMetricKey =
   | 'service-count'
   | 'healthy-services'
@@ -167,6 +182,7 @@ export type OverviewPanelWidget<K extends OverviewWidgetKind = OverviewWidgetKin
   capability: OverviewCapabilityKey
   description: string
   future?: boolean
+  tags?: string[]
   config: OverviewWidgetConfigMap[K]
   editor?: OverviewWidgetEditorState
 }
@@ -697,6 +713,7 @@ export const normalizeOverviewWidget = <K extends OverviewWidgetKind>(
   const normalizedWidget: OverviewPanelWidget<K> = {
     ...nextWidget,
     size,
+    tags: normalizeWidgetTags(nextWidget.tags),
     editor
   }
 

@@ -1,5 +1,6 @@
 import { computed, defineComponent, PropType } from 'vue'
 import { NButton, NCard, NDropdown, NSelect, NTag } from 'naive-ui'
+import type { DropdownOption } from 'naive-ui'
 import { type OverviewCapabilityState, type OverviewPanelDefinition } from '@/domains/overview/panelModel'
 import './PanelToolbar.scss'
 
@@ -11,7 +12,8 @@ export default defineComponent({
     capabilities: { type: Array as PropType<OverviewCapabilityState[]>, required: true },
     canRestore: { type: Boolean, default: false },
     canEdit: { type: Boolean, default: true },
-    editMode: { type: Boolean, default: false }
+    editMode: { type: Boolean, default: false },
+    largeScreenMode: { type: Boolean, default: false }
   },
   emits: [
     'toggle-edit',
@@ -21,7 +23,8 @@ export default defineComponent({
     'duplicate-panel',
     'rename-panel',
     'delete-panel',
-    'restore-panel'
+    'restore-panel',
+    'toggle-large-screen'
   ],
   setup(props, { emit }) {
     const panelSelectOptions = computed(() =>
@@ -31,8 +34,8 @@ export default defineComponent({
       }))
     )
 
-    const panelActionOptions = computed(() => {
-      const actions = [{ label: '创建用户面板副本', key: 'duplicate' }]
+    const panelActionOptions = computed<DropdownOption[]>(() => {
+      const actions: DropdownOption[] = [{ label: '创建用户面板副本', key: 'duplicate' }]
       if (props.panel.kind === 'user') {
         actions.push({ label: '重命名当前面板', key: 'rename' })
         if (props.canRestore) {
@@ -43,7 +46,7 @@ export default defineComponent({
       return actions
     })
 
-    const handlePanelAction = (key: string) => {
+    const handlePanelAction = (key: string | number) => {
       if (key === 'duplicate') emit('duplicate-panel')
       if (key === 'rename') emit('rename-panel')
       if (key === 'restore') emit('restore-panel')
@@ -80,7 +83,7 @@ export default defineComponent({
           </div>
           <div class="panel-toolbar__actions">
             <div class="panel-toolbar__buttons">
-              <NDropdown trigger="click" options={panelActionOptions.value as any} onSelect={handlePanelAction}>
+              <NDropdown trigger="click" options={panelActionOptions.value} onSelect={handlePanelAction}>
                 <NButton secondary>面板操作</NButton>
               </NDropdown>
               <NButton secondary onClick={() => emit('save-default')}>
@@ -88,6 +91,13 @@ export default defineComponent({
               </NButton>
               <NButton secondary disabled={!props.canEdit} onClick={() => emit('toggle-edit')}>
                 {props.editMode ? '完成编辑' : '编辑面板'}
+              </NButton>
+              <NButton
+                secondary={!props.largeScreenMode}
+                type={props.largeScreenMode ? 'warning' : 'primary'}
+                ghost={props.largeScreenMode}
+                onClick={() => emit('toggle-large-screen')}>
+                {props.largeScreenMode ? '退出大屏模式' : '大屏模式'}
               </NButton>
               {props.editMode && props.canEdit ? (
                 <NButton type="primary" onClick={() => emit('add-widget')}>

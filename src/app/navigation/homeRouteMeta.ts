@@ -7,6 +7,7 @@ import {
   GridOutline,
   ListOutline,
   NotificationsOutline,
+  SparklesOutline,
   ServerOutline,
   SettingsOutline,
   ShieldCheckmarkOutline,
@@ -44,6 +45,7 @@ const icons = {
   billing: markRaw(WalletOutline),
   exception: markRaw(ShieldCheckmarkOutline),
   logs: markRaw(DocumentTextOutline),
+  media: markRaw(SparklesOutline),
   metrics: markRaw(StatsChartOutline),
   overview: markRaw(GridOutline),
   realtime: markRaw(ServerOutline),
@@ -156,6 +158,14 @@ export const HOME_SIDEBAR_MODULES: HomeSidebarModule[] = [
     visibility: 'sidebar',
     sidebarKey: 'exception-analysis'
   }),
+  createSidebarModule('video-upscale', '/home/video-upscale', undefined, {
+    title: '4K 视频增强',
+    group: 'monitor',
+    icon: icons.media,
+    order: 115,
+    visibility: 'hidden',
+    sidebarKey: 'video-upscale'
+  }),
   createSidebarModule('alert-list', '/home/alerts/inbox', ['/home/alert-list', '/home/alerts-v2'], {
     title: '告警列表',
     group: 'alerts',
@@ -249,6 +259,7 @@ export const HOME_ROUTE_META_BY_NAME: Record<string, HomeRouteMeta> = {
   'alerts-inbox': routeMeta('alert-list', { title: '告警收件箱', visibility: 'hidden' }),
   'alert-notifications': routeMeta('alert-list', { title: '通知历史', visibility: 'hidden' }),
   'alert-rules': routeMeta('alert-rules'),
+  'video-upscale': routeMeta('video-upscale', { visibility: 'hidden' }),
   'investigate-logs': routeMeta('log-center'),
   'log-center': routeMeta('log-center'),
   'service-logs': routeMeta('log-center', { title: '服务日志', visibility: 'hidden' }),

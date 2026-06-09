@@ -69,11 +69,35 @@ describe('BarChart', () => {
     expect(props.option.series[0].itemStyle.borderRadius).toBe(0)
     expect(props.option.series[0].itemStyle.color).toContain('rgba(')
     expect(props.option.series[0].itemStyle.shadowBlur).toBeUndefined()
-    expect(props.option.series[0].data[0].itemStyle.color).toContain('0.18')
-    expect(props.option.series[0].emphasis.itemStyle.color).toContain('0.34')
+    expect(props.option.series[0].data[0].itemStyle.color).toContain('0.42')
+    expect(props.option.series[0].emphasis.itemStyle.color).toContain('0.68')
     expect(props.option.tooltip.axisPointer.type).toBe('line')
     expect(props.option.tooltip.extraCssText).toContain('box-shadow: none')
     expect(props.option.yAxis.splitLine.lineStyle.type).toBe('dashed')
     expect(props.option.xAxis.axisLabel.formatter('metrics-query · v2.query.cards')).toBe('metrics-query · v…')
+  })
+
+  it('formats byte-scale memory values as storage sizes instead of compact counts plus units', () => {
+    chartProps.props = []
+
+    mount(BarChart, {
+      props: {
+        data: [{ name: 'os.memory.total', value: 17179869184 }],
+        yAxisUnit: 'MB'
+      }
+    })
+
+    const props = chartProps.props.at(-1)
+    expect(props.option.yAxis.axisLabel.formatter(17179869184)).toBe('16,384 MB')
+
+    const tooltip = props.option.tooltip.formatter([
+      {
+        seriesName: 'os.memory.total',
+        color: '#165dff',
+        data: { value: 17179869184 }
+      }
+    ])
+    expect(tooltip).toContain('16,384 MB')
+    expect(tooltip).not.toContain('17.2BMB')
   })
 })

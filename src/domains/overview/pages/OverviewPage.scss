@@ -4,6 +4,16 @@
   padding: 24px;
   background: var(--color-bg-1);
   border-top-left-radius: 8px;
+  transition:
+    background var(--duration-normal) var(--ease-default),
+    color var(--duration-normal) var(--ease-default);
+
+  &__large-screen-exit {
+    position: fixed;
+    top: 16px;
+    right: 18px;
+    z-index: 20;
+  }
 
   &__grid-item,
   &__widget-shell {
@@ -100,7 +110,7 @@
   &__skeleton {
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 18px;
   }
 
   &__skeleton-header {
@@ -108,13 +118,14 @@
     align-items: center;
     justify-content: space-between;
     gap: 16px;
-    padding: 16px 18px;
-    border: 1px solid color-mix(in srgb, var(--color-primary-6) 12%, var(--color-border-1));
-    border-radius: calc(var(--radius-lg) + 4px);
+    padding: 18px 20px;
+    border: 1px solid color-mix(in srgb, var(--color-border-1) 86%, var(--color-primary-6));
+    border-radius: calc(var(--radius-lg) + 2px);
     background:
-      radial-gradient(circle at 8% 0%, color-mix(in srgb, var(--color-primary-6) 14%, transparent), transparent 34%),
-      linear-gradient(135deg, color-mix(in srgb, var(--color-bg-2) 92%, white), var(--color-fill-1));
-    box-shadow: 0 16px 40px color-mix(in srgb, var(--color-primary-6) 8%, transparent);
+      linear-gradient(90deg, color-mix(in srgb, var(--color-primary-6) 8%, transparent), transparent 42%) top left /
+        100% 1px no-repeat,
+      linear-gradient(180deg, var(--color-bg-2), color-mix(in srgb, var(--color-fill-1) 82%, var(--color-bg-2)));
+    box-shadow: 0 10px 28px color-mix(in srgb, var(--color-text-1) 5%, transparent);
   }
 
   &__skeleton-kicker,
@@ -127,20 +138,15 @@
   &__skeleton-status span {
     position: relative;
     overflow: hidden;
-    border-radius: 999px;
-    background: color-mix(in srgb, var(--color-fill-3) 68%, var(--color-bg-2));
+    border-radius: 6px;
+    background: color-mix(in srgb, var(--color-fill-3) 58%, var(--color-bg-2));
 
     &::after {
       position: absolute;
       inset: 0;
       transform: translateX(-100%);
-      background: linear-gradient(
-        90deg,
-        transparent,
-        color-mix(in srgb, white 42%, transparent),
-        transparent
-      );
-      animation: overview-skeleton-shimmer 1.45s ease-in-out infinite;
+      background: linear-gradient(90deg, transparent, color-mix(in srgb, white 34%, transparent), transparent);
+      animation: overview-skeleton-shimmer 1.6s ease-in-out infinite;
       content: '';
     }
   }
@@ -152,9 +158,9 @@
 
   &__skeleton-title {
     width: min(360px, 58vw);
-    height: 22px;
+    height: 20px;
     margin-top: 10px;
-    border-radius: 12px;
+    border-radius: 8px;
   }
 
   &__skeleton-status {
@@ -166,10 +172,11 @@
     white-space: nowrap;
 
     span {
-      width: 8px;
-      height: 8px;
-      background: color-mix(in srgb, var(--color-primary-6) 64%, var(--color-fill-2));
-      box-shadow: 0 0 0 5px color-mix(in srgb, var(--color-primary-6) 10%, transparent);
+      width: 7px;
+      height: 7px;
+      border-radius: 2px;
+      background: color-mix(in srgb, var(--color-primary-6) 58%, var(--color-fill-2));
+      box-shadow: 0 0 0 4px color-mix(in srgb, var(--color-primary-6) 8%, transparent);
     }
   }
 
@@ -181,11 +188,10 @@
     min-height: 232px;
     padding: 18px;
     border: 1px solid var(--color-border-1);
-    border-radius: calc(var(--radius-lg) + 2px);
+    border-radius: var(--radius-lg);
     background:
-      linear-gradient(180deg, color-mix(in srgb, var(--color-bg-2) 96%, white), var(--color-fill-1)),
-      var(--color-bg-2);
-    box-shadow: var(--shadow-sm);
+      linear-gradient(180deg, color-mix(in srgb, var(--color-bg-2) 94%, white), var(--color-fill-1)), var(--color-bg-2);
+    box-shadow: 0 8px 22px color-mix(in srgb, var(--color-text-1) 4%, transparent);
 
     &--s {
       min-height: 210px;
@@ -205,13 +211,12 @@
 
   &__skeleton-card-title {
     width: 42%;
-    height: 16px;
-    border-radius: 10px;
+    height: 14px;
   }
 
   &__skeleton-pill {
     width: 74px;
-    height: 22px;
+    height: 20px;
   }
 
   &__skeleton-card-subtitle {
@@ -221,19 +226,29 @@
   }
 
   &__skeleton-chart {
+    position: relative;
     display: flex;
     align-items: flex-end;
-    gap: 10px;
+    gap: 8px;
     height: 112px;
     margin-top: 22px;
-    padding: 18px;
-    border-radius: var(--radius-lg);
-    background: color-mix(in srgb, var(--color-fill-1) 82%, white);
+    padding: 18px 18px 14px;
+    border: 1px solid color-mix(in srgb, var(--color-border-1) 72%, transparent);
+    border-radius: var(--radius-md);
+    background:
+      linear-gradient(color-mix(in srgb, var(--color-border-1) 48%, transparent) 1px, transparent 1px) 0 0 / 100% 28px,
+      linear-gradient(90deg, color-mix(in srgb, var(--color-border-1) 34%, transparent) 1px, transparent 1px) 0 0 / 25%
+        100%,
+      color-mix(in srgb, var(--color-fill-1) 76%, white);
 
     span {
       flex: 1;
-      border-radius: 999px 999px 8px 8px;
-      background: color-mix(in srgb, var(--color-primary-6) 18%, var(--color-fill-3));
+      border-radius: 5px 5px 2px 2px;
+      background: linear-gradient(
+        180deg,
+        color-mix(in srgb, var(--color-primary-6) 20%, var(--color-fill-3)),
+        color-mix(in srgb, var(--color-primary-6) 10%, var(--color-fill-3))
+      );
 
       &:nth-child(1) {
         height: 44%;
@@ -261,7 +276,7 @@
 
     span {
       height: 11px;
-      border-radius: 999px;
+      border-radius: 5px;
 
       &:nth-child(1) {
         width: 92%;
@@ -1079,7 +1094,7 @@
   }
 
   &__query-number-trend {
-    display: inline-flex;
+    // display: inline-flex;
     max-width: 112px;
     flex: 0 0 auto;
     align-items: center;
@@ -1394,7 +1409,8 @@
   }
 
   &__edit-notice,
-  &__widgets-empty-card {
+  &__widgets-empty-card,
+  &__tag-filter-card {
     border-radius: var(--radius-lg);
     // box-shadow: var(--shadow-sm);
     border: none;
@@ -1403,6 +1419,111 @@
 
   &__edit-notice {
     margin-bottom: 16px;
+  }
+
+  &__tag-filter-card {
+    margin-bottom: 16px;
+    background: var(--color-bg-2);
+    border: none;
+
+    :deep(.n-card__content) {
+      padding: 10px 12px;
+    }
+  }
+
+  &__tag-filter-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 10px;
+  }
+
+  &__tag-filter-title {
+    color: var(--color-text-2);
+    font-size: 13px;
+    font-weight: var(--font-weight-medium);
+  }
+
+  &__tag-filter-description,
+  &__tag-filter-result {
+    color: var(--color-text-3);
+    font-size: 12px;
+    line-height: 1.6;
+  }
+
+  &__tag-filter-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  &__tag-filter-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    max-width: 220px;
+    padding: 5px 9px;
+    border: var(--border-width-1) solid var(--color-border-2);
+    border-radius: var(--radius-md);
+    background: var(--color-fill-1);
+    color: var(--color-text-2);
+    font-size: 13px;
+    font-weight: var(--font-weight-medium);
+    cursor: pointer;
+    transition:
+      border-color var(--duration-fast) var(--ease-default),
+      background var(--duration-fast) var(--ease-default),
+      color var(--duration-fast) var(--ease-default),
+      box-shadow var(--duration-fast) var(--ease-default);
+
+    span {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    &:hover {
+      border-color: var(--color-primary-4);
+      background: var(--color-fill-2);
+      color: var(--color-primary-7);
+    }
+
+    &.is-active {
+      border-color: var(--color-primary-5);
+      background: color-mix(in srgb, var(--color-primary-1) 55%, var(--color-fill-1));
+      color: var(--color-primary-7);
+      box-shadow: none;
+
+      .overview-page__tag-filter-count {
+        background: var(--color-primary-6);
+        color: #fff;
+      }
+    }
+  }
+
+  &__tag-filter-count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 6px;
+    border-radius: 999px;
+    background: var(--color-fill-3);
+    color: var(--color-text-2);
+    font-size: 11px;
+    font-weight: var(--font-weight-medium);
+    line-height: 18px;
+  }
+
+  &__tag-filter-result {
+    margin-top: 8px;
+
+    strong {
+      color: var(--color-text-1);
+      font-weight: var(--font-weight-semibold);
+    }
   }
 
   &__control-panel {
@@ -1507,6 +1628,14 @@
       grid-template-columns: minmax(0, 1fr) 64px;
     }
 
+    &__tag-filter-head {
+      flex-direction: column;
+    }
+
+    &__tag-filter-chip {
+      max-width: 100%;
+    }
+
     &__masonry-grid {
       grid-template-columns: minmax(0, 1fr);
       grid-auto-rows: auto !important;
@@ -1533,6 +1662,26 @@
     &__editor-discovery-item {
       flex-direction: column;
       align-items: stretch;
+    }
+  }
+
+  &--large-screen {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    min-height: 100%;
+    height: 100vh;
+    padding: 24px;
+    border-top-left-radius: 0;
+    background: var(--color-bg-1);
+    overflow: auto;
+
+    .overview-page__grid-shell {
+      min-height: calc(100vh - 48px);
+    }
+
+    .overview-page__masonry-grid {
+      gap: 20px;
     }
   }
 }

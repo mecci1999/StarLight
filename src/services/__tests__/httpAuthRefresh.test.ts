@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { ErrorType } from '@/common/exception'
 
 const requestQueueState = {
   enqueue: vi.fn(),
@@ -106,6 +107,8 @@ describe('Http auth refresh', () => {
         credentials: 'include'
       })
     )
+    const refreshRequest = vi.mocked(fetch).mock.calls[0][1] as RequestInit
+    expect((refreshRequest.headers as Record<string, string>).Cookie).toBeUndefined()
     const retriedRequest = vi.mocked(fetch).mock.calls[1][1] as RequestInit
     expect((retriedRequest.headers as Headers).get('Authorization')).toBe('Bearer new-access')
   })
@@ -150,5 +153,32 @@ describe('Http auth refresh', () => {
         credentials: 'include'
       })
     )
+  })
+
+  it('keeps text/plain 500 responses as server errors instead of network errors', async () => {
+    vi.mocked(fetch).mockResolvedValueOnce({
+      ok: false,
+      status: 500,
+      headers: new Headers({ 'Content-Type': 'text/plain' }),
+      text: async () => '',
+      json: async () => {
+        throw new SyntaxError('Unexpected end of JSON input')
+      }
+    } as unknown as Response)
+
+    const { default: Http } = await import('../http')
+
+    await expect(
+      Http('/api/auth/v1/verifyCode', {
+        method: 'POST',
+        body: { email: 'demo@example.com', type: 'login' },
+        noRetry: true,
+        suppressErrorLog: true
+      })
+    ).rejects.toMatchObject({
+      type: ErrorType.Server,
+      code: 500,
+      message: '服务端暂不可用，请确认后端网关已启动'
+    })
   })
 })

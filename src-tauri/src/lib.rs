@@ -3,7 +3,10 @@
 #[cfg(desktop)]
 mod desktops;
 #[cfg(desktop)]
-use common_cmd::{default_window_icon, screenshot, set_badge_count, set_height};
+use common_cmd::{
+    default_window_icon, get_video_upscale_task_status, probe_video_upscale_runtime, screenshot,
+    set_badge_count, set_height, start_video_upscale_local,
+};
 #[cfg(desktop)]
 use desktops::common_cmd;
 #[cfg(desktop)]
@@ -48,6 +51,9 @@ fn setup_desktop() {
             screenshot,
             set_badge_count,
             set_height,
+            probe_video_upscale_runtime,
+            start_video_upscale_local,
+            get_video_upscale_task_status,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

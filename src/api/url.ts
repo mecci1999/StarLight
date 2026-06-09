@@ -5,9 +5,10 @@ import { URLEnum, VersionEnum } from '@/types/enums'
 
 // 服务端域名
 const { VITE_SERVICE_URL } = import.meta.env
+const serviceBaseUrl = import.meta.env.DEV ? '' : VITE_SERVICE_URL
 
 // 地址前缀
-const prefix = VITE_SERVICE_URL + '/api'
+const prefix = `${serviceBaseUrl}/api`
 const authPrefix = `${prefix + URLEnum.AUTH}/${VersionEnum.V1}`
 const userPrefix = `${prefix + URLEnum.USER}/${VersionEnum.V1}`
 const alertsPrefix = `${prefix}/alerts/${VersionEnum.V1}`
@@ -16,6 +17,7 @@ const metricsPrefix = `${prefix + URLEnum.METRICS}/${VersionEnum.V1}`
 const metricsV2Prefix = `${prefix + URLEnum.METRICS}/${VersionEnum.V2}`
 const subscriptionPrefix = `${prefix + URLEnum.SUBSCRIPTION}/${VersionEnum.V1}`
 const adminMetricsPrefix = `${prefix + URLEnum.METRICS}/${VersionEnum.V1}/admin`
+const videoPrefix = `${prefix}/video/${VersionEnum.V1}`
 
 export default {
   // 验证模块
@@ -117,5 +119,9 @@ export default {
   resumeSubscription: `${subscriptionPrefix}/subscription/resume`,
   subscriptionHistory: `${subscriptionPrefix}/subscription/history`,
   billingHistory: `${subscriptionPrefix}/billing/list`,
-  paymentMethods: `${subscriptionPrefix}/payment/methods`
+  paymentMethods: `${subscriptionPrefix}/payment/methods`,
+  // 视频增强模块
+  videoUpscaleTasks: `${videoPrefix}/upscale/tasks`,
+  videoUpscaleTask: (id: string) => `${videoPrefix}/upscale/task?id=${encodeURIComponent(id)}`,
+  videoUpscaleDownload: `${videoPrefix}/upscale/download`
 }

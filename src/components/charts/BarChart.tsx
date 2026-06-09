@@ -63,6 +63,42 @@ const formatNumber = (value: number) => {
   return Number(value.toFixed(absoluteValue >= 10 ? 1 : 2)).toLocaleString()
 }
 
+const BYTE_UNITS = ['byte', 'bytes', 'b']
+const BYTES_PER_KIB = 1024
+const BYTES_PER_MIB = BYTES_PER_KIB * 1024
+const BYTES_PER_GIB = BYTES_PER_MIB * 1024
+
+const formatStorageSize = (value: number) => {
+  if (!Number.isFinite(value)) return '0 B'
+  const absoluteValue = Math.abs(value)
+  const units = [
+    { label: 'GB', size: BYTES_PER_GIB },
+    { label: 'MB', size: BYTES_PER_MIB },
+    { label: 'KB', size: BYTES_PER_KIB }
+  ]
+  const matchedUnit = units.find((unit) => absoluteValue >= unit.size)
+
+  if (!matchedUnit) return `${Number(value.toFixed(0)).toLocaleString()} B`
+  const normalizedValue = value / matchedUnit.size
+  const digits = Math.abs(normalizedValue) >= 10 ? 1 : 2
+  return `${Number(normalizedValue.toFixed(digits)).toLocaleString()} ${matchedUnit.label}`
+}
+
+const formatValueWithUnit = (value: number, unit = '') => {
+  const normalizedUnit = unit.trim().toLowerCase()
+  if (BYTE_UNITS.includes(normalizedUnit)) return formatStorageSize(value)
+
+  if (normalizedUnit === 'mb' && Math.abs(value) >= BYTES_PER_MIB) {
+    return `${Number((value / BYTES_PER_MIB).toFixed(1)).toLocaleString()} MB`
+  }
+
+  if (normalizedUnit === 'gb' && Math.abs(value) >= BYTES_PER_GIB) {
+    return `${Number((value / BYTES_PER_GIB).toFixed(2)).toLocaleString()} GB`
+  }
+
+  return `${formatNumber(value)}${unit}`
+}
+
 export default defineComponent({
   name: 'BarChart',
   props: {
@@ -135,9 +171,9 @@ export default defineComponent({
     const shouldForcePercentScale = computed(() => props.yAxisUnit === '%' && props.yAxisMax === 100)
     const hasManyCategories = computed(() => categories.value.length > 8)
     const barFillOpacity = computed(() =>
-      hasMultipleSeries.value ? (isMonitor.value ? 0.15 : 0.12) : isMonitor.value ? 0.18 : 0.14
+      hasMultipleSeries.value ? (isMonitor.value ? 0.34 : 0.24) : isMonitor.value ? 0.42 : 0.3
     )
-    const activeBarFillOpacity = computed(() => (isMonitor.value ? 0.34 : 0.28))
+    const activeBarFillOpacity = computed(() => (isMonitor.value ? 0.68 : 0.52))
 
     const option = computed(() => ({
       animationDuration: isMonitor.value ? 420 : 360,
@@ -184,7 +220,7 @@ export default defineComponent({
                 `<span style="width: 6px; height: 6px; border-radius: 999px; background: ${seriesColor}; flex-shrink: 0;"></span>`,
                 `<span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${item.seriesName}</span>`,
                 `</div>`,
-                `<strong style="color: ${chartTitleColor.value}; font-weight: 500;">${formatNumber(numericValue)}${props.yAxisUnit}</strong>`,
+                `<strong style="color: ${chartTitleColor.value}; font-weight: 500;">${formatValueWithUnit(numericValue, props.yAxisUnit)}</strong>`,
                 `</div>`
               ].join('')
             }),
@@ -296,7 +332,7 @@ export default defineComponent({
           color: isMonitor.value ? chartMutedColor.value : chartTextColor.value,
           fontSize: 10,
           margin: 8,
-          formatter: (value: number) => `${formatNumber(value)}${props.yAxisUnit}`
+          formatter: (value: number) => formatValueWithUnit(value, props.yAxisUnit)
         }
       },
       series: resolvedSeries.value
@@ -308,7 +344,7 @@ export default defineComponent({
           barMaxWidth: hasMultipleSeries.value ? 16 : 24,
           itemStyle: {
             color: toRgba(seriesItem.color, barFillOpacity.value),
-            borderColor: toRgba(seriesItem.color, isMonitor.value ? 0.18 : 0.12),
+            borderColor: toRgba(seriesItem.color, isMonitor.value ? 0.38 : 0.26),
             borderWidth: 1,
             borderRadius: 0
           },

@@ -59,6 +59,40 @@ function wait(ms: number) {
 
 const runtimeFetch = (input: RequestInfo | URL, init?: RequestInit) => globalThis.fetch(input, init)
 
+const parseResponseData = async (response: Response, isBlob?: boolean) => {
+  if (isBlob) return response.arrayBuffer()
+
+  const contentType = response.headers.get('content-type') || ''
+  if (contentType.includes('application/json')) {
+    return response.json().catch(() => null)
+  }
+
+  if (!contentType && typeof response.json === 'function') {
+    const json = await response.json().catch(() => undefined)
+    if (json !== undefined) return json
+  }
+
+  if (typeof response.text !== 'function') return null
+  const text = await response.text().catch(() => '')
+  if (!text) return null
+
+  return {
+    message: text,
+    content: text
+  }
+}
+
+const resolveHttpErrorMessage = (status: number, responseData: any, requestUrl: string) => {
+  const responseMessage = responseData?.data?.message || responseData?.message
+  if (responseMessage) return responseMessage
+
+  if (status === 500 && import.meta.env.DEV && requestUrl.startsWith('/api/')) {
+    return '服务端暂不可用，请确认后端网关已启动'
+  }
+
+  return `HTTP error! status: ${status}`
+}
+
 const getStoredToken = (name: 'ACCESS_TOKEN' | 'REFRESH_TOKEN') => {
   const cookie = getCookie(name)
   if (cookie) return cookie
@@ -208,10 +242,6 @@ async function refreshTokenAndRetry(): Promise<string> {
       'Content-Type': 'application/json'
     }
     const refreshBody = refreshToken ? JSON.stringify({ refreshToken }) : undefined
-
-    if (refreshToken) {
-      refreshHeaders.Cookie = `REFRESH_TOKEN=${refreshToken}`
-    }
 
     console.log('📤 正在使用refreshToken获取新的token', {
       refreshUrl,
@@ -456,8 +486,8 @@ async function Http<T = any>(
         }
       }
 
-      // 解析响应数据
-      const responseData = options.isBlob ? await response.arrayBuffer() : await response.json()
+      // 解析响应数据。Vite proxy 或网关错误可能返回 text/plain，不能一律按 JSON 解析。
+      const responseData = await parseResponseData(response, options.isBlob)
 
       const businessStatus = responseData?.status ?? responseData?.data?.status
       const businessCode = responseData?.code ?? responseData?.data?.code
@@ -554,8 +584,8 @@ async function Http<T = any>(
       }
 
       if (!response.ok && response.status !== 401 && response.status !== 403 && businessCode !== 40001) {
-        throw new AppException(`HTTP error! status: ${response.status}`, {
-          type: ErrorType.Network,
+        throw new AppException(resolveHttpErrorMessage(response.status, responseData, url), {
+          type: ErrorType.Server,
           code: response.status,
           details: { url, method: options.method, response: responseData }
         })

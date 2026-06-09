@@ -39,7 +39,7 @@ import {
   type MetricsDatasetScope
 } from '@/api'
 import { saveAlertRule, updateAlertRule } from '@/api/alerts'
-import type { MetricsAnalysisData, ServiceInstance, ServiceItem } from '@/types/monitor'
+import type { AlertRuleItem, MetricsAnalysisData, ServiceInstance, ServiceItem } from '@/types/monitor'
 import PageHeader from '@/shared/layout/PageHeader'
 import TimeRangeBar from '@/shared/components/TimeRangeBar'
 import ServiceHealthBadge from '@/shared/components/ServiceHealthBadge'
@@ -81,6 +81,7 @@ import {
   getAllowedWidgetVisualizations,
   getDefaultWidgetVisualization,
   normalizeOverviewWidget,
+  normalizeWidgetTags,
   overviewWidgetCatalog,
   type IncidentConfig,
   type IngestStatusConfig,
@@ -105,6 +106,7 @@ import {
   type OverviewWidgetKind,
   type OverviewWidgetSize,
   type QuickPivotConfig,
+  type OverviewCapabilityKey,
   type RiskServiceConfig,
   type TrendConfig
 } from '@/domains/overview/panelModel'
@@ -122,6 +124,7 @@ import {
   type QueryAlertRule,
   type QuerySpec
 } from '@/domains/metrics/queryModel'
+import { formatQueryNumberDisplay, formatQueryNumberValue } from '@/domains/overview/queryNumberDisplay'
 import './OverviewPage.scss'
 
 type ScopeValue = { service: string | null }
@@ -160,6 +163,10 @@ type KpiCard = {
 
 type WidgetEditorMode = 'create' | 'update'
 type WidgetEditorDraft = OverviewPanelWidget
+type QueryWidgetConfig = OverviewPanelWidget<'query-card'>['config']
+type OverviewAlertRuleDraft = Omit<AlertRuleItem, 'id'> & { id?: string }
+type OverviewResultTableColumn = { title: string; key: string }
+type OverviewResultTableRow = Record<string, unknown>
 type OverviewAutoRefreshKey = 'off' | 'auto' | '15s' | '30s' | '1m' | '5m'
 type PersistedOverviewAutoRefreshState = {
   autoRefresh: OverviewAutoRefreshKey
@@ -185,6 +192,7 @@ const DEFAULT_VIEW_STORAGE_KEY = 'starlight_overview_default_view_v5'
 const AUTO_REFRESH_STORAGE_KEY = 'starlight_overview_auto_refresh_v1'
 const DEFAULT_PANEL_ID = 'user-overview'
 const DEFAULT_SCOPE: ScopeValue = { service: null }
+const OVERVIEW_LOAD_DEDUPE_WINDOW_MS = 1500
 const compareWindowOptions = [
   { label: '上一周期', value: 'previous-period' },
   { label: '最近 24 小时', value: '24h' },
@@ -238,7 +246,9 @@ const editorTimeRangeCatalog: Record<
     { label: '最近 15 分钟', value: '15m' },
     { label: '最近 30 分钟', value: '30m' },
     { label: '最近 1 小时', value: '1h' },
-    { label: '最近 4 小时', value: '4h' }
+    { label: '最近 4 小时', value: '4h' },
+    { label: '最近 6 小时', value: '6h' },
+    { label: '最近 12 小时', value: '12h' }
   ],
   day: [
     { label: '最近 1 天', value: '1d' },
@@ -308,6 +318,99 @@ const queryAlertChannelOptions = [
   { label: 'Webhook', value: 'Webhook' },
   { label: '站内通知', value: 'InApp' }
 ]
+const widgetKindFilterTags: Record<OverviewWidgetKind, string[]> = {
+  'query-card': ['自定义查询', '指标'],
+  'metric-summary': ['指标', '摘要', '总览'],
+  'risk-service': ['服务', '风险', '健康', '稳定性', '异常排查'],
+  incident: ['告警', '事件', '稳定性', '异常排查'],
+  'ingest-status': ['接入', '状态', '采集', '健康'],
+  trend: ['指标', '趋势', '流量', '性能'],
+  'quick-pivot': ['导航', '服务', '快捷入口'],
+  'darwin-infra-summary': ['资源', '摘要', '资源水位', '容量'],
+  'darwin-infra-trend': ['资源', '趋势', '资源水位', '容量'],
+  'darwin-instance-table': ['资源', '实例', '资源水位', '容量']
+}
+const metricScenarioTags: Partial<Record<OverviewWidgetDisplayMetricKey, string[]>> = {
+  requests: ['流量', '吞吐'],
+  errors: ['稳定性', '错误', '异常排查'],
+  latency: ['性能', '延迟'],
+  'service-count': ['服务', '总览'],
+  'healthy-services': ['健康', '服务'],
+  'active-alerts': ['告警', '稳定性', '异常排查'],
+  'total-requests': ['流量', '吞吐'],
+  'error-rate': ['稳定性', '错误', '异常排查'],
+  'p95-latency': ['性能', '延迟'],
+  'ingest-success-rate': ['采集', '健康'],
+  cpu: ['资源水位', 'CPU', '容量'],
+  memory: ['资源水位', '内存', '容量']
+}
+const capabilityFilterTags: Record<OverviewCapabilityKey, string> = {
+  metrics: '指标',
+  logs: '日志',
+  traces: '链路',
+  alerts: '告警',
+  serviceCatalog: '服务',
+  ingestion: '接入'
+}
+const preferredWidgetTagOrder = [
+  '总览',
+  '健康',
+  '性能',
+  '延迟',
+  '流量',
+  '吞吐',
+  '稳定性',
+  '错误',
+  '异常排查',
+  '告警',
+  '事件',
+  '服务',
+  '接入',
+  '采集',
+  '资源',
+  '资源水位',
+  '容量',
+  '实例',
+  'CPU',
+  '内存',
+  '指标',
+  '趋势',
+  '摘要',
+  '自定义查询',
+  '快捷入口',
+  '导航',
+  '状态',
+  '风险',
+  '日志',
+  '链路'
+]
+const defaultWidgetTagCatalog = normalizeWidgetTags([
+  ...preferredWidgetTagOrder,
+  ...Object.values(widgetKindFilterTags).flat(),
+  ...Object.values(metricScenarioTags).flatMap((tags) => tags || []),
+  ...Object.values(capabilityFilterTags)
+])
+const resolveWidgetScenarioMetricKeys = (widget: OverviewPanelWidget): OverviewWidgetDisplayMetricKey[] => {
+  const editorMetrics = buildOverviewWidgetEditorState(widget).displayedMetrics || []
+  if (editorMetrics.length) return editorMetrics
+
+  if (widget.kind === 'metric-summary') return [(widget.config as MetricSummaryConfig).metricKey]
+  if (widget.kind === 'trend') return [(widget.config as TrendConfig).metric]
+  if (widget.kind === 'darwin-infra-summary') return [(widget.config as DarwinInfraSummaryConfig).metric]
+  if (widget.kind === 'darwin-infra-trend') return [(widget.config as DarwinInfraTrendConfig).metric]
+  if (widget.kind === 'darwin-instance-table') return ['cpu', 'memory']
+  if (widget.kind === 'ingest-status') return ['ingest-success-rate']
+  if (widget.kind === 'incident') return ['active-alerts']
+  if (widget.kind === 'risk-service') return ['healthy-services', 'error-rate', 'p95-latency']
+  return []
+}
+const resolveWidgetFilterTags = (widget: OverviewPanelWidget) =>
+  normalizeWidgetTags([
+    ...(widgetKindFilterTags[widget.kind] || []),
+    ...resolveWidgetScenarioMetricKeys(widget).flatMap((metric) => metricScenarioTags[metric] || []),
+    capabilityFilterTags[widget.capability],
+    ...(widget.tags || [])
+  ])
 const displayToggleLabels = {
   showTotal: { label: '合计', description: '显示所选指标的总量。' },
   showAverage: { label: '均值', description: '显示平均水平，便于快速判断波动。' },
@@ -640,6 +743,12 @@ const getRouteForQuickPivot = (key: OverviewQuickPivotLinkKey) => {
   }
 }
 
+const getQueryWidgetConfig = (widget: Pick<OverviewPanelWidget, 'kind' | 'config'>) =>
+  widget.kind === 'query-card' ? (widget.config as QueryWidgetConfig) : null
+
+const getQueryWidgetQuery = (widget: Pick<OverviewPanelWidget, 'kind' | 'config'>) =>
+  getQueryWidgetConfig(widget)?.query
+
 export default defineComponent({
   name: 'OverviewPageV2',
   setup() {
@@ -700,6 +809,7 @@ export default defineComponent({
     const panelBaselines = ref<Record<string, OverviewPanelDefinition>>(restoredPanels.baselines)
     const activePanelId = ref(DEFAULT_PANEL_ID)
     const editMode = ref(false)
+    const isLargeScreenMode = ref(false)
     const showWidgetEditor = ref(false)
     const widgetEditorSaving = ref(false)
     const widgetEditorMode = ref<WidgetEditorMode>('create')
@@ -727,6 +837,13 @@ export default defineComponent({
     const widgetGridRef = ref<HTMLElement | null>(null)
     const widgetGridItemRefs = new Map<string, HTMLElement>()
     const widgetShellRefs = new Map<string, HTMLElement>()
+    const overviewLoadState = {
+      inFlightKey: '',
+      inFlightPromise: null as Promise<void> | null,
+      latestToken: 0,
+      lastCompletedKey: '',
+      lastCompletedAt: 0
+    }
     const reorderState = ref<{
       pointerId: number
       dragId: string
@@ -737,6 +854,46 @@ export default defineComponent({
       active: boolean
     } | null>(null)
     const reorderTarget = ref<{ targetId: string; placement: OverviewReorderPlacement } | null>(null)
+    const largeScreenReadonlyHint = '大屏模式仅用于监控展示，请退出大屏模式后再进行编辑或配置操作'
+
+    const showLargeScreenReadonlyPrompt = () => {
+      message.warning(largeScreenReadonlyHint)
+    }
+
+    const enterLargeScreenMode = async () => {
+      isLargeScreenMode.value = true
+      editMode.value = false
+      showWidgetEditor.value = false
+      showPanelModal.value = false
+      clearReorderState()
+
+      try {
+        if (!document.fullscreenElement) {
+          await document.documentElement.requestFullscreen()
+        }
+      } catch (error) {
+        console.warn('Failed to enter overview large-screen mode:', error)
+      }
+    }
+
+    const exitLargeScreenMode = async () => {
+      isLargeScreenMode.value = false
+      try {
+        if (document.fullscreenElement) {
+          await document.exitFullscreen()
+        }
+      } catch (error) {
+        console.warn('Failed to exit overview large-screen mode:', error)
+      }
+    }
+
+    const toggleLargeScreenMode = () => {
+      if (isLargeScreenMode.value) {
+        exitLargeScreenMode()
+      } else {
+        enterLargeScreenMode()
+      }
+    }
 
     const restoreSavedDefaultView = async () => {
       try {
@@ -768,7 +925,7 @@ export default defineComponent({
               .map((widget) => normalizeOverviewWidget(widget))
               .filter((widget) => {
                 if (widget.kind !== 'query-card') return true
-                const query = (widget.config as any)?.query as QuerySpec | undefined
+                const query = getQueryWidgetQuery(widget)
                 return Boolean(query && canExecuteQuery(query))
               })
           })
@@ -786,7 +943,7 @@ export default defineComponent({
                     .map((widget) => normalizeOverviewWidget(widget))
                     .filter((widget) => {
                       if (widget.kind !== 'query-card') return true
-                      const query = (widget.config as any)?.query as QuerySpec | undefined
+                      const query = getQueryWidgetQuery(widget)
                       return Boolean(query && canExecuteQuery(query))
                     })
                 }
@@ -851,13 +1008,69 @@ export default defineComponent({
     ])
     const capabilityMap = computed(() => new Map(runtimeCapabilities.value.map((item) => [item.key, item])))
     const currentPanelEditable = computed(() => Boolean(currentPanel.value?.editable))
+    const activeWidgetTag = ref('')
 
-    const currentVisibleWidgets = computed(() =>
+    const currentAvailableWidgets = computed(() =>
       (currentPanel.value?.widgets || []).filter((widget) => {
         const capability = capabilityMap.value.get(widget.capability)
         return Boolean(capability?.available && capability.frontendReady)
       })
     )
+
+    const widgetTagOptions = computed(() => {
+      const tagCounts = new Map<string, number>()
+      currentAvailableWidgets.value.forEach((widget) => {
+        resolveWidgetFilterTags(widget).forEach((tag) => {
+          tagCounts.set(tag, (tagCounts.get(tag) || 0) + 1)
+        })
+      })
+
+      return Array.from(tagCounts.entries())
+        .sort(
+          ([leftTag, leftCount], [rightTag, rightCount]) => rightCount - leftCount || leftTag.localeCompare(rightTag)
+        )
+        .map(([tag, count]) => ({ tag, count }))
+    })
+
+    const widgetTagSelectOptions = computed(() => {
+      const customTags = new Set(defaultWidgetTagCatalog)
+      currentAvailableWidgets.value.forEach((widget) => {
+        normalizeWidgetTags(widget.tags).forEach((tag) => customTags.add(tag))
+      })
+      return Array.from(customTags)
+        .sort((leftTag, rightTag) => {
+          const leftIndex = preferredWidgetTagOrder.indexOf(leftTag)
+          const rightIndex = preferredWidgetTagOrder.indexOf(rightTag)
+          if (leftIndex >= 0 || rightIndex >= 0) {
+            if (leftIndex < 0) return 1
+            if (rightIndex < 0) return -1
+            return leftIndex - rightIndex
+          }
+          return leftTag.localeCompare(rightTag)
+        })
+        .map((tag) => ({
+          label: tag,
+          value: tag
+        }))
+    })
+
+    const activeWidgetTagCount = computed(
+      () => widgetTagOptions.value.find((option) => option.tag === activeWidgetTag.value)?.count || 0
+    )
+
+    const currentVisibleWidgets = computed(() => {
+      if (!activeWidgetTag.value) return currentAvailableWidgets.value
+      return currentAvailableWidgets.value.filter((widget) =>
+        resolveWidgetFilterTags(widget).includes(activeWidgetTag.value)
+      )
+    })
+
+    watch(widgetTagOptions, (options) => {
+      if (!activeWidgetTag.value) return
+      if (!options.some((option) => option.tag === activeWidgetTag.value)) {
+        activeWidgetTag.value = ''
+      }
+    })
     const widgetEditorState = computed(() => buildOverviewWidgetEditorState(widgetEditorDraft.value))
     const recommendedAutoRefreshInterval = computed<number | null>(() => {
       switch (timeStore.timeRange) {
@@ -1083,6 +1296,11 @@ export default defineComponent({
     })
 
     const saveDefaultView = () => {
+      if (isLargeScreenMode.value) {
+        showLargeScreenReadonlyPrompt()
+        return
+      }
+
       saveDashboardState(DEFAULT_VIEW_STORAGE_KEY, {
         panelId: activePanelId.value,
         timeRange: timeStore.timeRange,
@@ -1143,7 +1361,7 @@ export default defineComponent({
       pageVisible.value = document.visibilityState === 'visible'
       if (pageVisible.value && effectiveAutoRefreshInterval.value) {
         timeStore.refreshTime()
-        loadOverview({ silent: true })
+        refreshOverviewQueryCardsOnly()
       }
     }
 
@@ -1154,7 +1372,7 @@ export default defineComponent({
 
       autoRefreshTimer.value = setInterval(() => {
         timeStore.refreshTime()
-        loadOverview({ silent: true })
+        refreshOverviewQueryCardsOnly()
       }, interval)
     }
 
@@ -1265,7 +1483,7 @@ export default defineComponent({
             ...queryCardDraft.value,
             ...queryPatch
           }
-        } as any
+        } as QueryWidgetConfig
       })
     }
 
@@ -1644,11 +1862,11 @@ export default defineComponent({
       info: 1
     }
 
-    const buildAlertRulesFromOverviewQuery = (title: string, query: QuerySpec) => {
+    const buildAlertRulesFromOverviewQuery = (title: string, query: QuerySpec): OverviewAlertRuleDraft[] => {
       const rules = normalizeQueryAlertRules(query.alert)
       if (!rules.length) return []
       return rules.map((rule) => ({
-        id: rule.ruleId,
+        ...(rule.ruleId ? { id: rule.ruleId } : {}),
         name: `${title} ${alertLevelMeta[rule.level]?.label || rule.level}阈值告警`,
         service: query.subject.type === 'service' ? query.subject.id || 'all' : 'all',
         metric: query.metricRef,
@@ -1665,7 +1883,12 @@ export default defineComponent({
     const persistAlertRuleForOverviewQuery = async (title: string, query: QuerySpec) => {
       const rules = buildAlertRulesFromOverviewQuery(title, query)
       if (!rules.length) return []
-      return Promise.all(rules.map((rule) => (rule.id ? updateAlertRule(rule as any) : saveAlertRule(rule))))
+      return Promise.all(
+        rules.map((rule) => {
+          if (!rule.id) return saveAlertRule(rule)
+          return updateAlertRule({ ...rule, id: rule.id })
+        })
+      )
     }
 
     const applySchemaMetricToQueryDraft = (item: MetricsCatalogSchemaItem) => {
@@ -1790,7 +2013,7 @@ export default defineComponent({
       }
 
       updateWidgetDraft({
-        config: { query: result.query } as any,
+        config: { query: result.query } as QueryWidgetConfig,
         editor: {
           ...widgetEditorState.value,
           queryEditMode: 'query-statement',
@@ -1897,7 +2120,7 @@ export default defineComponent({
       }
 
       if (draft.kind === 'query-card') {
-        const query = (draft.config as any)?.query as QuerySpec | undefined
+        const query = getQueryWidgetQuery(draft)
         if (!query?.metricRef) return '请先填写指标标识'
         if (!canAccessMetricsDatasetScope(query.scope || datasetScope.value, getStoredUserInfo())) {
           return '当前用户无权访问该数据范围'
@@ -1923,6 +2146,10 @@ export default defineComponent({
     }
 
     const openCreateWidget = () => {
+      if (isLargeScreenMode.value) {
+        showLargeScreenReadonlyPrompt()
+        return
+      }
       if (!currentPanelEditable.value) return
       const firstSupported = overviewWidgetCatalog.find((item) => {
         const capability = capabilityMap.value.get(item.capability)
@@ -2011,6 +2238,10 @@ export default defineComponent({
     }
 
     const openEditWidget = (widget: OverviewPanelWidget) => {
+      if (isLargeScreenMode.value) {
+        showLargeScreenReadonlyPrompt()
+        return
+      }
       if (!currentPanelEditable.value) return
       widgetEditorDraft.value = normalizeEditorState(cloneValue(widget))
       widgetEditorMode.value = 'update'
@@ -2018,6 +2249,10 @@ export default defineComponent({
     }
 
     const removeWidget = (widgetId: string) => {
+      if (isLargeScreenMode.value) {
+        showLargeScreenReadonlyPrompt()
+        return
+      }
       if (!currentPanelEditable.value) return
       replaceCurrentPanel((panel) => ({
         ...panel,
@@ -2027,6 +2262,10 @@ export default defineComponent({
     }
 
     const applyWidgetDraft = async () => {
+      if (isLargeScreenMode.value) {
+        showLargeScreenReadonlyPrompt()
+        return
+      }
       if (widgetEditorSaving.value) return
       if (!currentPanelEditable.value) return
       widgetEditorSaving.value = true
@@ -2042,7 +2281,7 @@ export default defineComponent({
         }
 
         if (syncedDraft.kind === 'query-card') {
-          const query = (syncedDraft.config as any)?.query as QuerySpec | undefined
+          const query = getQueryWidgetQuery(syncedDraft)
           if (query) {
             const validation = await validateMetricQuery(query, query.scope || datasetScope.value)
             if (!validation.valid) {
@@ -2067,14 +2306,15 @@ export default defineComponent({
 
         const normalizedDraft = syncDraftMetricSelection(syncedDraft)
         if (normalizedDraft.kind === 'query-card') {
-          const query = (normalizedDraft.config as { query: QuerySpec }).query
+          const query = getQueryWidgetQuery(normalizedDraft)
+          if (!query) return
           const existingWidget =
             widgetEditorMode.value === 'update'
               ? currentPanel.value?.widgets.find((widget) => widget.id === normalizedDraft.id)
               : null
           const existingRules =
             existingWidget?.kind === 'query-card'
-              ? normalizeQueryAlertRules((existingWidget.config as { query: QuerySpec }).query.alert)
+              ? normalizeQueryAlertRules(getQueryWidgetQuery(existingWidget)?.alert)
               : []
           if (existingRules.length && query.alert?.enabled) {
             const nextRules = normalizeQueryAlertRules(query.alert).map((rule) => ({
@@ -2161,6 +2401,10 @@ export default defineComponent({
     }
 
     const resizeWidget = (widgetId: string, size: OverviewWidgetSize) => {
+      if (isLargeScreenMode.value) {
+        showLargeScreenReadonlyPrompt()
+        return
+      }
       if (!currentPanelEditable.value) return
       replaceCurrentPanel((panel) => ({
         ...panel,
@@ -2347,6 +2591,10 @@ export default defineComponent({
     }
 
     const handleReorderPointerDown = (widgetId: string, event: PointerEvent) => {
+      if (isLargeScreenMode.value) {
+        showLargeScreenReadonlyPrompt()
+        return
+      }
       if (!editMode.value || !currentPanelEditable.value || event.button !== 0) return
 
       event.preventDefault()
@@ -2367,12 +2615,20 @@ export default defineComponent({
     }
 
     const openDuplicatePanel = () => {
+      if (isLargeScreenMode.value) {
+        showLargeScreenReadonlyPrompt()
+        return
+      }
       panelModalMode.value = 'duplicate'
       panelName.value = `${currentPanel.value?.name || '面板'} 副本`
       showPanelModal.value = true
     }
 
     const openRenamePanel = () => {
+      if (isLargeScreenMode.value) {
+        showLargeScreenReadonlyPrompt()
+        return
+      }
       if (currentPanel.value?.kind !== 'user') return
       panelModalMode.value = 'rename'
       panelName.value = currentPanel.value.name
@@ -2380,6 +2636,10 @@ export default defineComponent({
     }
 
     const confirmPanelModal = () => {
+      if (isLargeScreenMode.value) {
+        showLargeScreenReadonlyPrompt()
+        return
+      }
       const normalizedName = panelName.value.trim()
       if (!normalizedName) {
         message.warning('请输入面板名称')
@@ -2407,6 +2667,10 @@ export default defineComponent({
     }
 
     const deleteCurrentPanel = () => {
+      if (isLargeScreenMode.value) {
+        showLargeScreenReadonlyPrompt()
+        return
+      }
       if (currentPanel.value?.kind !== 'user') return
       const nextPanels = panels.value.filter((panel) => panel.id !== currentPanel.value?.id)
       const nextBaselines = { ...panelBaselines.value }
@@ -2422,6 +2686,10 @@ export default defineComponent({
     }
 
     const restoreCurrentPanel = () => {
+      if (isLargeScreenMode.value) {
+        showLargeScreenReadonlyPrompt()
+        return
+      }
       const baseline = panelBaselines.value[currentPanel.value?.id || '']
       if (!baseline || !currentPanel.value) {
         message.warning('当前面板没有可恢复的基线')
@@ -2435,7 +2703,62 @@ export default defineComponent({
       loadOverview()
     }
 
-    const loadOverview = async (options: { silent?: boolean } = {}) => {
+    const buildOverviewLoadKey = () =>
+      JSON.stringify({
+        panelId: activePanelId.value,
+        scope: datasetScope.value,
+        service: scopeValue.value.service || '',
+        timeRange: timeStore.timeRange,
+        widgets: currentVisibleWidgets.value.map((widget) => ({
+          id: widget.id,
+          kind: widget.kind,
+          size: widget.size,
+          config: widget.config,
+          editor: widget.editor
+        }))
+      })
+
+    const refreshOverviewQueryCardsOnly = async () => {
+      if (overviewLoadState.inFlightPromise) return overviewLoadState.inFlightPromise
+
+      const { requests, cards } = buildOverviewCardsQueryRequest({
+        widgets: currentVisibleWidgets.value,
+        scope: datasetScope.value,
+        scopedServiceName: scopeValue.value.service,
+        services: services.value,
+        refreshGenerationId: `${Date.now()}`,
+        autoRefresh: true
+      })
+
+      if (!cards.length) return loadOverview({ silent: true })
+
+      const token = overviewLoadState.latestToken + 1
+      overviewLoadState.latestToken = token
+      overviewLoadState.inFlightKey = `query-cards:${buildOverviewLoadKey()}`
+      overviewLoadState.inFlightPromise = Promise.all(requests.map((request) => queryMetricCards(request)))
+        .then(async (responses) => {
+          if (token !== overviewLoadState.latestToken) return
+          queryWidgetResults.value = mapQueryResultsByWidgetId(responses.flatMap((response) => response?.items || []))
+          autoRefreshFailureCount.value = 0
+          await nextTick()
+          layoutWidgetMasonry()
+          syncOverviewAutoRefresh()
+        })
+        .catch((error) => {
+          if (token !== overviewLoadState.latestToken) return
+          console.error('Failed to refresh overview query cards:', error)
+          autoRefreshFailureCount.value += 1
+        })
+        .finally(() => {
+          if (overviewLoadState.latestToken !== token) return
+          overviewLoadState.inFlightKey = ''
+          overviewLoadState.inFlightPromise = null
+        })
+
+      return overviewLoadState.inFlightPromise
+    }
+
+    const executeOverviewLoad = async (token: number, options: { silent?: boolean } = {}) => {
       const silent = Boolean(options.silent)
       if (!silent) loading.value = true
       try {
@@ -2539,6 +2862,7 @@ export default defineComponent({
           instances: item.instanceCount,
           lastDeploy: item.lastDeployAt
         }))
+        if (token !== overviewLoadState.latestToken) return
         services.value = nextServices
 
         const visibleWidgetRanges = Array.from(
@@ -2611,6 +2935,8 @@ export default defineComponent({
         const [summaryRes, overallTrendRes, envTrendRes, teamTrendRes, riskRes, ingestRes, incidentsRes] =
           await overviewDataPromise
 
+        if (token !== overviewLoadState.latestToken) return
+
         const totals = summaryRes?.totals || {}
         summary.value = {
           serviceCount: totals.serviceCount ?? null,
@@ -2633,6 +2959,7 @@ export default defineComponent({
           team: normalizeTrendSnapshot(teamTrendRes || {})
         }
         const [extraRangeSummaries, extraRangeTrends] = await snapshotDataPromise
+        if (token !== overviewLoadState.latestToken) return
         const rangeScopedSummaries = [[pageWidgetRange, totals] as const, ...extraRangeSummaries]
         const rangeScopedTrends = [
           ...(['overall', 'env', 'team'] as OverviewTrendGroupBy[])
@@ -2674,7 +3001,9 @@ export default defineComponent({
           Record<string, any>
         >
 
-        queryWidgetResults.value = await queryCardsPromise
+        const nextQueryWidgetResults = await queryCardsPromise
+        if (token !== overviewLoadState.latestToken) return
+        queryWidgetResults.value = nextQueryWidgetResults
 
         dataReady.value = {
           catalog: true,
@@ -2696,14 +3025,46 @@ export default defineComponent({
         })
         autoRefreshFailureCount.value = 0
       } catch (error) {
+        if (token !== overviewLoadState.latestToken) return
         console.error('Failed to load overview v2:', error)
         autoRefreshFailureCount.value += 1
       } finally {
+        if (token !== overviewLoadState.latestToken) return
         if (!silent) loading.value = false
         await nextTick()
         layoutWidgetMasonry()
         syncOverviewAutoRefresh()
       }
+    }
+
+    const loadOverview = (options: { silent?: boolean; force?: boolean } = {}) => {
+      const key = buildOverviewLoadKey()
+      const now = Date.now()
+
+      if (!options.force && overviewLoadState.inFlightPromise && overviewLoadState.inFlightKey === key) {
+        return overviewLoadState.inFlightPromise
+      }
+
+      if (
+        !options.force &&
+        overviewLoadState.lastCompletedKey === key &&
+        now - overviewLoadState.lastCompletedAt < OVERVIEW_LOAD_DEDUPE_WINDOW_MS
+      ) {
+        return Promise.resolve()
+      }
+
+      const token = overviewLoadState.latestToken + 1
+      overviewLoadState.latestToken = token
+      overviewLoadState.inFlightKey = key
+      overviewLoadState.inFlightPromise = executeOverviewLoad(token, options).finally(() => {
+        if (overviewLoadState.latestToken !== token) return
+        overviewLoadState.lastCompletedKey = key
+        overviewLoadState.lastCompletedAt = Date.now()
+        overviewLoadState.inFlightKey = ''
+        overviewLoadState.inFlightPromise = null
+      })
+
+      return overviewLoadState.inFlightPromise
     }
 
     const overallTrends = computed(() => trendsByGroup.value.overall)
@@ -2839,17 +3200,6 @@ export default defineComponent({
       if (typeof value === 'number') return `${value}${suffix}`
       if (typeof value === 'string' && value.length > 0) return `${value}${suffix}`
       return '未知'
-    }
-
-    const formatQueryNumberValue = (value: number) => {
-      if (!Number.isFinite(value)) return '0'
-      const absoluteValue = Math.abs(value)
-      if (absoluteValue >= 1000000000)
-        return `${Number((value / 1000000000).toFixed(absoluteValue >= 10000000000 ? 0 : 1))}B`
-      if (absoluteValue >= 1000000) return `${Number((value / 1000000).toFixed(absoluteValue >= 10000000 ? 0 : 1))}M`
-      if (absoluteValue >= 1000) return `${Number((value / 1000).toFixed(absoluteValue >= 10000 ? 0 : 1))}K`
-      if (Number.isInteger(value)) return value.toLocaleString()
-      return Number(value.toFixed(absoluteValue >= 10 ? 1 : 2)).toLocaleString()
     }
 
     const formatQueryCompareValue = (compare: NonNullable<Extract<CardData, { kind: 'number' }>['compare']>) => {
@@ -2998,6 +3348,8 @@ export default defineComponent({
 
       if (cardData.kind === 'number') {
         const numberAlertLevel = resolveNumberAlertLevel(effectiveQuery, cardData.value)
+        const numberDisplay =
+          typeof cardData.value === 'number' ? formatQueryNumberDisplay(cardData.value, display.unit) : null
         return renderWithAlertSummary(
           widget.editor?.visualization === 'donut' ? (
             <GaugeChart
@@ -3019,11 +3371,11 @@ export default defineComponent({
                       'overview-page__query-number-value',
                       numberAlertLevel ? `overview-page__query-number-value--${numberAlertLevel}` : ''
                     ]}>
-                    {typeof cardData.value === 'number'
-                      ? formatQueryNumberValue(cardData.value)
-                      : (cardData.value ?? '未知')}
+                    {numberDisplay ? numberDisplay.value : (cardData.value ?? '未知')}
                   </strong>
-                  {display.unit ? <span class="overview-page__query-number-unit">{display.unit}</span> : null}
+                  {numberDisplay?.unit || display.unit ? (
+                    <span class="overview-page__query-number-unit">{numberDisplay?.unit || display.unit}</span>
+                  ) : null}
                 </div>
                 {renderQueryNumberTrend(cardData.compare)}
               </div>
@@ -3083,8 +3435,13 @@ export default defineComponent({
       if (cardData.kind === 'table') {
         return renderWithAlertSummary(
           <ResultTable
-            columns={(cardData.columns || []).map((column) => ({ title: column.label, key: column.key })) as any}
-            data={(cardData.rows || []) as any}
+            columns={
+              (cardData.columns || []).map((column) => ({
+                title: column.label,
+                key: column.key
+              })) as OverviewResultTableColumn[]
+            }
+            data={(cardData.rows || []) as OverviewResultTableRow[]}
             density="compact"
             flexHeight={false}
           />
@@ -4777,7 +5134,7 @@ export default defineComponent({
       updateWidgetDraft({
         config: {
           query: result.query
-        } as any,
+        } as QueryWidgetConfig,
         editor: {
           ...widgetEditorState.value,
           timeRange: String(result.query.timeRange || '-1h').replace(/^-/, '') as OverviewWidgetEditorTimeRange,
@@ -5168,106 +5525,165 @@ export default defineComponent({
     }
 
     return () => (
-      <div class="overview-page">
-        <PageHeader title="看板" subtitle={'集中查看系统健康、风险服务和关键事件，支持保存常用看板布局。'}>
-          {{
-            actions: () => (
-              <NButton
-                secondary
-                onClick={() => {
-                  autoRefreshFailureCount.value = 0
-                  timeStore.refreshTime()
-                  loadOverview()
-                }}>
-                刷新
-              </NButton>
-            )
-          }}
-        </PageHeader>
+      <div class={['overview-page', isLargeScreenMode.value ? 'overview-page--large-screen' : '']}>
+        {!isLargeScreenMode.value ? (
+          <>
+            <PageHeader title="看板" subtitle={'集中查看系统健康、风险服务和关键事件，支持保存常用看板布局。'}>
+              {{
+                actions: () => (
+                  <NButton
+                    secondary
+                    onClick={() => {
+                      autoRefreshFailureCount.value = 0
+                      timeStore.refreshTime()
+                      loadOverview()
+                    }}>
+                    刷新
+                  </NButton>
+                )
+              }}
+            </PageHeader>
 
-        <NCard bordered={false} class="overview-page__control-panel">
-          <div class="overview-page__control-toolbar">
-            <div class="overview-page__time-control-shell">
-              <TimeRangeBar
-                value={timeStore.timeRange}
-                live={timeStore.isLive}
-                options={timeRangeOptions.value}
-                autoRefreshValue={autoRefreshSetting.value}
-                autoRefreshOptions={overviewAutoRefreshOptions}
-                autoRefreshHint={autoRefreshHint.value}
-                onUpdate:value={(range) => {
-                  timeStore.setTimeRange(range)
-                }}
-                onUpdate:live={(value: boolean) => {
-                  timeStore.isLive = value
-                  if (value) timeStore.refreshTime()
-                  loadOverview()
-                }}
-                onUpdate:autoRefresh={(value: string) => {
-                  if (!isOverviewAutoRefreshKey(value)) return
-                  autoRefreshFailureCount.value = 0
-                  autoRefreshSetting.value = value
-                  if (!isRestoringOverviewState.value) saveAutoRefreshState(value)
-                  const shouldRefreshImmediately =
-                    timeStore.isLive &&
-                    (value === 'auto' ? Boolean(recommendedAutoRefreshInterval.value) : value !== 'off')
-                  if (shouldRefreshImmediately) {
-                    timeStore.refreshTime()
-                    loadOverview({ silent: true })
-                  }
-                }}
-                onRefresh={() => {
-                  autoRefreshFailureCount.value = 0
-                  timeStore.refreshTime()
-                  loadOverview()
-                }}
-              />
+            <NCard bordered={false} class="overview-page__control-panel">
+              <div class="overview-page__control-toolbar">
+                <div class="overview-page__time-control-shell">
+                  <TimeRangeBar
+                    value={timeStore.timeRange}
+                    live={timeStore.isLive}
+                    options={timeRangeOptions.value}
+                    autoRefreshValue={autoRefreshSetting.value}
+                    autoRefreshOptions={overviewAutoRefreshOptions}
+                    autoRefreshHint={autoRefreshHint.value}
+                    onUpdate:value={(range) => {
+                      timeStore.setTimeRange(range)
+                    }}
+                    onUpdate:live={(value: boolean) => {
+                      timeStore.isLive = value
+                      if (value) timeStore.refreshTime()
+                      loadOverview()
+                    }}
+                    onUpdate:autoRefresh={(value: string) => {
+                      if (!isOverviewAutoRefreshKey(value)) return
+                      autoRefreshFailureCount.value = 0
+                      autoRefreshSetting.value = value
+                      if (!isRestoringOverviewState.value) saveAutoRefreshState(value)
+                      const shouldRefreshImmediately =
+                        timeStore.isLive &&
+                        (value === 'auto' ? Boolean(recommendedAutoRefreshInterval.value) : value !== 'off')
+                      if (shouldRefreshImmediately) {
+                        timeStore.refreshTime()
+                        refreshOverviewQueryCardsOnly()
+                      }
+                    }}
+                    onRefresh={() => {
+                      autoRefreshFailureCount.value = 0
+                      timeStore.refreshTime()
+                      loadOverview()
+                    }}
+                  />
+                </div>
+                <div class="overview-page__service-search">
+                  <NInput
+                    value={scopeValue.value.service || ''}
+                    placeholder="全部服务"
+                    clearable
+                    onUpdate:value={(value: string) => {
+                      scopeValue.value = { service: value || null }
+                    }}
+                    onKeydown={(event: KeyboardEvent) => {
+                      if (event.key === 'Enter') loadOverview()
+                    }}
+                  />
+                  <NButton
+                    class="overview-page__service-search-button"
+                    type="primary"
+                    secondary
+                    onClick={() => loadOverview()}>
+                    搜索
+                  </NButton>
+                </div>
+              </div>
+            </NCard>
+
+            <PanelToolbar
+              panel={currentPanel.value}
+              panelOptions={panels.value}
+              capabilities={runtimeCapabilities.value}
+              canRestore={Boolean(panelBaselines.value[currentPanel.value?.id || ''])}
+              canEdit={currentPanelEditable.value}
+              editMode={editMode.value}
+              largeScreenMode={isLargeScreenMode.value}
+              onChange-panel={(panelId: string) => {
+                activePanelId.value = panelId
+              }}
+              onDuplicate-panel={openDuplicatePanel}
+              onRename-panel={openRenamePanel}
+              onDelete-panel={deleteCurrentPanel}
+              onRestore-panel={restoreCurrentPanel}
+              onSave-default={saveDefaultView}
+              onToggle-edit={() => {
+                if (isLargeScreenMode.value) {
+                  showLargeScreenReadonlyPrompt()
+                  return
+                }
+                editMode.value = !editMode.value
+              }}
+              onToggle-large-screen={toggleLargeScreenMode}
+              onAdd-widget={openCreateWidget}
+            />
+          </>
+        ) : (
+          <NButton
+            class="overview-page__large-screen-exit"
+            size="small"
+            type="warning"
+            ghost
+            onClick={exitLargeScreenMode}>
+            退出大屏
+          </NButton>
+        )}
+
+        {!isLargeScreenMode.value && widgetTagOptions.value.length ? (
+          <NCard bordered={false} class="overview-page__tag-filter-card">
+            <div class="overview-page__tag-filter-head">
+              <div>
+                <div class="overview-page__tag-filter-title">卡片分类</div>
+                <div class="overview-page__tag-filter-description">默认展示全部，点击分类仅过滤当前面板。</div>
+              </div>
+              {activeWidgetTag.value ? (
+                <NButton size="small" quaternary onClick={() => (activeWidgetTag.value = '')}>
+                  清除过滤
+                </NButton>
+              ) : null}
             </div>
-            <div class="overview-page__service-search">
-              <NInput
-                value={scopeValue.value.service || ''}
-                placeholder="全部服务"
-                clearable
-                onUpdate:value={(value: string) => {
-                  scopeValue.value = { service: value || null }
-                }}
-                onKeydown={(event: KeyboardEvent) => {
-                  if (event.key === 'Enter') loadOverview()
-                }}
-              />
-              <NButton
-                class="overview-page__service-search-button"
-                type="primary"
-                secondary
-                onClick={() => loadOverview()}>
-                搜索
-              </NButton>
+            <div class="overview-page__tag-filter-list" role="tablist" aria-label="卡片标签过滤">
+              <button
+                type="button"
+                class={['overview-page__tag-filter-chip', !activeWidgetTag.value ? 'is-active' : '']}
+                onClick={() => (activeWidgetTag.value = '')}>
+                <span>全部</span>
+                <span class="overview-page__tag-filter-count">{currentAvailableWidgets.value.length}</span>
+              </button>
+              {widgetTagOptions.value.map((option) => (
+                <button
+                  key={option.tag}
+                  type="button"
+                  class={['overview-page__tag-filter-chip', activeWidgetTag.value === option.tag ? 'is-active' : '']}
+                  onClick={() => (activeWidgetTag.value = option.tag)}>
+                  <span>{option.tag}</span>
+                  <span class="overview-page__tag-filter-count">{option.count}</span>
+                </button>
+              ))}
             </div>
-          </div>
-        </NCard>
+            {activeWidgetTag.value ? (
+              <div class="overview-page__tag-filter-result">
+                正在查看 <strong>{activeWidgetTag.value}</strong> 标签下的 {activeWidgetTagCount.value} 张卡片。
+              </div>
+            ) : null}
+          </NCard>
+        ) : null}
 
-        <PanelToolbar
-          panel={currentPanel.value}
-          panelOptions={panels.value}
-          capabilities={runtimeCapabilities.value}
-          canRestore={Boolean(panelBaselines.value[currentPanel.value?.id || ''])}
-          canEdit={currentPanelEditable.value}
-          editMode={editMode.value}
-          onChange-panel={(panelId: string) => {
-            activePanelId.value = panelId
-          }}
-          onDuplicate-panel={openDuplicatePanel}
-          onRename-panel={openRenamePanel}
-          onDelete-panel={deleteCurrentPanel}
-          onRestore-panel={restoreCurrentPanel}
-          onSave-default={saveDefaultView}
-          onToggle-edit={() => {
-            editMode.value = !editMode.value
-          }}
-          onAdd-widget={openCreateWidget}
-        />
-
-        {editMode.value ? (
+        {editMode.value && !isLargeScreenMode.value ? (
           <NCard bordered={false} class="overview-page__edit-notice">
             <div class="overview-page__edit-notice-text">
               当前处于编辑态：支持切换模板、复制为用户面板、通过卡片右上角“拖拽排序”手柄调整顺序、尺寸切换与 widget
@@ -5304,8 +5720,8 @@ export default defineComponent({
                     data-widget-id={widget.id}>
                     <PanelWidgetCard
                       widget={widget}
-                      editMode={editMode.value}
-                      panelEditable={currentPanelEditable.value}
+                      editMode={editMode.value && !isLargeScreenMode.value}
+                      panelEditable={currentPanelEditable.value && !isLargeScreenMode.value}
                       {...{
                         'onReorder-pointerdown': (event: PointerEvent) => handleReorderPointerDown(widget.id, event)
                       }}
@@ -5323,19 +5739,30 @@ export default defineComponent({
           </div>
         ) : (
           <NCard bordered={false} class="overview-page__widgets-empty-card">
-            <NEmpty description="当前面板还是空的，请新增第一张指标卡片。" class="overview-page__widgets-empty">
+            <NEmpty
+              description={
+                activeWidgetTag.value
+                  ? `没有匹配「${activeWidgetTag.value}」标签的卡片。`
+                  : '当前面板还是空的，请新增第一张指标卡片。'
+              }
+              class="overview-page__widgets-empty">
               {{
-                extra: () => (
-                  <NButton type="primary" onClick={openCreateWidget}>
-                    添加第一张卡片
-                  </NButton>
-                )
+                extra: () =>
+                  activeWidgetTag.value ? (
+                    <NButton type="primary" secondary onClick={() => (activeWidgetTag.value = '')}>
+                      查看全部卡片
+                    </NButton>
+                  ) : (
+                    <NButton type="primary" onClick={openCreateWidget}>
+                      添加第一张卡片
+                    </NButton>
+                  )
               }}
             </NEmpty>
           </NCard>
         )}
 
-        {useLegacyWidgetEditor ? (
+        {!isLargeScreenMode.value && useLegacyWidgetEditor ? (
           <NModal
             show={showWidgetEditor.value}
             preset="dialog"
@@ -5366,13 +5793,14 @@ export default defineComponent({
               </NButton>
             </div>
           </NModal>
-        ) : (
+        ) : !isLargeScreenMode.value ? (
           <OverviewAnalyticsWidgetEditor
             show={showWidgetEditor.value}
             mode={widgetEditorMode.value}
             confirmLoading={widgetEditorSaving.value}
             draft={normalizeEditorState(widgetEditorDraft.value)}
             widgetTypeOptions={widgetTypeOptions.value.map((item) => ({ label: item.label, value: item.value }))}
+            tagOptions={widgetTagSelectOptions.value}
             granularityOptions={editorGranularityOptions}
             timeRangeOptions={currentEditorTimeRangeOptions.value}
             showTimeSettings={
@@ -5426,29 +5854,31 @@ export default defineComponent({
             onConfirm={applyWidgetDraft}>
             {widgetEditorSlots()}
           </OverviewAnalyticsWidgetEditor>
-        )}
+        ) : null}
 
-        <NModal
-          show={showPanelModal.value}
-          preset="dialog"
-          title={panelModalMode.value === 'duplicate' ? '创建用户面板' : '重命名用户面板'}
-          onUpdate:show={(value: boolean) => (showPanelModal.value = value)}>
-          <NForm>
-            <NFormItem label="面板名称">
-              <NInput
-                value={panelName.value}
-                placeholder="请输入面板名称"
-                onUpdate:value={(value: string) => (panelName.value = value)}
-              />
-            </NFormItem>
-          </NForm>
-          <div class="overview-page__modal-actions">
-            <NButton onClick={() => (showPanelModal.value = false)}>取消</NButton>
-            <NButton type="primary" onClick={confirmPanelModal}>
-              {panelModalMode.value === 'duplicate' ? '创建面板' : '保存名称'}
-            </NButton>
-          </div>
-        </NModal>
+        {!isLargeScreenMode.value ? (
+          <NModal
+            show={showPanelModal.value}
+            preset="dialog"
+            title={panelModalMode.value === 'duplicate' ? '创建用户面板' : '重命名用户面板'}
+            onUpdate:show={(value: boolean) => (showPanelModal.value = value)}>
+            <NForm>
+              <NFormItem label="面板名称">
+                <NInput
+                  value={panelName.value}
+                  placeholder="请输入面板名称"
+                  onUpdate:value={(value: string) => (panelName.value = value)}
+                />
+              </NFormItem>
+            </NForm>
+            <div class="overview-page__modal-actions">
+              <NButton onClick={() => (showPanelModal.value = false)}>取消</NButton>
+              <NButton type="primary" onClick={confirmPanelModal}>
+                {panelModalMode.value === 'duplicate' ? '创建面板' : '保存名称'}
+              </NButton>
+            </div>
+          </NModal>
+        ) : null}
       </div>
     )
   }
