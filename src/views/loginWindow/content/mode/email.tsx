@@ -3,7 +3,7 @@ import { useSettingStore } from '@/store/setting'
 import { useNetwork } from '@vueuse/core'
 import { NAvatar, NButton, NCheckbox, NFlex, NInput, NScrollbar } from 'naive-ui'
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
-import { emit as emitTauri, listen } from '@tauri-apps/api/event'
+import { listen } from '@tauri-apps/api/event'
 import {
   clearStoredAuthSession,
   syncAuthTokensToTauri,
@@ -24,9 +24,6 @@ import { type } from '@tauri-apps/plugin-os'
 import { useTauriListener } from '@/hooks/useTauriListener'
 import './email.scss'
 
-const ACCESS_TOKEN_EXPIRE_DAYS = 7
-const REFRESH_TOKEN_EXPIRE_DAYS = 30
-
 const getIsDesktop = () => {
   try {
     const osType = type()
@@ -46,7 +43,7 @@ export default defineComponent({
     }
   },
   emits: ['switchMode'], // 添加事件发射
-  setup(props, { slots, emit }) {
+  setup(props, { emit }) {
     const { loginHistories, addLoginHistory, removeLoginHistory } = useLoginHistoriesStore()
     // 网络连接是否正常
     const { isOnline } = useNetwork()

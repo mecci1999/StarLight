@@ -6,7 +6,7 @@ import type { QuerySpec } from '@/domains/metrics/queryModel'
 export type MetricsDatasetScope = 'tenant' | 'system'
 
 const ACCESS_TOKEN_EXPIRE_DAYS = 7
-const REFRESH_TOKEN_EXPIRE_DAYS = 30
+const REFRESH_TOKEN_EXPIRE_DAYS = 3
 
 export type AuthTokens = {
   accessToken?: string | null

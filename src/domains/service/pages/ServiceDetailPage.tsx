@@ -40,6 +40,7 @@ import type {
   TopologyData,
   TopologyNode,
   TraceSpan,
+  MetricPoint,
   AlertRuleItem,
   NotificationItem
 } from '@/types/monitor'
@@ -77,6 +78,7 @@ export default defineComponent({
       qps: number | null
       responseTime: number | null
       errorRate: number | null
+      activeIncidentCount: number | null
       activeConnections: number | null
       instances: number | null
       version: string
@@ -86,6 +88,7 @@ export default defineComponent({
       qps: null,
       responseTime: null,
       errorRate: null,
+      activeIncidentCount: null,
       activeConnections: null,
       instances: null,
       version: ''
@@ -114,10 +117,10 @@ export default defineComponent({
     const drawerLoading = ref(false)
     const selectedSpan = ref<TraceSpan | null>(null)
     const recentExceptions = ref<any[]>([])
-    const healthTimeline = ref({
-      cpu: [] as Array<{ timestamp: number; value: number }>,
-      memory: [] as Array<{ timestamp: number; value: number }>,
-      responseTime: [] as Array<{ timestamp: number; value: number }>
+    const healthTimeline = ref<{ cpu: MetricPoint[]; memory: MetricPoint[]; responseTime: MetricPoint[] }>({
+      cpu: [] as MetricPoint[],
+      memory: [] as MetricPoint[],
+      responseTime: [] as MetricPoint[]
     })
     const metricsSeries = ref({
       cpu: [] as any[],
@@ -138,8 +141,12 @@ export default defineComponent({
         const half = Math.floor(item.data.length / 2)
         const baseline = half > 0 ? item.data.slice(0, half) : item.data
         const current = half > 0 ? item.data.slice(half) : item.data
-        const avg = (rows: Array<{ value: number }>) =>
-          rows.length ? rows.reduce((sum, row) => sum + row.value, 0) / rows.length : 0
+        const avg = (rows: Array<{ value: number | null }>) => {
+          const values = rows
+            .map((row) => row.value)
+            .filter((value): value is number => typeof value === 'number' && Number.isFinite(value))
+          return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0
+        }
         const baselineAvg = avg(baseline)
         const currentAvg = avg(current)
         const delta = baselineAvg === 0 ? 0 : Number((((currentAvg - baselineAvg) / baselineAvg) * 100).toFixed(1))
@@ -311,6 +318,7 @@ export default defineComponent({
           qps: detailSummary?.qps ?? null,
           responseTime: detailSummary?.responseTime ?? null,
           errorRate: detailSummary?.errorRate ?? null,
+          activeIncidentCount: detailSummary?.activeIncidentCount ?? null,
           activeConnections: detailSummary?.activeConnections ?? null,
           instances: detailSummary?.instances ?? null,
           version: detailSummary?.version ?? identity?.runtime ?? ''
@@ -427,6 +435,16 @@ export default defineComponent({
         path,
         query: {
           serviceId,
+          timeRange: timeStore.timeRange,
+          scope: datasetScope.value
+        }
+      })
+    }
+
+    const goServiceCatalog = () => {
+      router.push({
+        path: '/home/services',
+        query: {
           timeRange: timeStore.timeRange,
           scope: datasetScope.value
         }
@@ -927,9 +945,14 @@ export default defineComponent({
         <PageHeader title="服务详情" subtitle="围绕服务状态、性能与关联入口组织当前上下文">
           {{
             actions: () => (
-              <NButton secondary type="primary" onClick={loadServiceDetail}>
-                刷新详情
-              </NButton>
+              <NSpace size="small">
+                <NButton secondary onClick={goServiceCatalog}>
+                  返回服务目录
+                </NButton>
+                <NButton secondary type="primary" onClick={loadServiceDetail}>
+                  刷新详情
+                </NButton>
+              </NSpace>
             )
           }}
         </PageHeader>
@@ -981,7 +1004,12 @@ export default defineComponent({
                   { label: '错误率', value: displayValue(summary.value.errorRate, '%') },
                   {
                     label: '活跃事件',
-                    value: hasUnknownAlertStatus.value ? '未知' : activeAlerts.value.length
+                    value:
+                      typeof summary.value.activeIncidentCount === 'number'
+                        ? summary.value.activeIncidentCount
+                        : hasUnknownAlertStatus.value
+                          ? '未知'
+                          : activeAlerts.value.length
                   },
                   { label: '最近部署', value: service.value?.lastDeploy || '-' }
                 ] as Array<{ label: string; value: string | number }>

@@ -37,6 +37,13 @@ type ExceptionListResponse = {
   }
 }
 
+export type DebugDiagnosticsState = {
+  enabled: boolean
+  updatedAt: string | null
+  updatedBy?: string
+  expiresAt: string | null
+}
+
 const normalizeSearchResponse = (response: any): LogSearchResponse & ExplorerSearchResponse => {
   if (Array.isArray(response?.items) || response?.pagination) {
     const items = (response?.items || []).map((item: any, index: number) => ({
@@ -171,6 +178,21 @@ export function ingestLog(data: any) {
 // 批量上报日志
 export function batchIngestLogs(logs: any[]) {
   return request.post<any>(url.logBatchIngest, { logs })
+}
+
+export function getDebugDiagnosticsState() {
+  return request.postWithOptions<DebugDiagnosticsState>(
+    url.logDebugDiagnostics,
+    {},
+    { noRetry: true, suppressErrorLog: true }
+  )
+}
+
+export function setDebugDiagnosticsState(params: { enabled: boolean; durationMs?: number; reason?: string }) {
+  return request.postWithOptions<DebugDiagnosticsState>(url.logDebugDiagnostics, params, {
+    noRetry: true,
+    suppressErrorLog: true
+  })
 }
 
 // 导出日志

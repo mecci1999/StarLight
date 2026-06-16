@@ -3392,10 +3392,12 @@ export default defineComponent({
         return renderWithAlertSummary(
           widget.editor?.visualization === 'bar' ? (
             <BarChart
-              data={(cardData.series?.[0]?.points || []).map((point) => ({
-                name: new Date(point.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                value: point.value
-              }))}
+              data={(cardData.series?.[0]?.points || [])
+                .filter((point) => typeof point.value === 'number')
+                .map((point) => ({
+                  name: new Date(point.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                  value: Number(point.value)
+                }))}
               height={widget.size === 'L' ? '260px' : '220px'}
               variant="monitor"
               yAxisMin={display.min}
@@ -3559,7 +3561,8 @@ export default defineComponent({
       const card = !range ? kpiCardMap.value.get(metric as OverviewMetricKey) : null
       if (card) return Number(String(card.value).replace(/[^0-9.\-]/g, '')) || 0
       const series = getSeriesForDisplayMetric(metric, range)
-      return series.length ? series[series.length - 1].value : 0
+      const latest = [...series].reverse().find((point) => typeof point.value === 'number')
+      return latest?.value ?? 0
     }
 
     const formatMetricNumber = (metric: OverviewWidgetDisplayMetricKey, value: number) => {
@@ -3573,7 +3576,7 @@ export default defineComponent({
     const accumulateSeries = (series: TrendPoint[]) => {
       let total = 0
       return series.map((point) => {
-        total += point.value
+        total += typeof point.value === 'number' ? point.value : 0
         return { ...point, value: total }
       })
     }
@@ -3645,7 +3648,9 @@ export default defineComponent({
                     合计：
                     {formatMetricNumber(
                       card.key,
-                      card.series.reduce((sum, item) => sum + item.value, 0) || Number(card.value) || 0
+                      card.series.reduce((sum, item) => sum + (typeof item.value === 'number' ? item.value : 0), 0) ||
+                        Number(card.value) ||
+                        0
                     )}
                   </span>
                 ) : null}
@@ -3654,7 +3659,13 @@ export default defineComponent({
                     均值：
                     {formatMetricNumber(
                       card.key,
-                      average(card.series.map((item) => item.value)) || Number(card.value) || 0
+                      average(
+                        card.series
+                          .map((item) => item.value)
+                          .filter((value): value is number => typeof value === 'number')
+                      ) ||
+                        Number(card.value) ||
+                        0
                     )}
                   </span>
                 ) : null}
@@ -3702,10 +3713,12 @@ export default defineComponent({
               series={series.map((item) => ({
                 name: item.name,
                 color: item.color,
-                data: item.data.map((point) => ({
-                  name: new Date(point.timestamp).toLocaleTimeString(),
-                  value: point.value
-                }))
+                data: item.data
+                  .filter((point): point is { timestamp: number; value: number } => typeof point.value === 'number')
+                  .map((point) => ({
+                    name: new Date(point.timestamp).toLocaleTimeString(),
+                    value: point.value
+                  }))
               }))}
               height={widget.size === 'L' ? '260px' : '220px'}
             />
@@ -4921,10 +4934,12 @@ export default defineComponent({
         const thresholdLines = resolveQueryThresholdLines(currentEditorQuerySupport.value.query)
         return currentEditorQuerySupport.value.query?.visualizationHint === 'bar' ? (
           <BarChart
-            data={(editorPreviewData.value.series?.[0]?.points || []).map((point: any) => ({
-              name: new Date(point.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-              value: point.value
-            }))}
+            data={(editorPreviewData.value.series?.[0]?.points || [])
+              .filter((point: any) => typeof point.value === 'number')
+              .map((point: any) => ({
+                name: new Date(point.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                value: point.value
+              }))}
             height="220px"
             variant="monitor"
             yAxisMin={display.min}

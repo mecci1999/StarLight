@@ -110,7 +110,7 @@ export default defineComponent({
     const userInfo = computed(() => {
       const stored = getStoredUserInfo() || {}
       return {
-        name: stored.nickName || stored.email || 'StarLight User',
+        name: stored.nickName || stored.email || '星光用户',
         email: stored.email || '未绑定邮箱',
         avatar: stored.avatar || '',
         role: stored.isAdmin ? '管理员' : '普通用户',

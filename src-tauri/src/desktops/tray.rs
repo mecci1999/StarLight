@@ -13,7 +13,7 @@ use tauri::{
 
 pub fn create_tray<R: Runtime>(app: &tauri::AppHandle<R>) -> tauri::Result<()> {
     let _ = TrayIconBuilder::with_id("tray")
-        .tooltip("StarLight")
+        .tooltip("星光")
         .icon(app.default_window_icon().unwrap().clone())
         .on_tray_icon_event(|tray, event| match event {
             TrayIconEvent::Click {

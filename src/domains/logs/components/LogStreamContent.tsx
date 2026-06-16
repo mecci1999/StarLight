@@ -31,14 +31,17 @@ import {
   TrashOutline
 } from '@vicons/ionicons5'
 import { LogLevelEnum, type LogOriginType } from '@/types/logs'
-import type { LogStreamParams, LogEntry, LogStreamEvent } from '@/types/logs'
+import type { LogStreamParams, LogEntry } from '@/types/logs'
 import api from '@/api'
-import url from '@/api/url'
 import { fetchCatalogServices } from '@/api/metrics'
 import dayjs from 'dayjs'
 import PageHeader from '@/shared/layout/PageHeader'
-import { getStoredAuthTokens, getStoredUserInfo } from '@/services/authSession'
+import { getStoredUserInfo } from '@/services/authSession'
 import type { MetricsDatasetScope } from '@/api'
+import { buildRecentLogSearchParams } from '@/domains/logs/recentLogQuery'
+import webSocket from '@/services/webSocket'
+import { useMitt } from '@/hooks/useMitt'
+import { ConnectionState } from '@/types/enums'
 import './LogStreamContent.scss'
 
 export default defineComponent({
@@ -59,8 +62,8 @@ export default defineComponent({
     const logContainer = ref<HTMLElement>()
     const logs = ref<LogEntry[]>([])
     const filteredLogs = ref<LogEntry[]>([])
-    const streamAbortController = ref<AbortController | null>(null)
     const refreshTimer = ref<NodeJS.Timeout | null>(null)
+    const isWebSocketConnected = ref(webSocket.isConnected)
 
     const streamParams = reactive<LogStreamParams>({
       services: [],
@@ -87,6 +90,15 @@ export default defineComponent({
       connectionTime: '',
       errorCount: 0
     })
+
+    const syncStreamStatsFromLogs = () => {
+      streamStats.totalReceived = logs.value.length
+      const latestLog = logs.value.reduce<LogEntry | null>((latest, log) => {
+        if (!latest) return log
+        return new Date(log.timestamp).getTime() > new Date(latest.timestamp).getTime() ? log : latest
+      }, null)
+      streamStats.lastReceiveTime = latestLog?.timestamp ? dayjs(latestLog.timestamp).format('HH:mm:ss') : ''
+    }
 
     const syncStreamParamsFromFilters = () => {
       streamParams.service = filterParams.service || ''
@@ -210,18 +222,20 @@ export default defineComponent({
     const loadRecentLogs = async () => {
       syncStreamParamsFromFilters()
 
-      const response = await api.logs.searchLogsExplorer({
-        originType: streamParams.originType,
-        service: streamParams.service || undefined,
-        level: streamParams.level || undefined,
-        keyword: streamParams.keywords || undefined,
-        pageSize: Math.min(maxLines.value, 200),
-        sortBy: 'timestamp',
-        sortOrder: 'desc'
-      } as any)
+      const response = await api.logs.searchLogsExplorer(
+        buildRecentLogSearchParams({
+          originType: streamParams.originType || filterParams.originType,
+          service: streamParams.service || undefined,
+          levelFilter: streamParams.level || null,
+          keyword: streamParams.keywords || undefined,
+          page: 1,
+          pageSize: Math.min(maxLines.value, 200)
+        })
+      )
 
       const recentLogs = Array.isArray(response?.items) ? [...response.items].reverse() : []
       logs.value = recentLogs
+      syncStreamStatsFromLogs()
       filterLogs()
 
       await nextTick()
@@ -243,7 +257,7 @@ export default defineComponent({
         logs.value = logs.value.slice(-maxLines.value)
       }
 
-      streamStats.totalReceived++
+      streamStats.totalReceived = logs.value.length
       streamStats.lastReceiveTime = dayjs().format('HH:mm:ss')
 
       filterLogs()
@@ -257,30 +271,44 @@ export default defineComponent({
       }
     }
 
-    const buildStreamUrl = () => {
-      const params = new URLSearchParams()
-      if (streamParams.service) params.set('service', streamParams.service)
-      if (streamParams.level) params.set('level', streamParams.level)
-      if (streamParams.keywords) params.set('keywords', streamParams.keywords)
-      if (streamParams.originType) params.set('originType', streamParams.originType)
-      return `${url.logStream}?${params.toString()}`
+    const setStreamStopped = () => {
+      isStreaming.value = false
+      isPaused.value = false
     }
 
     const stopStream = () => {
-      if (streamAbortController.value) {
-        streamAbortController.value.abort()
-        streamAbortController.value = null
-      }
-
-      if (refreshTimer.value) {
-        clearInterval(refreshTimer.value)
-        refreshTimer.value = null
-      }
-
-      isStreaming.value = false
-      isPaused.value = false
-
+      webSocket.send({ type: 'unsubscribe', data: { channel: 'logs' } })
+      setStreamStopped()
       message.info('日志流已停止')
+    }
+
+    const handleWebSocketConnectionState = (state: ConnectionState) => {
+      isWebSocketConnected.value = state === ConnectionState.CONNECTED
+      if (state === ConnectionState.ERROR || state === ConnectionState.DISCONNECTED) {
+        setStreamStopped()
+      }
+    }
+
+    const waitForWebSocketConnection = (timeoutMs = 2000) => {
+      isWebSocketConnected.value = isWebSocketConnected.value || webSocket.isConnected
+      if (isWebSocketConnected.value) return Promise.resolve(true)
+
+      return new Promise<boolean>((resolve) => {
+        let settled = false
+        const finish = (connected: boolean) => {
+          if (settled) return
+          settled = true
+          useMitt.off('wsConnectionStateChange', handleStateChange)
+          clearTimeout(timer)
+          resolve(connected)
+        }
+        const handleStateChange = (state: ConnectionState) => {
+          if (state === ConnectionState.CONNECTED) finish(true)
+          if (state === ConnectionState.ERROR || state === ConnectionState.DISCONNECTED) finish(false)
+        }
+        const timer = setTimeout(() => finish(isWebSocketConnected.value || webSocket.isConnected), timeoutMs)
+        useMitt.on('wsConnectionStateChange', handleStateChange)
+      })
     }
 
     const startStream = async () => {
@@ -292,98 +320,30 @@ export default defineComponent({
         syncStreamParamsFromFilters()
         await loadRecentLogs()
 
-        const controller = new AbortController()
-        streamAbortController.value = controller
-        const tokens = getStoredAuthTokens()
-        const headers = new Headers()
-        if (tokens?.accessToken) {
-          headers.set('Authorization', `Bearer ${tokens.accessToken}`)
-        }
-
-        const response = await fetch(buildStreamUrl(), {
-          method: 'GET',
-          headers,
-          signal: controller.signal,
-          credentials: 'include'
-        })
-
-        if (!response.ok || !response.body) {
-          throw new Error(`日志流连接失败: HTTP ${response.status}`)
-        }
-
-        const reader = response.body.getReader()
-        const decoder = new TextDecoder('utf-8')
-        let buffer = ''
-
-        const processChunk = (chunk: string) => {
-          buffer += chunk
-          const parts = buffer.split('\n\n')
-          buffer = parts.pop() || ''
-
-          for (const part of parts) {
-            const lines = part
-              .split('\n')
-              .map((line) => line.trim())
-              .filter(Boolean)
-
-            const dataLine = lines.find((line) => line.startsWith('data:'))
-            if (!dataLine) continue
-
-            try {
-              const payload = JSON.parse(dataLine.slice(5).trim())
-              if (payload?.type !== 'log') continue
-              const log = payload.data as LogEntry | undefined
-              if (!log) continue
-              if (streamParams.originType && log.originType && log.originType !== streamParams.originType) continue
-              if (streamParams.service && log.service !== streamParams.service) continue
-              if (streamParams.level && log.level !== streamParams.level) continue
-              if (streamParams.keywords) {
-                const keyword = streamParams.keywords.toLowerCase()
-                const haystack = `${log.message || ''} ${log.service || ''}`.toLowerCase()
-                if (!haystack.includes(keyword)) continue
-              }
-              if (!isPaused.value) addLog(log)
-            } catch (error) {
-              console.error('Failed to parse log stream payload:', error)
-            }
-          }
+        const connected = await waitForWebSocketConnection()
+        if (!connected) {
+          throw new Error('WebSocket 实时通道尚未连接')
         }
 
         isStreaming.value = true
         streamStats.connectionTime = dayjs().format('HH:mm:ss')
+        webSocket.send({ type: 'subscribe', data: { channel: 'logs' } })
+
         message.success(
           logs.value.length > 0 ? `日志流连接成功，已加载 ${logs.value.length} 条最近日志` : '日志流连接成功'
         )
-        console.log('[LogStream][client:connected]', {
+        console.info('[LogStream][client:connected]', {
           loadedLogs: logs.value.length,
           filteredLogs: filteredLogs.value.length,
-          mode: 'sse'
+          mode: 'websocket'
         })
-        ;(async () => {
-          try {
-            while (true) {
-              const { value, done } = await reader.read()
-              if (done) break
-              processChunk(decoder.decode(value, { stream: true }))
-            }
-          } catch (error: any) {
-            if (error?.name !== 'AbortError') {
-              console.error('Log stream reader error:', error)
-              streamStats.errorCount++
-              message.error('日志流连接异常中断')
-            }
-          } finally {
-            if (streamAbortController.value === controller) {
-              streamAbortController.value = null
-              isStreaming.value = false
-            }
-          }
-        })()
       } catch (error: any) {
         message.error('启动日志流失败: ' + (error.message || '未知错误'))
-        console.error('Start stream error:', error)
+        console.error('[LogStream][client:start-error]', {
+          error: error?.message || String(error)
+        })
         streamStats.errorCount++
-        isStreaming.value = false
+        setStreamStopped()
       } finally {
         loading.value = false
       }
@@ -403,6 +363,8 @@ export default defineComponent({
       logs.value = []
       filteredLogs.value = []
       streamStats.totalReceived = 0
+      streamStats.linesPerSecond = 0
+      streamStats.lastReceiveTime = ''
       streamStats.errorCount = 0
       message.info('日志已清空')
     }
@@ -475,16 +437,45 @@ export default defineComponent({
       }
     }
 
+    const shouldAcceptStreamLog = (log: LogEntry) => {
+      if (streamParams.originType && log.originType && log.originType !== streamParams.originType) return false
+      if (streamParams.service && log.service !== streamParams.service) return false
+      if (streamParams.level && log.level !== streamParams.level) return false
+      if (streamParams.keywords) {
+        const keyword = streamParams.keywords.toLowerCase()
+        const haystack = `${log.message || ''} ${log.service || ''}`.toLowerCase()
+        if (!haystack.includes(keyword)) return false
+      }
+      return true
+    }
+
+    const handleWebSocketLogMessage = (payload: { type?: string; data?: LogEntry }) => {
+      if (!isStreaming.value || isPaused.value) return
+      if (payload?.type !== 'logs') return
+      const log = payload.data
+      if (!log || !shouldAcceptStreamLog(log)) return
+      addLog(log)
+    }
+
     onMounted(() => {
       loadServiceOptions()
       filterLogs()
+      useMitt.on('wsConnectionStateChange', handleWebSocketConnectionState)
+      useMitt.on('wsRawMessage', handleWebSocketLogMessage)
       refreshTimer.value = setInterval(() => {
         calculateLinesPerSecond()
       }, 1000)
     })
 
     onUnmounted(() => {
-      stopStream()
+      useMitt.off('wsConnectionStateChange', handleWebSocketConnectionState)
+      useMitt.off('wsRawMessage', handleWebSocketLogMessage)
+      webSocket.send({ type: 'unsubscribe', data: { channel: 'logs' } })
+      setStreamStopped()
+      if (refreshTimer.value) {
+        clearInterval(refreshTimer.value)
+        refreshTimer.value = null
+      }
     })
 
     return () => (
@@ -507,7 +498,7 @@ export default defineComponent({
                       {isPaused.value ? '恢复' : '暂停'}
                     </NButton>
 
-                    <NButton onClick={stopStream}>
+                    <NButton onClick={() => stopStream()}>
                       <NIcon component={StopOutline} class="mr-1" />
                       停止
                     </NButton>
@@ -555,7 +546,9 @@ export default defineComponent({
             <div class="log-stream-page__stats-header">
               <div>
                 <div class="log-stream-page__section-title">流状态</div>
-                <div class="log-stream-page__section-subtitle">持续跟踪高频日志、错误和服务波动</div>
+                <div class="log-stream-page__section-subtitle">
+                  通过 WebSocket 订阅实时日志，并用最近日志预加载上下文
+                </div>
               </div>
               <div class="log-stream-page__status-cluster">
                 <span class="log-stream-page__status-dot" data-tone={getConnectionTone()}></span>
@@ -654,7 +647,7 @@ export default defineComponent({
             {isStreaming.value && (
               <NAlert type="info" class="log-stream-page__stream-alert">
                 <div class="log-stream-page__stream-alert-content">
-                  <span>{isPaused.value ? '日志流已暂停' : '正在接收实时日志...'}</span>
+                  <span>{isPaused.value ? '日志流已暂停' : '正在通过 WebSocket 接收实时日志...'}</span>
                   <NSpin size="small" v-show={!isPaused.value} />
                 </div>
               </NAlert>

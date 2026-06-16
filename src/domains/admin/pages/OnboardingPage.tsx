@@ -85,7 +85,7 @@ export default defineComponent({
             <NIcon size="20" color="var(--color-primary)">
               <RocketOutline />
             </NIcon>
-            <span class="onboarding-window__title">StarLight 接入向导</span>
+            <span class="onboarding-window__title">星光接入向导</span>
           </div>
         </WindowActionBar>
 

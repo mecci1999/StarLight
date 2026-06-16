@@ -14,7 +14,7 @@ import {
 import { ref, onMounted, computed, defineComponent, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { fetchMetricsExplorer, fetchCatalogServices, queryMetricCards, type MetricsDatasetScope } from '@/api'
-import type { MetricsAnalysisData } from '@/types/monitor'
+import type { MetricsAnalysisData, MetricPoint } from '@/types/monitor'
 import dayjs from 'dayjs'
 import PageHeader from '@/shared/layout/PageHeader'
 import TimeRangeBar from '@/shared/components/TimeRangeBar'
@@ -98,18 +98,13 @@ export default defineComponent({
       )
     })
 
-    const toBarData = (points: Array<{ timestamp: number; value: number }>) =>
-      points.map((point) => ({
-        name: dayjs(point.timestamp).format('HH:mm'),
-        value: point.value
-      }))
-
-    const requestStatsSeries = computed(() =>
-      (metrics.value?.requestStats || []).map((item) => ({
-        name: item.name,
-        value: item.value
-      }))
-    )
+    const toBarData = (points: MetricPoint[]): Array<{ name: string; value: number }> =>
+      points
+        .filter((point): point is { timestamp: number; value: number } => typeof point.value === 'number')
+        .map((point) => ({
+          name: dayjs(point.timestamp).format('HH:mm'),
+          value: point.value
+        }))
 
     const tableColumns = computed(() => {
       const sample = tableRows.value[0]

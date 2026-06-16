@@ -41,6 +41,7 @@ export const buildAggregatedInfraTrend = (
 
   groups.forEach((group) => {
     ;(group?.data || []).forEach((point) => {
+      if (typeof point.value !== 'number' || !Number.isFinite(point.value)) return
       if (!bucket.has(point.timestamp)) bucket.set(point.timestamp, [])
       bucket.get(point.timestamp)!.push(point.value)
     })

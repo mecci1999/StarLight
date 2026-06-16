@@ -2,6 +2,7 @@ import { computed, defineComponent, ref, onMounted } from 'vue'
 import { NCard, NProgress, NSpin, NTag } from 'naive-ui'
 import BaseChart from '@/components/charts/BaseChart'
 import * as api from '@/api/subscription'
+import { reportUnexpectedBillingError } from './billingErrorState'
 import './UsageTab.scss'
 
 type UsageQuota = {
@@ -27,6 +28,7 @@ export default defineComponent({
   name: 'BillingUsage',
   setup() {
     const loading = ref(false)
+    const usageUnavailable = ref(false)
     const historyUnavailable = ref(false)
     const usage = ref<api.SubscriptionUsageSummary | null>(null)
     const chartOption = ref<any>(null)
@@ -36,9 +38,11 @@ export default defineComponent({
     const schemaQuota = computed(() => quotas.value.find((item) => item.type === 'maxCustomSchemas'))
     const apiKeyQuota = computed(() => quotas.value.find((item) => item.type === 'maxAppKeys'))
     const planSummary = computed(() => usage.value?.summary || null)
+    const isAdminGlobalSummary = computed(() => planSummary.value?.planName === 'admin-global')
 
     const fetchUsage = async () => {
       loading.value = true
+      usageUnavailable.value = false
       historyUnavailable.value = false
       try {
         const summary = await api.getUsageSummary()
@@ -47,7 +51,7 @@ export default defineComponent({
         const history = await api
           .getQuotaHistory({ quotaType: 'maxMetricsPerMonth', timeRange: '7d', limit: 100 })
           .catch((error) => {
-            console.error('Failed to fetch quota history:', error)
+            reportUnexpectedBillingError('Quota history unavailable:', error)
             historyUnavailable.value = true
             return { history: [] }
           })
@@ -85,7 +89,9 @@ export default defineComponent({
           ]
         }
       } catch (e) {
-        console.error('Failed to fetch usage', e)
+        reportUnexpectedBillingError('Usage summary unavailable:', e)
+        usage.value = null
+        usageUnavailable.value = true
       } finally {
         loading.value = false
       }
@@ -115,8 +121,12 @@ export default defineComponent({
       <div class="billing-usage-tab">
         <div class="billing-usage-tab__section-head">
           <div>
-            <h3>使用概览</h3>
-            <p>确认当前套餐、核心配额和最近 7 天指标写入趋势。</p>
+            <h3>{isAdminGlobalSummary.value ? '全局订阅概览' : '使用概览'}</h3>
+            <p>
+              {isAdminGlobalSummary.value
+                ? '管理员视角展示全局活跃订阅、试用用户和最高套餐配额，用于判断整体订阅容量。'
+                : '确认当前套餐、核心配额和最近 7 天指标写入趋势。'}
+            </p>
           </div>
           <NTag bordered={false} type="info">
             {planSummary.value?.planDisplayName || planSummary.value?.planName || '当前套餐'}
@@ -127,6 +137,12 @@ export default defineComponent({
           <div class="billing-usage-tab__loading">
             <NSpin />
           </div>
+        ) : usageUnavailable.value ? (
+          <NCard bordered={false} class="billing-usage-tab__chart-card">
+            <div class="billing-usage-tab__chart-empty">
+              当前还没有可用订阅或配额数据。普通用户可先在“套餐与订阅”选择套餐，管理员可查看上方经营概览。
+            </div>
+          </NCard>
         ) : (
           <>
             <div class="billing-usage-tab__quota-grid">
@@ -138,13 +154,23 @@ export default defineComponent({
             <NCard bordered={false} class="billing-usage-tab__chart-card">
               <div class="billing-usage-tab__section-head billing-usage-tab__section-head--compact">
                 <div>
-                  <h3>最近 7 天趋势</h3>
-                  <p>用于判断是否需要升级套餐或调整采集策略。</p>
+                  <h3>{isAdminGlobalSummary.value ? '管理员视角说明' : '最近 7 天趋势'}</h3>
+                  <p>
+                    {isAdminGlobalSummary.value
+                      ? '个人订阅趋势不适用于管理员全局视角；请结合上方经营概览查看收益与订阅分布。'
+                      : '用于判断是否需要升级套餐或调整采集策略。'}
+                  </p>
                 </div>
-                <span>到期时间：{planSummary.value?.expiresAt || '—'}</span>
+                <span>
+                  {isAdminGlobalSummary.value ? '范围：全部用户' : `到期时间：${planSummary.value?.expiresAt || '—'}`}
+                </span>
               </div>
               <div class="billing-usage-tab__chart">
-                {historyUnavailable.value ? (
+                {isAdminGlobalSummary.value ? (
+                  <div class="billing-usage-tab__chart-empty">
+                    管理员全局视角不依赖个人订阅，因此不会再因为管理员本人未订阅而报错。
+                  </div>
+                ) : historyUnavailable.value ? (
                   <div class="billing-usage-tab__chart-empty">趋势数据暂时不可用，配额概览仍可正常查看。</div>
                 ) : (
                   chartOption.value && <BaseChart option={chartOption.value} />

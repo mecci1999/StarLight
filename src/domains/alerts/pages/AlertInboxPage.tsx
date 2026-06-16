@@ -113,6 +113,7 @@ export default defineComponent({
     const statusOptions = [
       { label: '全部状态', value: '' },
       { label: '活跃', value: 'active' },
+      { label: '等待持续时间', value: 'pending' },
       { label: '已解决', value: 'resolved' },
       { label: '已静默', value: 'suppressed' }
     ]
@@ -197,6 +198,7 @@ export default defineComponent({
         render(row: any) {
           const statusMap = {
             active: { type: 'error', text: '活跃', icon: AlertCircleOutline },
+            pending: { type: 'warning', text: '等待持续时间', icon: AlertCircleOutline },
             resolved: { type: 'success', text: '已解决', icon: CheckmarkCircleOutline },
             suppressed: { type: 'default', text: '已静默', icon: CloseCircleOutline }
           }

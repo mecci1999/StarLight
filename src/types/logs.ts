@@ -33,8 +33,12 @@ export enum LogExportFormatEnum {
 export interface LogSearchParams {
   /** 服务名称 */
   service?: string
+  /** 日志服务名称，避免与网关路由 service 参数冲突 */
+  logService?: string
   /** 日志级别 */
-  level?: LogLevelEnum
+  level?: LogLevelEnum | LogLevelEnum[]
+  /** 多日志级别 */
+  levels?: LogLevelEnum[]
   /** 关键词搜索 */
   keyword?: string
   /** 后端全文搜索字段 */
@@ -59,6 +63,10 @@ export interface LogSearchParams {
   containerId?: string
   /** 后端通用过滤条件 */
   filters?: Record<string, string | number | boolean>
+  /** 排除的服务名称 */
+  excludeServices?: string[]
+  /** 排除的 Darwin 节点 */
+  excludeNodeIDs?: string[]
   /** 标签过滤 */
   tags?: Record<string, string>
   /** 排序字段 */

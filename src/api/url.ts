@@ -47,6 +47,8 @@ export default {
   logStream: `${logsPrefix}/stream`, // 日志流
   logIngest: `${logsPrefix}/ingest`, // 日志摄取
   logBatchIngest: `${logsPrefix}/batch-ingest`, // 批量日志摄取
+  logDebugDiagnostics: `${logsPrefix}/diagnostics/debug`, // 调试日志开关
+  logDebugCapture: `${logsPrefix}/diagnostics/capture-debug`, // 调试日志采集
   exceptionAnalysis: `${logsPrefix}/exception-analysis`, // 异常分析
   logsExplorerSearch: `${logsPrefix}/explorer/search`,
   logsExplorerStats: `${logsPrefix}/explorer/stats`,
@@ -119,6 +121,7 @@ export default {
   resumeSubscription: `${subscriptionPrefix}/subscription/resume`,
   subscriptionHistory: `${subscriptionPrefix}/subscription/history`,
   billingHistory: `${subscriptionPrefix}/billing/list`,
+  billingAnalytics: `${subscriptionPrefix}/billing/analytics`,
   paymentMethods: `${subscriptionPrefix}/payment/methods`,
   // 视频增强模块
   videoUpscaleTasks: `${videoPrefix}/upscale/tasks`,

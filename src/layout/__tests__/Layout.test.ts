@@ -8,4 +8,17 @@ describe('Layout top bar integration', () => {
 
     expect(source).toContain('<WindowActionBar maxW={true} shrink={false} topWinLable="home" showSlot plain>')
   })
+
+  it('keeps the layout body from expanding to wide route content', () => {
+    const layoutStyles = readFileSync(resolve(__dirname, '../index.scss'), 'utf-8')
+    const containerStyles = readFileSync(resolve(__dirname, '../container/index.scss'), 'utf-8')
+
+    expect(layoutStyles).toContain('min-width: 0;')
+    expect(layoutStyles).toContain('overflow: hidden;')
+    expect(containerStyles).toContain('max-width: 100%;')
+    expect(containerStyles).toContain('min-width: 0;')
+    expect(containerStyles).toContain('.service-main')
+    expect(containerStyles).toContain('display: flex;')
+    expect(containerStyles).toContain('min-height: 0;')
+  })
 })

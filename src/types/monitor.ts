@@ -3,15 +3,29 @@ export type ServiceItem = {
   name: string
   status: 'running' | 'stopped' | 'error' | 'unknown'
   version: string
-  instances: number
-  health: 'healthy' | 'unhealthy' | 'warning' | 'unknown'
+  instances: number | null
+  health: 'healthy' | 'unhealthy' | 'warning' | 'degraded' | 'critical' | 'muted' | 'unknown'
   lastUpdate: string
   owner?: string
   region?: string
-  qps?: number
-  latency?: number
-  errorRate?: number
-  sla?: number
+  qps?: number | null
+  latency?: number | null
+  errorRate?: number | null
+  sla?: number | null
+  activeIncidentCount?: number | null
+  metricStatus?: {
+    qps?: 'observed' | 'unavailable'
+    latency?: 'observed' | 'unavailable'
+    errorRate?: 'observed' | 'unavailable'
+    runtime?: 'observed' | 'unavailable'
+  }
+  runtimeMetrics?: {
+    cpu?: number | null
+    memory?: number | null
+    lastSampleAt?: string | null
+  }
+  team?: string
+  env?: string
   tags?: string[]
   lastDeploy?: string
   editable?: boolean
@@ -29,7 +43,7 @@ export type ServiceInstance = {
 
 export type MetricPoint = {
   timestamp: number
-  value: number
+  value: number | null
 }
 
 export type MetricsBundle = {
@@ -143,7 +157,7 @@ export type AlertItem = {
   service: string
   level: 'critical' | 'warning' | 'info'
   message: string
-  status: 'active' | 'resolved' | 'suppressed'
+  status: 'active' | 'resolved' | 'suppressed' | 'pending'
   duration: string
   assigneeUserId?: string
   assigneeName?: string
@@ -212,6 +226,8 @@ export type TopologyData = {
     source?: string
     reason?: string
     updatedAt?: string | number
+    inferredEdgeCount?: number
+    originalEdgeCount?: number
   }
 }
 

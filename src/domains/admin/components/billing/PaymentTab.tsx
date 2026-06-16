@@ -2,6 +2,7 @@ import { defineComponent, ref, onMounted, watch } from 'vue'
 import { NCard, NButton, NTag, NSpace } from 'naive-ui'
 import ResultTable from '@/shared/components/ResultTable'
 import * as api from '@/api/subscription'
+import { reportUnexpectedBillingError } from './billingErrorState'
 import './PaymentTab.scss'
 
 export default defineComponent({
@@ -74,7 +75,7 @@ export default defineComponent({
       try {
         currentOrder.value = await api.queryPaymentOrder({ orderId })
       } catch (error) {
-        console.error('Failed to query payment order:', error)
+        reportUnexpectedBillingError('Payment order unavailable:', error)
         currentOrder.value = null
       } finally {
         orderLoading.value = false
@@ -88,7 +89,7 @@ export default defineComponent({
         paymentMethods.value = res?.methods || []
         methodsError.value = false
       } catch (error) {
-        console.error('Failed to fetch payment methods:', error)
+        reportUnexpectedBillingError('Payment methods unavailable:', error)
         paymentMethods.value = []
         methodsError.value = true
       } finally {
@@ -110,7 +111,7 @@ export default defineComponent({
         }))
         historyError.value = false
       } catch (error) {
-        console.error('Failed to fetch billing history:', error)
+        reportUnexpectedBillingError('Billing history unavailable:', error)
         data.value = []
         historyError.value = true
       } finally {

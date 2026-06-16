@@ -94,7 +94,7 @@ export default defineComponent({
     }
 
     return () => (
-      <StepLayout title="配置凭证" description="AppKey 是您的服务接入 StarLight 的唯一凭证，请妥善保管。">
+      <StepLayout title="配置凭证" description="AppKey 是您的服务接入星光的唯一凭证，请妥善保管。">
         {{
           guide: () => (
             <div>

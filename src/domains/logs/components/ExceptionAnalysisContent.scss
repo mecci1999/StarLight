@@ -1,41 +1,84 @@
 .exception-analysis-page {
   display: flex;
-  flex-direction: column;
   height: 100%;
+  flex-direction: column;
+  gap: var(--spacing-4);
   overflow: hidden;
-  padding: 24px;
-  background: linear-gradient(180deg, var(--color-bg-1), color-mix(in srgb, var(--color-fill-1) 18%, var(--color-bg-1)));
+  padding: var(--spacing-5);
+  background: var(--color-bg-1);
+
+  &__button-icon {
+    margin-right: var(--spacing-1);
+  }
 
   &__body {
-    padding-right: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-4);
+    padding-right: var(--spacing-3);
   }
 
   &__card {
-    border: 1px solid color-mix(in srgb, var(--color-border-1) 82%, transparent);
-    border-radius: 18px;
-    background: color-mix(in srgb, var(--color-bg-2) 92%, var(--color-fill-1));
+    border: var(--border-width-1) solid var(--color-border-1);
+    border-radius: var(--radius-lg);
+    background: var(--color-bg-white);
+    box-shadow: var(--shadow-sm);
+
+    :deep(.n-card__content) {
+      color: var(--color-text-2);
+    }
+
+    :deep(.n-statistic .n-statistic__label) {
+      color: var(--color-text-3);
+      font-size: var(--font-size-body-1);
+      font-weight: var(--font-weight-medium);
+    }
   }
 
   &__stat-value {
     color: var(--color-text-1);
-    font-size: 24px;
-    font-weight: 700;
+    font-size: var(--font-size-title-3);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: -0.02em;
 
     &--warning {
       color: var(--color-warning-6);
     }
   }
 
-  &__field-label {
+  &__section-title {
+    color: var(--color-text-1);
+    font-size: var(--font-size-title-1);
+    font-weight: var(--font-weight-medium);
+  }
+
+  &__section-desc {
+    margin-top: var(--spacing-1);
     color: var(--color-text-3);
-    font-size: 12px;
+    font-size: var(--font-size-body-1);
+    line-height: 1.5;
+  }
+
+  &__filter-header,
+  &__table-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--spacing-3);
+  }
+
+  &__filter-grid {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-3);
+    margin-top: var(--spacing-4);
   }
 
   &__filter-row,
   &__filter-group,
   &__table-footer {
     display: flex;
-    gap: 16px;
+    gap: var(--spacing-3);
   }
 
   &__filter-row {
@@ -52,47 +95,122 @@
     align-items: center;
   }
 
+  &__service-input {
+    width: 220px;
+  }
+
+  &__select {
+    width: 156px;
+
+    &--compact {
+      width: 124px;
+    }
+  }
+
+  &__number-input {
+    width: 124px;
+  }
+
+  &__date-input {
+    width: 220px;
+  }
+
+  &__card--table {
+    overflow: hidden;
+  }
+
+  &__table-header {
+    padding: var(--spacing-4) var(--spacing-4) 0;
+  }
+
   &__table-shell {
-    padding: 16px;
+    padding: var(--spacing-4);
   }
 
   &__table-footer {
     justify-content: flex-end;
-    margin-top: 16px;
+    margin-top: var(--spacing-4);
   }
 
-  &__section-title {
-    margin-bottom: 8px;
+  &__empty-state {
+    padding: var(--spacing-8) var(--spacing-4);
+  }
+
+  &__exception-cell {
+    cursor: pointer;
+  }
+
+  &__exception-message {
     color: var(--color-text-1);
-    font-size: 16px;
-    font-weight: var(--font-weight-semibold);
+    font-size: var(--font-size-body-3);
+    font-weight: var(--font-weight-medium);
+    transition: color var(--duration-fast) var(--ease-default);
+
+    .exception-analysis-page__exception-cell:hover & {
+      color: var(--color-primary-6);
+    }
+  }
+
+  &__exception-type {
+    margin-top: var(--spacing-1);
+    color: var(--color-text-3);
+    font-size: var(--font-size-body-1);
+  }
+
+  &__trend-text--up {
+    color: var(--color-danger-6);
+  }
+
+  &__trend-text--down {
+    color: var(--color-success-6);
+  }
+
+  &__field-label {
+    color: var(--color-text-3);
+    font-size: var(--font-size-body-1);
+    margin-bottom: var(--spacing-1);
+  }
+
+  &__field-value {
+    color: var(--color-text-1);
+    font-size: var(--font-size-body-3);
+    font-weight: var(--font-weight-medium);
   }
 
   &__panel {
-    padding: 16px;
-    border: 1px solid color-mix(in srgb, var(--color-border-1) 78%, transparent);
-    border-radius: 14px;
-    background: color-mix(in srgb, var(--color-fill-1) 72%, transparent);
+    padding: var(--spacing-4);
+    border: var(--border-width-1) solid var(--color-border-1);
+    border-radius: var(--radius-lg);
+    background: var(--color-fill-1);
 
     &--compact {
-      padding: 14px;
+      padding: var(--spacing-3);
     }
+  }
+
+  &__section-title {
+    margin-bottom: var(--spacing-2);
   }
 
   &__code-shell {
     overflow: hidden;
-    border: 1px solid color-mix(in srgb, var(--color-border-1) 82%, transparent);
-    border-radius: 14px;
-    background: color-mix(in srgb, var(--color-bg-2) 96%, transparent);
+    border: var(--border-width-1) solid var(--color-border-1);
+    border-radius: var(--radius-lg);
+    background: var(--color-bg-2);
+    padding: var(--spacing-3);
 
     &--muted {
-      background: color-mix(in srgb, var(--color-fill-1) 60%, transparent);
+      background: var(--color-fill-1);
     }
   }
 
+  &__code {
+    display: block;
+  }
+
   &__emphasis {
-    font-size: 20px;
-    font-weight: 700;
+    font-size: var(--font-size-title-2);
+    font-weight: var(--font-weight-semibold);
 
     &--danger {
       color: var(--color-danger-6);
@@ -101,40 +219,41 @@
 
   &__modal {
     :deep(.n-card) {
-      border: 1px solid color-mix(in srgb, var(--color-border-1) 82%, transparent);
-      border-radius: 18px;
-      background: color-mix(in srgb, var(--color-bg-2) 96%, var(--color-fill-1));
+      border: var(--border-width-1) solid var(--color-border-1);
+      border-radius: var(--radius-lg);
+      background: var(--color-bg-white);
+      box-shadow: var(--shadow-lg);
     }
   }
 
   &__meta-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 16px;
+    gap: var(--spacing-4);
   }
 
   &__meta-label {
     color: var(--color-text-3);
-    font-size: 12px;
-    margin-right: 8px;
+    font-size: var(--font-size-body-1);
+    margin-right: var(--spacing-2);
 
     &--block {
       display: block;
-      margin: 0 0 6px;
+      margin: 0 0 var(--spacing-2);
     }
   }
 
   &__trend-shell {
-    padding: 16px;
-    border: 1px solid color-mix(in srgb, var(--color-border-1) 78%, transparent);
-    border-radius: 16px;
-    background: color-mix(in srgb, var(--color-fill-1) 68%, transparent);
+    padding: var(--spacing-4);
+    border: var(--border-width-1) solid var(--color-border-1);
+    border-radius: var(--radius-lg);
+    background: var(--color-fill-1);
   }
 
   &__trend-grid {
     display: grid;
     grid-template-columns: repeat(12, minmax(0, 1fr));
-    gap: 8px;
+    gap: var(--spacing-2);
     height: 160px;
     align-items: end;
   }
@@ -143,25 +262,24 @@
     display: flex;
     height: 100%;
     flex-direction: column;
-    justify-content: flex-end;
     align-items: center;
-    gap: 6px;
+    justify-content: flex-end;
+    gap: var(--spacing-2);
   }
 
   &__trend-value,
   &__trend-time {
     color: var(--color-text-3);
-    font-size: 11px;
+    font-size: var(--font-size-caption);
   }
 
   &__trend-value {
-    font-weight: 700;
-    opacity: 0.75;
+    font-weight: var(--font-weight-medium);
   }
 
   &__trend-bar {
     width: 60%;
-    border-radius: 999px 999px 4px 4px;
+    border-radius: var(--radius-full) var(--radius-full) var(--radius-sm) var(--radius-sm);
     background: linear-gradient(180deg, var(--color-primary-5), var(--color-primary-7));
     transition: transform var(--duration-fast) var(--ease-default);
 
@@ -176,8 +294,21 @@
   }
 
   @media (max-width: 960px) {
-    &__filter-row--between {
+    padding: var(--spacing-4);
+
+    &__filter-row--between,
+    &__filter-header,
+    &__table-header {
       justify-content: flex-start;
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
+    &__service-input,
+    &__select,
+    &__number-input,
+    &__date-input {
+      width: 100%;
     }
 
     &__meta-grid {
@@ -194,14 +325,20 @@
 
 :root[data-theme='dark'] {
   .exception-analysis-page {
-    background: linear-gradient(180deg, var(--color-bg-1), color-mix(in srgb, var(--color-fill-1) 20%, var(--color-bg-1)));
-
     &__card,
     &__modal :deep(.n-card),
     &__panel,
-    &__code-shell {
-      border-color: color-mix(in srgb, white 7%, var(--color-border-1));
-      background: color-mix(in srgb, var(--color-bg-2) 96%, var(--color-fill-1));
+    &__code-shell,
+    &__trend-shell {
+      border-color: var(--color-border-1);
+      background: var(--color-bg-2);
+      box-shadow: var(--shadow-sm);
+    }
+
+    &__code-shell--muted,
+    &__panel,
+    &__trend-shell {
+      background: var(--color-fill-1);
     }
   }
 }

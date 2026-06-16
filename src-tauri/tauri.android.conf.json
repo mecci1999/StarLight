@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "StarLight",
+  "productName": "星光",
   "version": "0.1.0",
   "identifier": "com.starlight-app.app",
   "build": {

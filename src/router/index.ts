@@ -372,8 +372,7 @@ router.beforeEach((to: RouteLocationNormalized, _from: RouteLocationNormalized, 
   // 由页面内的 API 请求触发 401 拦截器，进而触发重登。
   // 这样可以解决 Cookie 不同步导致的误判问题。
 
-  const isAdminRoute =
-    to.path.startsWith('/home/admin') || to.path === '/home/admin-billing-v2' || to.path === '/home/billing'
+  const isAdminRoute = to.path.startsWith('/home/admin/') || to.path === '/home/admin-onboarding-v2'
   if (isAdminRoute && !getStoredUserInfo()?.isAdmin) {
     return next('/home')
   }

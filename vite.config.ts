@@ -101,7 +101,14 @@ export default defineConfig(({ mode }: ConfigEnv) => {
         '/api': {
           // “/api” 以及前置字符串会被替换为真正域名
           target: config.VITE_SERVICE_URL, // 请求域名
-          changeOrigin: true // 是否跨域
+          changeOrigin: true, // 是否跨域
+          timeout: 0,
+          proxyTimeout: 0,
+          configure: (proxy) => {
+            proxy.on('proxyReq', (proxyReq) => {
+              proxyReq.setTimeout(0)
+            })
+          }
           // rewrite: (path) => path.replace(/^\/api/, '')
         }
       },

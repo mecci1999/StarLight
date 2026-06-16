@@ -36,6 +36,14 @@ export default defineComponent({
     rowProps: {
       type: Function,
       default: undefined
+    },
+    scrollX: {
+      type: [Number, String],
+      default: undefined
+    },
+    maxHeight: {
+      type: [Number, String],
+      default: undefined
     }
   },
   emits: ['rowClick', 'update:checkedRowKeys'],
@@ -51,6 +59,11 @@ export default defineComponent({
       }
     }
 
+    const getRowKey = (row: any) => {
+      if (typeof props.rowKey === 'function') return props.rowKey(row)
+      return row?.[props.rowKey]
+    }
+
     return () => (
       <NDataTable
         class="result-table"
@@ -61,8 +74,10 @@ export default defineComponent({
         pagination={props.pagination as any}
         bordered={props.bordered}
         singleLine={props.singleLine}
-        rowKey={props.rowKey as any}
+        rowKey={getRowKey}
         rowClassName={props.rowClassName as any}
+        scrollX={props.scrollX as any}
+        maxHeight={props.maxHeight as any}
         size={getSize() as any}
         rowProps={
           props.rowProps

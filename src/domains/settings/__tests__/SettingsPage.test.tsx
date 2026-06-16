@@ -143,7 +143,7 @@ describe('SettingsPage from top-bar avatar menu', () => {
     const wrapper = mount(SettingsPage)
 
     expect(wrapper.text()).toContain('应用设置')
-    expect(wrapper.text()).toContain('管理 StarLight 客户端的显示、窗口、登录与启动偏好。')
+    expect(wrapper.text()).toContain('管理星光客户端的显示、窗口、登录与启动偏好。')
 
     await wrapper.find('button[data-radio-value="dark"]').trigger('click')
     expect(settingStore.setTheme).toHaveBeenCalledWith(ThemeEnum.DARK)

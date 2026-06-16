@@ -19,7 +19,7 @@ import type { SelectOption } from 'naive-ui'
 import { useRoute, useRouter } from 'vue-router'
 import { fetchTopology, fetchServiceDetailSummary, saveTopologyCanvas, type MetricsDatasetScope } from '@/api'
 
-import type { TopologyData, TopologyNode } from '@/types/monitor'
+import type { TopologyData, TopologyEdge, TopologyNode } from '@/types/monitor'
 import ServiceTopology from '@/components/ServiceTopology'
 import PageHeader from '@/shared/layout/PageHeader'
 import DetailDrawer from '@/shared/components/DetailDrawer'
@@ -49,7 +49,6 @@ export default defineComponent({
     const refreshIntervalMs = ref(15000)
     const lastUpdatedAt = ref<number | null>(null)
     const topologyRefreshKey = ref(0)
-    const showLayerRegions = ref(true)
     const refreshTimer = ref<ReturnType<typeof globalThis.setInterval> | null>(null)
     const showAddInfra = ref(false)
     const infraForm = ref({
@@ -106,7 +105,97 @@ export default defineComponent({
       manualEdges.value = data.edges.filter((edge) => edge.source === 'manual-topology')
     }
 
-    const isFallbackTopology = computed(() => topologyData.value?.meta?.source === 'service-catalog-fallback')
+    const getLayerKey = (node: TopologyNode) => {
+      const text = `${node.layerName || ''} ${node.type || ''}`.toLowerCase()
+      if (text.includes('gateway') || text.includes('edge')) return 'gateway'
+      if (
+        text.includes('infra') ||
+        text.includes('database') ||
+        text.includes('middleware') ||
+        text.includes('storage') ||
+        ['redis', 'mysql', 'kafka', 'influxdb', 'elasticsearch'].some((keyword) =>
+          String(node.id || node.name)
+            .toLowerCase()
+            .includes(keyword)
+        )
+      ) {
+        return 'infrastructure'
+      }
+      return 'service'
+    }
+
+    const getNodeIdentity = (node: TopologyNode) => String(node.id || node.name || '').trim()
+
+    const buildInferredTopologyEdges = (nodes: TopologyNode[], explicitEdges: TopologyEdge[]) => {
+      const existingPairs = new Set(
+        explicitEdges.map((edge) => `${String(edge.from)}=>${String(edge.to)}`).filter((key) => key !== '=>')
+      )
+      const gatewayNodes = nodes.filter((node) => getLayerKey(node) === 'gateway')
+      const serviceNodes = nodes.filter((node) => getLayerKey(node) === 'service')
+      const infraNodes = nodes.filter((node) => getLayerKey(node) === 'infrastructure')
+      const inferredEdges: TopologyEdge[] = []
+
+      const addEdge = (fromNode: TopologyNode | undefined, toNode: TopologyNode | undefined, protocol = 'observed') => {
+        const from = fromNode ? getNodeIdentity(fromNode) : ''
+        const to = toNode ? getNodeIdentity(toNode) : ''
+        if (!from || !to || from === to) return
+        const key = `${from}=>${to}`
+        if (existingPairs.has(key)) return
+        existingPairs.add(key)
+        inferredEdges.push({
+          from,
+          to,
+          protocol,
+          callType: 'inferred',
+          status: 'unknown',
+          source: 'client-inferred-topology',
+          inferred: true
+        })
+      }
+
+      if (explicitEdges.length === 0 && gatewayNodes.length > 0) {
+        serviceNodes.forEach((service) => addEdge(gatewayNodes[0], service, 'http'))
+      }
+
+      if (explicitEdges.length === 0 && gatewayNodes.length === 0 && serviceNodes.length > 1) {
+        serviceNodes.slice(1).forEach((service) => addEdge(serviceNodes[0], service, 'service'))
+      }
+
+      if (infraNodes.length > 0 && serviceNodes.length > 0) {
+        const connectedTargets = new Set(explicitEdges.map((edge) => String(edge.to)))
+        infraNodes.forEach((infra) => {
+          if (!connectedTargets.has(getNodeIdentity(infra))) addEdge(serviceNodes[0], infra, infra.protocol || 'infra')
+        })
+      }
+
+      return inferredEdges
+    }
+
+    const ensurePresentableTopology = (data: TopologyData): TopologyData => {
+      const nodes = data.nodes.filter((node) => getNodeIdentity(node))
+      const nodeIds = new Set(nodes.map(getNodeIdentity))
+      const explicitEdges = data.edges.filter(
+        (edge) =>
+          nodeIds.has(String(edge.from)) && nodeIds.has(String(edge.to)) && String(edge.from) !== String(edge.to)
+      )
+      const inferredEdges = buildInferredTopologyEdges(nodes, explicitEdges)
+      return {
+        ...data,
+        nodes,
+        edges: [...explicitEdges, ...inferredEdges],
+        meta: {
+          ...(data.meta || {}),
+          inferredEdgeCount: inferredEdges.length,
+          originalEdgeCount: data.edges.length
+        }
+      }
+    }
+
+    const isFallbackTopology = computed(
+      () =>
+        topologyData.value?.meta?.source === 'service-catalog-fallback' ||
+        ((topologyData.value?.nodes?.length || 0) > 1 && Number(topologyData.value?.meta?.originalEdgeCount || 0) === 0)
+    )
 
     const applyDelta = (payload: any) => {
       const delta = payload?.delta || payload
@@ -164,10 +253,10 @@ export default defineComponent({
         if (key) edgeMap.set(key, normalized)
       })
 
-      topologyData.value = {
+      topologyData.value = ensurePresentableTopology({
         nodes: Array.from(nodeMap.values()),
         edges: Array.from(edgeMap.values())
-      }
+      })
     }
 
     const loadTopology = async () => {
@@ -176,8 +265,8 @@ export default defineComponent({
         const nextTopology = normalizeTopology(
           await fetchTopology({ timeRange: `-${timeStore.timeRange}`, scope: datasetScope.value })
         )
-        topologyData.value = nextTopology
-        syncManualCanvasState(nextTopology)
+        topologyData.value = ensurePresentableTopology(nextTopology)
+        syncManualCanvasState(topologyData.value)
         lastUpdatedAt.value = Date.now()
         topologyRefreshKey.value += 1
       } catch (e) {
@@ -247,8 +336,8 @@ export default defineComponent({
 
     useMitt.on(WsResponseMessageType.TOPOLOGY_SNAPSHOT, (payload) => {
       const nextTopology = normalizeTopology(payload)
-      topologyData.value = nextTopology
-      syncManualCanvasState(nextTopology)
+      topologyData.value = ensurePresentableTopology(nextTopology)
+      syncManualCanvasState(topologyData.value)
       lastUpdatedAt.value = Date.now()
       topologyRefreshKey.value += 1
     })
@@ -380,8 +469,11 @@ export default defineComponent({
         return matchesKeyword && matchesStatus
       })
       const nodeIds = new Set(nodes.map((node) => String(node.id)))
-      const edges = source.edges.filter((edge) => nodeIds.has(String(edge.from)) && nodeIds.has(String(edge.to)))
-      return { nodes, edges }
+      const explicitEdges = source.edges.filter(
+        (edge) => nodeIds.has(String(edge.from)) && nodeIds.has(String(edge.to))
+      )
+      const inferredEdges = buildInferredTopologyEdges(nodes, explicitEdges)
+      return { nodes, edges: [...explicitEdges, ...inferredEdges], meta: source.meta }
     })
 
     const refreshOptions = [
@@ -404,34 +496,6 @@ export default defineComponent({
       { key: 'service', title: '服务应用层', subtitle: '业务服务、平台服务、系统服务' },
       { key: 'infrastructure', title: '基础设施层', subtitle: '数据库、缓存、消息队列、时序存储' }
     ]
-
-    const getLayerKey = (node: TopologyNode) => {
-      const text = `${node.layerName || ''} ${node.type || ''}`.toLowerCase()
-      if (text.includes('gateway') || text.includes('edge')) return 'gateway'
-      if (
-        text.includes('infra') ||
-        text.includes('database') ||
-        text.includes('middleware') ||
-        text.includes('storage') ||
-        ['redis', 'mysql', 'kafka', 'influxdb', 'elasticsearch'].some((keyword) =>
-          String(node.id || node.name)
-            .toLowerCase()
-            .includes(keyword)
-        )
-      ) {
-        return 'infrastructure'
-      }
-      return 'service'
-    }
-
-    const layerCounts = computed(() => {
-      const map = new Map<string, number>()
-      ;(topologyData.value?.nodes || []).forEach((node) => {
-        const key = getLayerKey(node)
-        map.set(key, (map.get(key) || 0) + 1)
-      })
-      return map
-    })
 
     const lastUpdatedLabel = computed(() => {
       if (!lastUpdatedAt.value) return '尚未刷新'
@@ -530,8 +594,10 @@ export default defineComponent({
           {{
             actions: () => (
               <NButton secondary type="primary" onClick={loadTopology}>
-                {{ icon: () => <NIcon component={RefreshOutline} /> }}
-                刷新拓扑
+                {{
+                  icon: () => <NIcon component={RefreshOutline} />,
+                  default: () => '刷新拓扑'
+                }}
               </NButton>
             )
           }}
@@ -608,16 +674,6 @@ export default defineComponent({
                   refreshIntervalMs.value = value
                 }}
               />
-              <div class="topology-page__live-control">
-                <span>区域分层</span>
-                <NSwitch
-                  size="small"
-                  value={showLayerRegions.value}
-                  onUpdateValue={(value: boolean) => {
-                    showLayerRegions.value = value
-                  }}
-                />
-              </div>
               <NInput
                 clearable
                 value={query.value}
@@ -648,19 +704,9 @@ export default defineComponent({
               </NButton>
             </div>
           </div>
-          <div class="topology-page__layer-strip">
-            {layerDefinitions.map((layer) => (
-              <div class={`topology-page__layer-chip topology-page__layer-chip--${layer.key}`} key={layer.key}>
-                <div class="topology-page__layer-chip-title">{layer.title}</div>
-                <div class="topology-page__layer-chip-meta">
-                  {layer.subtitle} · {layerCounts.value.get(layer.key) || 0} 个节点
-                </div>
-              </div>
-            ))}
-          </div>
           {isFallbackTopology.value && (
             <div class="topology-page__telemetry-warning">
-              当前只拿到了服务节点，暂未查询到真实调用关系。网关会从实际 API 请求中记录
+              当前真实调用关系不足，页面已用虚线补齐可视化依赖，避免节点孤岛。网关会从实际 API 请求中记录
               <span> gateway → 目标服务 </span>
               依赖，请产生一次接口访问并等待指标刷新后重试；外部服务间调用仍需要上报 target_service / peer_service。
             </div>
@@ -676,7 +722,7 @@ export default defineComponent({
                   data={filteredTopologyData.value}
                   height="100%"
                   selectedNodeId={currentNode.value?.id || ''}
-                  showLayerRegions={showLayerRegions.value}
+                  showLayerRegions={false}
                   layerDefinitions={layerDefinitions}
                   refreshKey={topologyRefreshKey.value}
                   onNodeClick={openDetail}
@@ -699,7 +745,6 @@ export default defineComponent({
                 <div>圆点节点：服务 / 实例</div>
                 <div>点击节点：打开 Inspector 侧栏</div>
                 <div>双击节点：进入服务详情</div>
-                <div>区域泳道：接入层、服务应用层、基础设施层</div>
               </div>
             </div>
             <div>
@@ -708,6 +753,7 @@ export default defineComponent({
                 <div>连线：调用关系</div>
                 <div>箭头方向：请求流向</div>
                 <div>线旁指标：QPS / 错误率 / P99 / 调用次数</div>
+                <div>灰色虚线：暂无真实 telemetry 时的可视化推断关系</div>
               </div>
             </div>
             <div>

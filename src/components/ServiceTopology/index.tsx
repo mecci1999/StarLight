@@ -97,6 +97,23 @@ export default defineComponent({
       return 'rgba(134, 144, 156, 0.08)'
     }
 
+    const getEdgeColor = (edge: any) => {
+      if (edge.status === 'critical' || Number(edge.errorRate || 0) > 0) return '#f53f3f'
+      if (edge.inferred) return '#94a3b8'
+      if (edge.source === 'manual-topology') return '#ff7d00'
+      return '#165dff'
+    }
+
+    const getEdgeLabel = (edge: any) => {
+      const metrics = []
+      if (typeof edge.qps === 'number' && edge.qps > 0) metrics.push(`${edge.qps} qps`)
+      if (typeof edge.errorRate === 'number' && edge.errorRate > 0) metrics.push(`${edge.errorRate}% err`)
+      if (typeof edge.p99 === 'number' && edge.p99 > 0) metrics.push(`p99 ${edge.p99}ms`)
+      if (metrics.length > 0) return metrics.slice(0, 2).join(' · ')
+      if (edge.inferred) return '推断关系'
+      return edge.protocol || ''
+    }
+
     const formatPercent = (value?: number | null) => {
       if (typeof value !== 'number') return '-'
       return `${value >= 0 && value <= 1 ? (value * 100).toFixed(2) : value.toFixed(2)}%`
@@ -127,8 +144,11 @@ export default defineComponent({
         nodesByLayer.set(layerKey, list)
       })
 
-      const chartWidth = 1200
-      const chartHeight = 560
+      const maxLayerNodeCount = Math.max(1, ...Array.from(nodesByLayer.values()).map((items) => items.length))
+      const columnsPerLayer = Math.min(5, Math.max(2, Math.ceil(Math.sqrt(maxLayerNodeCount * 1.4))))
+      const maxLayerRows = Math.max(1, Math.ceil(maxLayerNodeCount / columnsPerLayer))
+      const chartWidth = Math.max(1180, columnsPerLayer * 230 + 160)
+      const chartHeight = Math.max(620, layerDefinitions.length * Math.max(180, maxLayerRows * 116 + 92))
       const layerHeight = chartHeight / Math.max(layerDefinitions.length, 1)
       const layerGraphics = props.showLayerRegions
         ? layerDefinitions.map((layer, index) => ({
@@ -139,7 +159,7 @@ export default defineComponent({
             children: [
               {
                 type: 'rect',
-                shape: { x: 0, y: 0, width: chartWidth, height: layerHeight - 6 },
+                shape: { x: 0, y: 0, width: chartWidth, height: layerHeight - 10 },
                 style: {
                   fill: getLayerColor(layer.key),
                   stroke: 'rgba(148, 163, 184, 0.18)',
@@ -160,7 +180,7 @@ export default defineComponent({
           }))
         : []
 
-      const nodes = props.data.nodes.map((node, index) => {
+      const nodes = props.data.nodes.map((node) => {
         const layerKey = resolveLayerKey(node)
         const layerIndex = layerIndexByKey.get(layerKey) ?? Math.max(layerDefinitions.length - 1, 0)
         const layerNodes = nodesByLayer.get(layerKey) || []
@@ -168,15 +188,20 @@ export default defineComponent({
           layerNodes.findIndex((item) => item.id === node.id),
           0
         )
-        const xStep = chartWidth / (layerNodes.length + 1)
-        const x = xStep * (positionInLayer + 1)
-        const y = layerHeight * layerIndex + layerHeight / 2 + ((index % 2) - 0.5) * 28
+        const row = Math.floor(positionInLayer / columnsPerLayer)
+        const column = positionInLayer % columnsPerLayer
+        const rowCount = Math.max(1, Math.ceil(layerNodes.length / columnsPerLayer))
+        const nodesInRow = Math.min(columnsPerLayer, layerNodes.length - row * columnsPerLayer)
+        const rowXStep = chartWidth / (nodesInRow + 1)
+        const x = rowXStep * (column + 1)
+        const rowGap = Math.min(112, Math.max(76, (layerHeight - 88) / Math.max(rowCount, 1)))
+        const y = layerHeight * layerIndex + 72 + row * rowGap
 
         return {
           id: node.id,
           name: node.name,
           symbol: getNodeSymbol(node.type),
-          symbolSize: props.selectedNodeId === node.id ? 66 : 52,
+          symbolSize: props.selectedNodeId === node.id ? 68 : 54,
           x,
           y,
           fixed: Boolean(node.editable),
@@ -193,6 +218,9 @@ export default defineComponent({
             position: 'bottom',
             formatter: '{b}',
             color: 'var(--color-text-1)',
+            fontSize: 12,
+            width: 128,
+            overflow: 'truncate',
             fontWeight: props.selectedNodeId === node.id ? 700 : 500
           },
           useDirtyRect: true,
@@ -202,27 +230,31 @@ export default defineComponent({
         }
       })
 
-      const links = props.data.edges.map((edge: any) => ({
-        source: edge.from ?? edge.source,
-        target: edge.to ?? edge.target,
-        label: {
-          show: Boolean(edge.qps || edge.errorRate || edge.p99),
-          formatter: () => {
-            const metrics = []
-            if (typeof edge.qps === 'number') metrics.push(`${edge.qps} qps`)
-            if (typeof edge.errorRate === 'number') metrics.push(`${edge.errorRate}% err`)
-            if (typeof edge.p99 === 'number') metrics.push(`p99 ${edge.p99}ms`)
-            return metrics.slice(0, 2).join(' · ')
+      const nodeIds = new Set(nodes.map((node) => String(node.id)))
+      const links = props.data.edges
+        .filter(
+          (edge: any) => nodeIds.has(String(edge.from ?? edge.source)) && nodeIds.has(String(edge.to ?? edge.target))
+        )
+        .map((edge: any) => ({
+          source: String(edge.from ?? edge.source),
+          target: String(edge.to ?? edge.target),
+          label: {
+            show: true,
+            formatter: () => getEdgeLabel(edge),
+            color: 'var(--color-text-3)',
+            fontSize: 11,
+            backgroundColor: 'rgba(255, 255, 255, 0.82)',
+            borderRadius: 4,
+            padding: [2, 5]
           },
-          color: 'var(--color-text-3)',
-          fontSize: 11
-        },
-        lineStyle: {
-          curveness: 0.18,
-          width: edge.status === 'critical' || Number(edge.errorRate || 0) > 0 ? 2.5 : 1.4,
-          opacity: 0.72
-        }
-      }))
+          lineStyle: {
+            color: getEdgeColor(edge),
+            curveness: edge.inferred ? 0.1 : 0.22,
+            type: edge.inferred ? 'dashed' : 'solid',
+            width: edge.status === 'critical' || Number(edge.errorRate || 0) > 0 ? 3 : edge.inferred ? 1.6 : 2.2,
+            opacity: edge.inferred ? 0.58 : 0.86
+          }
+        }))
 
       return {
         graphic: layerGraphics,
@@ -273,6 +305,7 @@ export default defineComponent({
             type: 'graph',
             layout: props.showLayerRegions || interactionSettled.value ? 'none' : 'force',
             animation: false,
+            coordinateSystem: undefined,
             data: nodes,
             links: links,
             roam: true,
@@ -283,14 +316,15 @@ export default defineComponent({
             nodeScaleRatio: 0.4,
             draggable: true,
             edgeSymbol: ['none', 'arrow'],
-            edgeSymbolSize: [0, 9],
+            edgeSymbolSize: [0, 12],
             label: {
               position: 'bottom',
               formatter: '{b}'
             },
             lineStyle: {
-              color: 'source',
-              curveness: 0.18
+              color: '#165dff',
+              curveness: 0.22,
+              opacity: 0.86
             },
             emphasis: {
               focus: 'adjacency',

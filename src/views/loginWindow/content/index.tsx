@@ -117,7 +117,7 @@ export default defineComponent({
               <span>已阅读并同意</span>
               <span class="footer-agreement__link">服务协议</span>
               <span>和</span>
-              <span class="footer-agreement__link">StarLight隐私保护指引</span>
+              <span class="footer-agreement__link">星光隐私保护指引</span>
             </div>
           </NFlex>
         </div>

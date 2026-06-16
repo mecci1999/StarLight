@@ -84,7 +84,7 @@ export default defineComponent({
 
     return () => (
       <div class="settings-page">
-        <PageHeader title="应用设置" subtitle="管理 StarLight 客户端的显示、窗口、登录与启动偏好。">
+        <PageHeader title="应用设置" subtitle="管理星光客户端的显示、窗口、登录与启动偏好。">
           {{
             actions: () => (
               <NButton secondary onClick={resetInterface}>
@@ -258,7 +258,7 @@ export default defineComponent({
                   <div class="settings-page__toggle-card">
                     <div>
                       <strong>开机启动</strong>
-                      <span>随系统启动 StarLight，便于持续监控。</span>
+                      <span>随系统启动星光，便于持续监控。</span>
                     </div>
                     <NSwitch
                       value={settingStore.login.autoStartup}

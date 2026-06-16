@@ -1,4 +1,4 @@
-import { NCard, NGrid, NGridItem, NStatistic, NProgress, NSpace, NButton, NSpin, NEmpty, NTag } from 'naive-ui'
+import { NCard, NIcon, NGrid, NGridItem, NStatistic, NProgress, NSpace, NButton, NSpin, NEmpty, NTag } from 'naive-ui'
 import { ref, onMounted, onUnmounted, defineComponent, computed, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import api from '@/api'
@@ -263,8 +263,7 @@ export default defineComponent({
           {{
             actions: () => (
               <NButton type="primary" onClick={updateRealtimeData} disabled={!selectedService.value}>
-                {{ icon: () => <RefreshOutline /> }}
-                刷新数据
+                {{ icon: () => <NIcon component={RefreshOutline} />, default: () => '刷新数据' }}
               </NButton>
             )
           }}

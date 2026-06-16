@@ -44,6 +44,11 @@ export default defineComponent({
     const route = useRoute()
     const timeStore = useTimeStore()
     const datasetScope = computed<MetricsDatasetScope>(() => getPreferredMetricsDatasetScope())
+    const routeServiceId = computed(() => {
+      const serviceId = typeof route.query.serviceId === 'string' ? route.query.serviceId.trim() : ''
+      if (!serviceId || serviceId === 'undefined' || serviceId === 'null') return undefined
+      return serviceId
+    })
     const showAddModal = ref(false)
     const showEditModal = ref(false)
     const showImportModal = ref(false)
@@ -196,6 +201,7 @@ export default defineComponent({
     const coveredServiceCount = computed(
       () => new Set(rulesData.value.map((rule) => rule.service).filter(Boolean)).size
     )
+    const scopeLabel = computed(() => (datasetScope.value === 'system' ? 'Darwin 系统' : '用户接入'))
 
     const resolveRuleType = (metric: string) => {
       if (metric === 'error_rate' || metric.includes('log')) return 'logs'
@@ -206,8 +212,8 @@ export default defineComponent({
 
     const filteredRules = computed(() => {
       let list = rulesData.value
-      if (route.query.serviceId && typeof route.query.serviceId === 'string') {
-        list = list.filter((rule) => rule.service === route.query.serviceId)
+      if (routeServiceId.value) {
+        list = list.filter((rule) => rule.service === routeServiceId.value)
       }
       return list.filter((rule) => resolveRuleType(rule.metric) === selectedRuleType.value)
     })
@@ -215,7 +221,7 @@ export default defineComponent({
     const loadRules = async () => {
       loading.value = true
       rulesData.value = await fetchAlertRules({
-        serviceId: route.query.serviceId as string | undefined,
+        serviceId: routeServiceId.value,
         scope: datasetScope.value,
         startTime: timeStore.startTime,
         endTime: timeStore.endTime
@@ -227,8 +233,8 @@ export default defineComponent({
       if (route.query.timeRange && typeof route.query.timeRange === 'string') {
         timeStore.setTimeRange(route.query.timeRange as any)
       }
-      if (route.query.serviceId && typeof route.query.serviceId === 'string') {
-        formData.value.service = route.query.serviceId
+      if (routeServiceId.value) {
+        formData.value.service = routeServiceId.value
       }
       loadServiceOptions()
       loadRules()
@@ -301,7 +307,7 @@ export default defineComponent({
 
     const handleExport = async () => {
       const exported = await exportAlertRules({
-        serviceId: route.query.serviceId as string | undefined,
+        serviceId: routeServiceId.value,
         scope: datasetScope.value,
         startTime: timeStore.startTime,
         endTime: timeStore.endTime
@@ -358,28 +364,48 @@ export default defineComponent({
 
     return () => (
       <div class="alert-rules-page">
-        <PageHeader title="告警规则配置" subtitle="支持设置阈值告警、自定义条件与通知渠道" />
-        <TimeRangeBar
-          value={timeStore.timeRange}
-          live={timeStore.isLive}
-          options={timeStore.timeOptions as any}
-          onUpdate:value={(range: any) => {
-            timeStore.setTimeRange(range)
-            loadRules()
-          }}
-          onUpdate:live={(value: boolean) => {
-            timeStore.isLive = value
-            if (value) timeStore.refreshTime()
-            loadRules()
-          }}
-          onRefresh={loadRules}
-        />
-        <NTabs v-model:value={selectedRuleType.value} class="alert-rules-page__tabs">
-          <NTabPane name="metrics" tab="指标规则" />
-          <NTabPane name="logs" tab="日志规则" />
-          <NTabPane name="trace" tab="链路规则" />
-          <NTabPane name="quota" tab="配额规则" />
-        </NTabs>
+        <PageHeader title="告警规则配置" subtitle="配置阈值触发条件、通知渠道与批量启停策略" />
+
+        <section class="alert-rules-page__context-card">
+          <div>
+            <div class="alert-rules-page__context-title">规则工作台</div>
+            <div class="alert-rules-page__context-desc">
+              当前范围：{scopeLabel.value} · {routeServiceId.value ? `服务 ${routeServiceId.value}` : '全部服务'}
+            </div>
+          </div>
+          <NTag type={routeServiceId.value ? 'info' : 'success'} bordered={false}>
+            {routeServiceId.value ? '服务上下文' : '全局规则'}
+          </NTag>
+        </section>
+
+        <div class="alert-rules-page__toolbar-card">
+          <div class="alert-rules-page__toolbar-primary">
+            <NTabs v-model:value={selectedRuleType.value} class="alert-rules-page__tabs">
+              <NTabPane name="metrics" tab="指标规则" />
+              <NTabPane name="logs" tab="日志规则" />
+              <NTabPane name="trace" tab="链路规则" />
+              <NTabPane name="quota" tab="配额规则" />
+            </NTabs>
+          </div>
+          <div class="alert-rules-page__toolbar-secondary">
+            <TimeRangeBar
+              value={timeStore.timeRange}
+              live={timeStore.isLive}
+              options={timeStore.timeOptions as any}
+              onUpdate:value={(range: any) => {
+                timeStore.setTimeRange(range)
+                loadRules()
+              }}
+              onUpdate:live={(value: boolean) => {
+                timeStore.isLive = value
+                if (value) timeStore.refreshTime()
+                loadRules()
+              }}
+              onRefresh={loadRules}
+            />
+          </div>
+        </div>
+
         <NGrid cols={4} xGap={16} class="alert-rules-page__summary-grid">
           {[
             { label: '总规则数', value: rulesData.value.length },
@@ -395,32 +421,61 @@ export default defineComponent({
             </NGridItem>
           ))}
         </NGrid>
-        <NCard bordered={false} class="alert-rules-page__preview-card">
-          <div class="alert-rules-page__preview-note">规则预览</div>
+
+        <NCard bordered={false} class="alert-rules-page__preview-card" title="当前编辑预览">
+          <div class="alert-rules-page__preview-note">预览会跟随新增/编辑表单变化，用于确认触发条件与通知范围。</div>
           <div class="alert-rules-page__preview-grid">
-            <div>名称：{formData.value.name || '-'}</div>
-            <div>服务：{formData.value.service || '-'}</div>
-            <div>指标：{formData.value.metric || '-'}</div>
-            <div>条件：{formData.value.operator ? `${formData.value.operator} ${formData.value.threshold}` : '-'}</div>
-            <div>持续时间：{formData.value.duration ? `${formData.value.duration}分钟` : '-'}</div>
-            <div>等级：{formData.value.level || '-'}</div>
+            <div class="alert-rules-page__preview-item">
+              <span>名称</span>
+              {formData.value.name || '-'}
+            </div>
+            <div class="alert-rules-page__preview-item">
+              <span>服务</span>
+              {formData.value.service || '-'}
+            </div>
+            <div class="alert-rules-page__preview-item">
+              <span>指标</span>
+              {formData.value.metric || '-'}
+            </div>
+            <div class="alert-rules-page__preview-item">
+              <span>条件</span>
+              {formData.value.operator ? `${formData.value.operator} ${formData.value.threshold}` : '-'}
+            </div>
+            <div class="alert-rules-page__preview-item">
+              <span>持续时间</span>
+              {formData.value.duration ? `${formData.value.duration}分钟` : '-'}
+            </div>
+            <div class="alert-rules-page__preview-item">
+              <span>等级</span>
+              {formData.value.level || '-'}
+            </div>
             <div class="alert-rules-page__preview-grid-wide">
-              通知渠道：
-              {formData.value.notificationChannels.length ? formData.value.notificationChannels.join(', ') : '-'}
+              <span>通知渠道</span>
+              <strong>
+                {formData.value.notificationChannels.length ? formData.value.notificationChannels.join(', ') : '-'}
+              </strong>
             </div>
           </div>
         </NCard>
+
         <NCard bordered={false} class="alert-rules-page__action-card">
-          <NSpace class="alert-rules-page__action-row">
-            <NButton type="primary" onClick={handleAdd}>
-              + 添加规则
-            </NButton>
-            <NButton onClick={() => handleBulkToggle(true)}>批量启用</NButton>
-            <NButton onClick={() => handleBulkToggle(false)}>批量禁用</NButton>
-            <NButton onClick={() => (showImportModal.value = true)}>导入规则</NButton>
-            <NButton onClick={handleExport}>导出规则</NButton>
-          </NSpace>
+          <div class="alert-rules-page__action-row">
+            <div class="alert-rules-page__action-copy">
+              <div class="alert-rules-page__action-title">规则操作</div>
+              <div class="alert-rules-page__action-desc">对当前类型下的规则进行新增、导入导出或批量启停。</div>
+            </div>
+            <NSpace class="alert-rules-page__action-buttons">
+              <NButton type="primary" onClick={handleAdd}>
+                + 添加规则
+              </NButton>
+              <NButton onClick={() => handleBulkToggle(true)}>批量启用</NButton>
+              <NButton onClick={() => handleBulkToggle(false)}>批量禁用</NButton>
+              <NButton onClick={() => (showImportModal.value = true)}>导入规则</NButton>
+              <NButton onClick={handleExport}>导出规则</NButton>
+            </NSpace>
+          </div>
         </NCard>
+
         <NCard bordered={false} class="alert-rules-page__table-card" contentStyle={{ padding: 0 }}>
           {loading.value ? (
             <div class="alert-rules-page__table-loading">

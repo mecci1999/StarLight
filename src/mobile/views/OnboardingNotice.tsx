@@ -46,7 +46,7 @@ export default defineComponent({
         <NResult
           status="info"
           title="请前往电脑端接入"
-          description="StarLight 移动端仅提供监控数据查看功能。为了获得完整体验并完成微服务系统接入，请在电脑端登录 StarLight。">
+          description="星光移动端仅提供监控数据查看功能。为了获得完整体验并完成微服务系统接入，请在电脑端登录星光。">
           {{
             footer: () => (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>

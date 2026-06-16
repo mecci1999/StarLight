@@ -56,7 +56,7 @@ export default defineComponent({
     return () => (
       <div style={{ padding: '16px', backgroundColor: 'var(--color-bg-1)', minHeight: '100vh' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-          <h2 style={{ margin: '0', fontSize: '20px', color: 'var(--color-text-1)' }}>StarLight Mobile</h2>
+          <h2 style={{ margin: '0', fontSize: '20px', color: 'var(--color-text-1)' }}>星光移动端</h2>
           <NSpace>
             <NTag type="info" size="small" bordered={false}>
               实时视图

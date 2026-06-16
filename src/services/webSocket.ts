@@ -37,6 +37,7 @@ class WS {
       this.initConnect()
       // 收到消息
       worker.addEventListener('message', this.onWorkerMsg)
+      this.initMainWindowListeners()
     }
   }
 
@@ -67,6 +68,16 @@ class WS {
       listen('ws-state-change', (event) => {
         const state = event.payload as ConnectionState
         useMitt.emit('wsConnectionStateChange', state)
+      })
+    )
+  }
+
+  private async initMainWindowListeners() {
+    this.#tauriListener = useTauriListener()
+
+    this.#tauriListener.addListener(
+      listen('ws-send', (event) => {
+        this.send(event.payload as WsReqMsgContentType)
       })
     )
   }
@@ -153,6 +164,10 @@ class WS {
 
   #send(msg: WsReqMsgContentType) {
     worker.postMessage(`{"type":"message","value":${typeof msg === 'string' ? msg : JSON.stringify(msg)}}`)
+  }
+
+  get isConnected() {
+    return this.#connectReady
   }
 
   send = (params: WsReqMsgContentType) => {

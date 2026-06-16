@@ -1038,10 +1038,12 @@ export default defineComponent({
         const thresholdLines = resolveQueryThresholdLines(activeQuery)
         return activeVisualization === 'bar' ? (
           <BarChart
-            data={(previewData.value.series?.[0]?.points || []).map((point: any) => ({
-              name: new Date(point.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-              value: point.value
-            }))}
+            data={(previewData.value.series?.[0]?.points || [])
+              .filter((point: any) => typeof point.value === 'number')
+              .map((point: any) => ({
+                name: new Date(point.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                value: point.value
+              }))}
             height="220px"
             variant="monitor"
             yAxisMin={display.min}
@@ -1210,10 +1212,12 @@ export default defineComponent({
         const thresholdLines = resolveQueryThresholdLines(widget.query)
         return widget.visualization === 'bar' ? (
           <BarChart
-            data={(data.series?.[0]?.points || []).map((point: any) => ({
-              name: new Date(point.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-              value: point.value
-            }))}
+            data={(data.series?.[0]?.points || [])
+              .filter((point: any) => typeof point.value === 'number')
+              .map((point: any) => ({
+                name: new Date(point.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                value: point.value
+              }))}
             color="#165dff"
             height="240px"
             loading={loading.value}
@@ -1267,7 +1271,7 @@ export default defineComponent({
       <div class={['custom-dashboard-page', isLargeScreenMode.value ? 'custom-dashboard-page--large-screen' : '']}>
         <div class="custom-dashboard-page__header">
           <div>
-            {isLargeScreenMode.value ? <div class="custom-dashboard-page__kicker">Starlight Monitor Wall</div> : null}
+            {isLargeScreenMode.value ? <div class="custom-dashboard-page__kicker">星光监控大屏</div> : null}
             <h1 class="custom-dashboard-page__title">{isLargeScreenMode.value ? '监控大屏' : props.pageTitle}</h1>
             <p class="custom-dashboard-page__subtitle">
               {isLargeScreenMode.value ? '只读展示模式 · 自动刷新关键指标、趋势与告警态势' : props.pageSubtitle}

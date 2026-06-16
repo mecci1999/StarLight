@@ -40,6 +40,7 @@ export default defineComponent({
 
     const defaultModules = getDefaultHomeSidebarModules().filter((module) => {
       if (module.group !== 'admin') return true
+      if (module.key === 'billing') return true
       return Boolean(getStoredUserInfo()?.isAdmin)
     })
 

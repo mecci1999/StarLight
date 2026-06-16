@@ -1,8 +1,35 @@
 import { defineComponent, ref, onMounted } from 'vue'
-import { NCard, NButton, NGrid, NGridItem, NList, NListItem, NIcon, NEmpty, useMessage } from 'naive-ui'
+import { NCard, NButton, NGrid, NGridItem, NList, NListItem, NIcon, useMessage } from 'naive-ui'
 import { CheckmarkCircleOutline } from '@vicons/ionicons5'
 import * as api from '@/api/subscription'
 import './PlansTab.scss'
+
+const fallbackPlans = [
+  {
+    name: 'Free',
+    price: 'CNY0',
+    period: '/month',
+    features: ['基础指标接入', '1 个 API Key', '社区支持'],
+    value: 'free',
+    color: 'gray'
+  },
+  {
+    name: 'Pro',
+    price: 'CNY99',
+    period: '/month',
+    features: ['更高指标写入额度', '多 API Key 管理', '告警与趋势分析'],
+    value: 'pro',
+    color: 'blue'
+  },
+  {
+    name: 'Team',
+    price: 'CNY299',
+    period: '/month',
+    features: ['团队级配额', '更长数据保留', '优先支持'],
+    value: 'team',
+    color: 'purple'
+  }
+]
 
 export default defineComponent({
   name: 'BillingPlans',
@@ -121,7 +148,9 @@ export default defineComponent({
 
       plansError.value = plansResult.status !== 'fulfilled'
       plans.value =
-        plansResult.status === 'fulfilled' && plansResult.value?.plans?.length ? mapPlans(plansResult.value.plans) : []
+        plansResult.status === 'fulfilled' && plansResult.value?.plans?.length
+          ? mapPlans(plansResult.value.plans)
+          : fallbackPlans
     }
 
     const handlePlanAction = async (plan: string) => {
@@ -283,13 +312,9 @@ export default defineComponent({
 
         {plansError.value ? (
           <NCard class="billing-plans-tab__hint-card">
-            <div class="billing-plans-tab__hint">套餐信息暂时不可用，请稍后重试。</div>
-          </NCard>
-        ) : null}
-
-        {!plansError.value && plans.value.length === 0 ? (
-          <NCard class="billing-plans-tab__hint-card">
-            <NEmpty description="当前暂无可展示的套餐信息" class="billing-plans-tab__empty" />
+            <div class="billing-plans-tab__hint">
+              后端套餐表暂时不可用，当前展示默认套餐结构；订阅提交仍需后端计划数据可用。
+            </div>
           </NCard>
         ) : null}
 

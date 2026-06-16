@@ -105,7 +105,7 @@ export default defineComponent({
               <ul>
                 <li>浏览器是否支持最新的 Web 特性 (ES2015+)</li>
                 <li>网络连接是否正常</li>
-                <li>能否正常访问 StarLight API 服务</li>
+                <li>能否正常访问星光 API 服务</li>
               </ul>
               <div class="step2-environment__note">
                 <p>如果遇到问题，请检查您的网络设置或联系管理员。</p>

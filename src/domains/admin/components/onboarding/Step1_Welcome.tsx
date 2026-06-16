@@ -8,8 +8,8 @@ export default defineComponent({
   setup(props, { emit }) {
     return () => (
       <StepLayout
-        title="欢迎接入 StarLight"
-        description="只需几步，即可将您的微服务系统接入 StarLight 监控平台，享受全方位的可观测性体验。">
+        title="欢迎接入星光"
+        description="只需几步，即可将您的微服务系统接入星光监控平台，享受全方位的可观测性体验。">
         {{
           guide: () => (
             <div>

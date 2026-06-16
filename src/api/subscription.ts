@@ -195,6 +195,25 @@ export interface PaymentOrderStatusResult {
   } | null
 }
 
+export interface BillingAnalyticsResult {
+  summary: {
+    activeSubscriptions: number
+    trialUsers: number
+    paidRevenue: number
+    pendingRevenue: number
+    overdueRevenue: number
+    paidBills: number
+    pendingBills: number
+    overdueBills: number
+  }
+  planDistribution: Array<{
+    planName: string
+    count: number
+  }>
+  currency: string
+  generatedAt: string
+}
+
 // 获取所有订阅计划
 export function getPlans() {
   return request.get<{ plans: SubscriptionPlan[]; currency: string; total: number }>(url.subscriptionPlans, {})
@@ -232,6 +251,10 @@ export function getQuotaHistory(params?: { quotaType?: string; timeRange?: strin
 
 export function getBillingHistory(params?: { limit?: number; offset?: number; status?: string }) {
   return request.get<{ bills: BillingHistoryItem[]; total: number }>(url.billingHistory, params || {})
+}
+
+export function getBillingAnalytics() {
+  return request.get<BillingAnalyticsResult>(url.billingAnalytics, {})
 }
 
 export function getPaymentMethods() {

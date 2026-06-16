@@ -1,16 +1,4 @@
-import {
-  NCard,
-  NGrid,
-  NGridItem,
-  NStatistic,
-  NProgress,
-  NTag,
-  NSpace,
-  NButton,
-  NSelect,
-  useMessage,
-  useDialog
-} from 'naive-ui'
+import { NCard, NProgress, NTag, NSpace, NButton, NSelect, useMessage, useDialog } from 'naive-ui'
 import { defineComponent, ref, h, onMounted, watch, computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { fetchServiceInstances, fetchCatalogServices, type MetricsDatasetScope } from '@/api'
@@ -170,6 +158,42 @@ export default defineComponent({
       return `${Math.round((sum / validCpu.length) * 10) / 10}%`
     })
 
+    const selectedServiceLabel = computed(
+      () =>
+        serviceOptions.value.find((option) => option.value === selectedService.value)?.label || selectedService.value
+    )
+
+    const statsCards = computed(() => [
+      {
+        key: 'total',
+        label: '总实例数',
+        value: displayMetric(totalInstances.value),
+        hint: '当前服务发现到的实例总量',
+        tone: 'default'
+      },
+      {
+        key: 'running',
+        label: '运行中',
+        value: displayMetric(runningInstances.value),
+        hint: '状态正常并可接收流量',
+        tone: 'success'
+      },
+      {
+        key: 'error',
+        label: '异常',
+        value: displayMetric(errorInstances.value),
+        hint: '需要优先排查的实例',
+        tone: 'danger'
+      },
+      {
+        key: 'cpu',
+        label: '平均 CPU',
+        value: avgCpu.value,
+        hint: '仅统计上报 CPU 的实例',
+        tone: 'primary'
+      }
+    ])
+
     const loadServiceOptions = async () => {
       try {
         const res = await fetchCatalogServices({ page: 1, pageSize: 200, scope: datasetScope.value })
@@ -246,79 +270,60 @@ export default defineComponent({
           }}
         />
 
-        <NGrid cols={4} xGap={16} class="instance-monitor-page__stats-grid">
-          <NGridItem>
-            <NCard bordered={false} class="instance-monitor-page__stat-card">
-              <NStatistic label="总实例数" value={displayMetric(totalInstances.value)}>
-                {{
-                  default: () => (
-                    <div class="instance-monitor-page__stat-value">{displayMetric(totalInstances.value)}</div>
-                  )
-                }}
-              </NStatistic>
-            </NCard>
-          </NGridItem>
-          <NGridItem>
-            <NCard bordered={false} class="instance-monitor-page__stat-card">
-              <NStatistic label="运行中" value={displayMetric(runningInstances.value)}>
-                {{
-                  default: () => (
-                    <div class="instance-monitor-page__stat-value instance-monitor-page__stat-value--success">
-                      {displayMetric(runningInstances.value)}
-                    </div>
-                  )
-                }}
-              </NStatistic>
-            </NCard>
-          </NGridItem>
-          <NGridItem>
-            <NCard bordered={false} class="instance-monitor-page__stat-card">
-              <NStatistic label="异常" value={displayMetric(errorInstances.value)}>
-                {{
-                  default: () => (
-                    <div class="instance-monitor-page__stat-value instance-monitor-page__stat-value--danger">
-                      {displayMetric(errorInstances.value)}
-                    </div>
-                  )
-                }}
-              </NStatistic>
-            </NCard>
-          </NGridItem>
-          <NGridItem>
-            <NCard bordered={false} class="instance-monitor-page__stat-card">
-              <NStatistic label="平均CPU" value={avgCpu.value}>
-                {{ default: () => <div class="instance-monitor-page__stat-value">{avgCpu.value}</div> }}
-              </NStatistic>
-            </NCard>
-          </NGridItem>
-        </NGrid>
+        <section class="instance-monitor-page__stats-grid" aria-label="实例状态摘要">
+          {statsCards.value.map((item) => (
+            <article
+              key={item.key}
+              class={['instance-monitor-page__stat-card', `instance-monitor-page__stat-card--${item.tone}`]}>
+              <div class="instance-monitor-page__stat-main">
+                <span class="instance-monitor-page__stat-label">{item.label}</span>
+                <strong class="instance-monitor-page__stat-value">{item.value}</strong>
+              </div>
+              <span class="instance-monitor-page__stat-hint">{item.hint}</span>
+            </article>
+          ))}
+        </section>
 
         <NCard class="instance-monitor-page__table-card" bordered={false} contentStyle={{ padding: 0 }}>
           <div class="instance-monitor-page__table-header">
             <div class="instance-monitor-page__table-header-content">
-              <h3 class="instance-monitor-page__table-title">实例列表 - {selectedService.value || '暂无服务'}</h3>
-              <NSelect
-                v-model:value={selectedService.value}
-                options={serviceOptions.value}
-                style={{ width: '200px' }}
-              />
+              <div>
+                <h3 class="instance-monitor-page__table-title">实例列表</h3>
+                <p class="instance-monitor-page__table-desc">
+                  {selectedService.value ? `当前服务：${selectedServiceLabel.value}` : '请选择服务查看实例状态'}
+                </p>
+              </div>
+              <label class="instance-monitor-page__service-filter">
+                <span class="instance-monitor-page__service-filter-label">服务</span>
+                <NSelect
+                  class="instance-monitor-page__service-select"
+                  v-model:value={selectedService.value}
+                  options={serviceOptions.value}
+                  filterable
+                  clearable={false}
+                  placeholder="选择服务"
+                />
+              </label>
             </div>
           </div>
-          <ResultTable
-            class="instance-monitor-page__table"
-            loading={loading.value}
-            columns={instanceColumns}
-            data={instanceData.value}
-            pagination={{
-              pageSize: 10,
-              showSizePicker: true,
-              pageSizes: [10, 20, 50]
-            }}
-            bordered={false}
-            singleLine={false}
-            rowKey={(row: any) => row.id}
-            rowClassName="instance-monitor-page__table-row"
-          />
+          <div class="instance-monitor-page__table-scroll">
+            <ResultTable
+              class="instance-monitor-page__table"
+              loading={loading.value}
+              columns={instanceColumns}
+              data={instanceData.value}
+              pagination={{
+                pageSize: 10,
+                showSizePicker: true,
+                pageSizes: [10, 20, 50]
+              }}
+              bordered={false}
+              singleLine={false}
+              rowKey={(row: any) => row.id}
+              rowClassName="instance-monitor-page__table-row"
+              scrollX={1050}
+            />
+          </div>
         </NCard>
       </div>
     )

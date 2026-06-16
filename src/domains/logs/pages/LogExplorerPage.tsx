@@ -45,6 +45,11 @@ export default defineComponent({
     const timeStore = useTimeStore()
     const isAdminUser = Boolean(getStoredUserInfo()?.isAdmin)
 
+    const getTodayLogRange = () => ({
+      startTime: dayjs().startOf('day').format('YYYY-MM-DD HH:mm:ss'),
+      endTime: dayjs().endOf('day').format('YYYY-MM-DD HH:mm:ss')
+    })
+
     const state = reactive({
       loading: false,
       statsLoading: false,
@@ -61,8 +66,8 @@ export default defineComponent({
       service: '',
       level: undefined,
       keyword: '',
-      startTime: dayjs(timeStore.startTime).format('YYYY-MM-DD HH:mm:ss'),
-      endTime: dayjs(timeStore.endTime).format('YYYY-MM-DD HH:mm:ss'),
+      startTime: getTodayLogRange().startTime,
+      endTime: getTodayLogRange().endTime,
       page: 1,
       pageSize: 50,
       originType: (isAdminUser ? 'darwin-app' : 'microservice') as LogOriginType,
@@ -70,10 +75,12 @@ export default defineComponent({
       hostname: '',
       containerId: ''
     })
+    const followRouteTimeRange = ref(false)
 
     watch(
       () => [timeStore.startTime, timeStore.endTime],
       () => {
+        if (!followRouteTimeRange.value) return
         searchParams.startTime = dayjs(timeStore.startTime).format('YYYY-MM-DD HH:mm:ss')
         searchParams.endTime = dayjs(timeStore.endTime).format('YYYY-MM-DD HH:mm:ss')
         loadExplorerLogs(true)
@@ -114,6 +121,25 @@ export default defineComponent({
       label: format.toUpperCase(),
       value: format
     }))
+
+    const scopeHint = computed(() => {
+      const rangeText = `${dayjs(searchParams.startTime).format('MM-DD HH:mm')} 至 ${dayjs(searchParams.endTime).format('MM-DD HH:mm')}`
+      if (searchParams.originType === 'darwin-app') {
+        return `当前查看 Darwin 系统日志，统计范围 ${rangeText}；DEBUG 级别需要先在日志中心概览开启“调试日志收集”。`
+      }
+      return `当前查看用户微服务日志，统计范围 ${rangeText}；可按服务、级别、主机和容器快速收敛问题范围。`
+    })
+
+    const activeFilterCount = computed(() => {
+      return [
+        searchParams.service,
+        searchParams.level,
+        searchParams.keyword,
+        searchParams.source,
+        searchParams.hostname,
+        searchParams.containerId
+      ].filter(Boolean).length
+    })
 
     const columns = [
       {
@@ -163,7 +189,7 @@ export default defineComponent({
           return h(
             'span',
             {
-              style: { cursor: 'pointer' },
+              class: 'log-explorer-page__message-link',
               onClick: () => showLogDetails(row)
             },
             row.message
@@ -364,6 +390,7 @@ export default defineComponent({
     }
 
     const clearFilters = () => {
+      const todayRange = getTodayLogRange()
       searchParams.service = ''
       searchParams.level = undefined
       searchParams.keyword = ''
@@ -371,6 +398,8 @@ export default defineComponent({
       searchParams.source = undefined
       searchParams.hostname = ''
       searchParams.containerId = ''
+      searchParams.startTime = todayRange.startTime
+      searchParams.endTime = todayRange.endTime
       loadServiceOptions()
       loadExplorerLogs()
       loadExplorerStats()
@@ -392,6 +421,7 @@ export default defineComponent({
 
     onMounted(() => {
       if (route.query.timeRange && typeof route.query.timeRange === 'string') {
+        followRouteTimeRange.value = true
         timeStore.setTimeRange(route.query.timeRange as any)
       }
       const routeService = typeof route.query.service === 'string' ? route.query.service : route.query.serviceId
@@ -414,46 +444,104 @@ export default defineComponent({
 
     return () => (
       <div class="log-explorer-page">
-        <PageHeader title="服务日志" subtitle="按服务维度查看日志统计、检索、流式日志与导出能力" />
+        <PageHeader title="服务日志" subtitle="按范围、服务和级别检索日志，并与调试采集开关联动排查上下文">
+          {{
+            actions: () => (
+              <NButton secondary type={state.autoRefresh ? 'warning' : 'primary'} onClick={toggleAutoRefresh}>
+                <NIcon
+                  component={state.autoRefresh ? StopOutline : PlayOutline}
+                  class="log-explorer-page__button-icon"
+                />
+                {state.autoRefresh ? '停止自动刷新' : '开启自动刷新'}
+              </NButton>
+            )
+          }}
+        </PageHeader>
+
+        <div class="log-explorer-page__scope-note">
+          <div class="log-explorer-page__scope-note-main">
+            <NIcon component={TimeOutline} size={18} />
+            <span>{scopeHint.value}</span>
+          </div>
+          <NTag bordered={false} type={activeFilterCount.value > 0 ? 'info' : 'default'}>
+            {activeFilterCount.value > 0 ? `${activeFilterCount.value} 个筛选条件` : '未筛选'}
+          </NTag>
+        </div>
+
         {state.stats && (
-          <NCard class="log-explorer-page__card log-explorer-page__card--summary" bordered={false}>
-            <NGrid cols={4} xGap={16}>
+          <NCard class="log-explorer-page__card log-explorer-page__summary-card" bordered={false}>
+            <NGrid cols={4} xGap={16} yGap={16}>
               <NGridItem>
-                <NStatistic label="总日志数" value={state.stats.totalLogs} />
+                <NStatistic label="总日志数" value={state.stats.totalLogs}>
+                  {{ default: () => <span class="log-explorer-page__stat-value">{state.stats?.totalLogs || 0}</span> }}
+                </NStatistic>
               </NGridItem>
               <NGridItem>
-                <NStatistic label="错误日志" value={state.stats.errorLogs} />
+                <NStatistic label="错误日志" value={state.stats.errorLogs}>
+                  {{
+                    default: () => (
+                      <span class="log-explorer-page__stat-value log-explorer-page__stat-value--danger">
+                        {state.stats?.errorLogs || 0}
+                      </span>
+                    )
+                  }}
+                </NStatistic>
               </NGridItem>
               <NGridItem>
-                <NStatistic label="警告日志" value={state.stats.warnLogs} />
+                <NStatistic label="警告日志" value={state.stats.warnLogs}>
+                  {{
+                    default: () => (
+                      <span class="log-explorer-page__stat-value log-explorer-page__stat-value--warning">
+                        {state.stats?.warnLogs || 0}
+                      </span>
+                    )
+                  }}
+                </NStatistic>
               </NGridItem>
               <NGridItem>
                 <NStatistic
                   label="错误率"
                   value={
                     state.stats.totalLogs > 0
-                      ? ((state.stats.errorLogs / state.stats.totalLogs) * 100).toFixed(2) + '%'
+                      ? `${((state.stats.errorLogs / state.stats.totalLogs) * 100).toFixed(2)}%`
                       : '0%'
-                  }
-                />
+                  }>
+                  {{
+                    default: () => (
+                      <span class="log-explorer-page__stat-value">
+                        {state.stats && state.stats.totalLogs > 0
+                          ? ((state.stats.errorLogs / state.stats.totalLogs) * 100).toFixed(2)
+                          : '0.00'}
+                        %
+                      </span>
+                    )
+                  }}
+                </NStatistic>
               </NGridItem>
             </NGrid>
           </NCard>
         )}
 
-        <NCard class="log-explorer-page__card log-explorer-page__card--filters" bordered={false}>
-          <NSpace vertical size="medium">
-            <NSpace size="medium" wrap={false}>
+        <NCard class="log-explorer-page__card log-explorer-page__filter-card" bordered={false}>
+          <div class="log-explorer-page__filter-header">
+            <div>
+              <div class="log-explorer-page__section-title">日志筛选</div>
+              <div class="log-explorer-page__section-desc">先选日志归属，再按服务、级别和关键字定位目标日志。</div>
+            </div>
+            <NTag bordered={false}>{pagination.total.toLocaleString()} 条结果</NTag>
+          </div>
+          <div class="log-explorer-page__filter-grid">
+            <div class="log-explorer-page__filter-primary">
               <NInput
                 v-model:value={searchParams.keyword}
                 placeholder="搜索关键词"
                 clearable
-                style={{ width: '200px' }}
+                class="log-explorer-page__keyword-input"
               />
               <NSelect
                 v-model:value={searchParams.originType}
                 placeholder="日志归属"
-                style={{ width: '160px' }}
+                class="log-explorer-page__select log-explorer-page__select--scope"
                 options={originTypeOptions}
               />
               <NSelect
@@ -462,62 +550,63 @@ export default defineComponent({
                 clearable
                 filterable
                 tag
-                style={{ width: '150px' }}
+                class="log-explorer-page__select log-explorer-page__select--service"
                 options={serviceOptions.value}
               />
               <NSelect
                 v-model:value={searchParams.level}
                 placeholder="日志级别"
                 clearable
-                style={{ width: '120px' }}
+                class="log-explorer-page__select log-explorer-page__select--level"
                 options={levelOptions}
               />
               <NSelect
                 v-model:value={searchParams.source}
                 placeholder="日志来源"
                 clearable
-                style={{ width: '120px' }}
+                class="log-explorer-page__select log-explorer-page__select--source"
                 options={sourceOptions}
               />
-            </NSpace>
+            </div>
 
-            <NSpace size="medium" wrap={false}>
-              <NInput v-model:value={searchParams.hostname} placeholder="主机名" clearable style={{ width: '150px' }} />
+            <div class="log-explorer-page__filter-secondary">
+              <NInput
+                v-model:value={searchParams.hostname}
+                placeholder="主机名"
+                clearable
+                class="log-explorer-page__compact-input"
+              />
               <NInput
                 v-model:value={searchParams.containerId}
                 placeholder="容器ID"
                 clearable
-                style={{ width: '150px' }}
+                class="log-explorer-page__compact-input"
               />
-            </NSpace>
+            </div>
 
-            <NSpace size="medium">
+            <div class="log-explorer-page__filter-actions">
               <NButton type="primary" onClick={() => searchExplorer()} loading={state.loading}>
-                <NIcon component={SearchOutline} class="mr-1" />
+                <NIcon component={SearchOutline} class="log-explorer-page__button-icon" />
                 搜索
               </NButton>
               <NButton onClick={() => searchExplorer(false)} loading={state.loading}>
-                <NIcon component={RefreshOutline} class="mr-1" />
+                <NIcon component={RefreshOutline} class="log-explorer-page__button-icon" />
                 刷新
               </NButton>
-              <NButton onClick={toggleAutoRefresh} type={state.autoRefresh ? 'warning' : 'default'}>
-                <NIcon component={state.autoRefresh ? StopOutline : PlayOutline} class="mr-1" />
-                {state.autoRefresh ? '停止自动刷新' : '开启自动刷新'}
-              </NButton>
               <NButton onClick={clearFilters} disabled={!hasFilters.value}>
-                <NIcon component={FilterOutline} class="mr-1" />
+                <NIcon component={FilterOutline} class="log-explorer-page__button-icon" />
                 清空过滤
               </NButton>
               <NPopover trigger="click" placement="bottom-end">
                 {{
                   trigger: () => (
                     <NButton>
-                      <NIcon component={DownloadOutline} class="mr-1" />
+                      <NIcon component={DownloadOutline} class="log-explorer-page__button-icon" />
                       导出
                     </NButton>
                   ),
                   default: () => (
-                    <div class="flex flex-col gap-2 p-2">
+                    <div class="log-explorer-page__export-menu">
                       {exportFormatOptions.map((option) => (
                         <NButton
                           key={option.value}
@@ -530,11 +619,22 @@ export default defineComponent({
                   )
                 }}
               </NPopover>
-            </NSpace>
-          </NSpace>
+            </div>
+          </div>
         </NCard>
 
-        <NCard class="log-explorer-page__card log-explorer-page__card--table flex-1" bordered={false}>
+        <NCard class="log-explorer-page__card log-explorer-page__table-card" bordered={false}>
+          <div class="log-explorer-page__table-header">
+            <div>
+              <div class="log-explorer-page__section-title">日志结果</div>
+              <div class="log-explorer-page__section-desc">点击消息或详情按钮查看原始字段、标签和上下文。</div>
+            </div>
+            {searchParams.level === LogLevelEnum.DEBUG ? (
+              <NTag type="warning" bordered={false}>
+                DEBUG 诊断视图
+              </NTag>
+            ) : null}
+          </div>
           <ResultTable
             columns={columns}
             data={state.logs}
@@ -557,7 +657,7 @@ export default defineComponent({
           preset="card"
           title="日志详情"
           class="log-explorer-page__modal"
-          style={{ width: '800px' }}>
+          style={{ width: 'min(880px, 92vw)' }}>
           {state.selectedLog && (
             <div class="log-explorer-page__detail">
               <div class="log-explorer-page__detail-header">
@@ -577,11 +677,15 @@ export default defineComponent({
                   {dayjs(state.selectedLog.timestamp).format('YYYY-MM-DD HH:mm:ss.SSS')}
                 </span>
               </div>
-              <NCode code={state.selectedLog.message} language="text" />
-              <NCode
-                code={JSON.stringify({ tags: state.selectedLog.tags, fields: state.selectedLog.fields }, null, 2)}
-                language="json"
-              />
+              <div class="log-explorer-page__code-shell">
+                <NCode code={state.selectedLog.message} language="text" />
+              </div>
+              <div class="log-explorer-page__code-shell log-explorer-page__code-shell--muted">
+                <NCode
+                  code={JSON.stringify({ tags: state.selectedLog.tags, fields: state.selectedLog.fields }, null, 2)}
+                  language="json"
+                />
+              </div>
             </div>
           )}
         </NModal>

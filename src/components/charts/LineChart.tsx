@@ -86,7 +86,9 @@ const formatStorageSize = (value: number) => {
   return `${Number(normalizedValue.toFixed(digits)).toLocaleString()} ${matchedUnit.label}`
 }
 
-const formatValueWithUnit = (value: number, unit = '') => {
+const formatValueWithUnit = (value: number | null, unit = '') => {
+  if (value === null) return '无数据'
+
   const normalizedUnit = unit.trim().toLowerCase()
   if (BYTE_UNITS.includes(normalizedUnit)) return formatStorageSize(value)
 
@@ -114,11 +116,11 @@ export default defineComponent({
   props: {
     title: String,
     series: {
-      type: Array as () => { name: string; color?: string; data: { timestamp: number; value: number }[] }[],
+      type: Array as () => { name: string; color?: string; data: { timestamp: number; value: number | null }[] }[],
       default: undefined
     },
     data: {
-      type: Array as () => { timestamp: number; value: number }[],
+      type: Array as () => { timestamp: number; value: number | null }[],
       default: () => []
     },
     color: {
@@ -307,7 +309,8 @@ export default defineComponent({
               : '',
             ...items.map((item: any) => {
               const seriesColor = resolveCssColor(item.color, '#165dff')
-              const numericValue = Number(item.data?.value ?? item.value?.value ?? item.value ?? 0)
+              const rawValue = item.data?.value ?? item.value?.value ?? item.value ?? null
+              const numericValue = rawValue === null ? null : Number(rawValue)
               return [
                 `<div style="display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-top: 3px;">`,
                 `<div style="display: flex; align-items: center; gap: 8px; min-width: 0; color: ${chartTextColor.value};">`,
@@ -435,7 +438,7 @@ export default defineComponent({
         name: seriesItem.name,
         type: 'line',
         smooth: 0.22,
-        connectNulls: true,
+        connectNulls: false,
         lineStyle: {
           width: 1.75,
           cap: 'round',

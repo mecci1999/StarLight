@@ -153,7 +153,7 @@ export type CardData =
     }
   | {
       kind: 'timeseries'
-      series: Array<{ name: string; points: Array<{ timestamp: number; value: number }> }>
+      series: Array<{ name: string; points: Array<{ timestamp: number; value: number | null }> }>
       unit?: string
     }
   | {

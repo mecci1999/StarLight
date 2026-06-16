@@ -26,6 +26,17 @@ let clientId: null | string = null
 
 let connectionState = ConnectionState.DISCONNECTED
 
+const resolveWebSocketUrl = () => {
+  const configuredUrl = String(import.meta.env.VITE_WEBSOCKET_URL || '').trim()
+  if (configuredUrl && !configuredUrl.includes('/api/')) return configuredUrl
+
+  if (configuredUrl.includes('/api/')) {
+    console.warn('VITE_WEBSOCKET_URL 指向了 HTTP API 路径，已回退到默认 WebSocket 地址:', configuredUrl)
+  }
+
+  return 'ws://127.0.0.1:8090/ws'
+}
+
 // 往 ws 发送消息
 const connectionSend = (value: { [key: string]: any }) => {
   connection?.send(JSON.stringify(value))
@@ -141,9 +152,7 @@ const initConnection = () => {
   // 建立链接
   // 本地配置到 .env 里面修改。生产配置在 .env.production 里面
   if (!connection) {
-    connection = new WebSocket(
-      `${import.meta.env.VITE_WEBSOCKET_URL}?clientId=${clientId}${token ? `&token=${token}` : ''}`
-    )
+    connection = new WebSocket(`${resolveWebSocketUrl()}?clientId=${clientId}${token ? `&token=${token}` : ''}`)
   }
   // 收到消息
   connection.addEventListener('message', onConnectMsg)

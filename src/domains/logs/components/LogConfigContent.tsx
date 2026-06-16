@@ -417,6 +417,10 @@ export default defineComponent({
                       </NGridItem>
                     </NGrid>
                   </NForm>
+                  <NAlert type="warning" showIcon class="mt-4">
+                    Darwin 系统日志默认不会将 DEBUG 级别写入 Elasticsearch，避免框架调试日志造成存储暴涨。
+                    如需临时排查问题，请在后端设置 DARWIN_CAPTURE_DEBUG_LOGS=true 后重启相关服务。
+                  </NAlert>
                 </NCard>
               </NSpace>
             </NTabPane>

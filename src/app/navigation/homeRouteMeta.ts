@@ -1,18 +1,22 @@
 import type { Component } from 'vue'
 import { markRaw } from 'vue'
 import {
+  AlertCircleOutline,
+  AnalyticsOutline,
+  BugOutline,
+  CloudUploadOutline,
+  CubeOutline,
   DocumentTextOutline,
-  EyeOutline,
+  FileTrayFullOutline,
+  GitBranchOutline,
   GitNetworkOutline,
   GridOutline,
-  ListOutline,
+  LayersOutline,
   NotificationsOutline,
+  PulseOutline,
+  ReceiptOutline,
   SparklesOutline,
-  ServerOutline,
-  SettingsOutline,
-  ShieldCheckmarkOutline,
-  StatsChartOutline,
-  WalletOutline
+  StatsChartOutline
 } from '@vicons/ionicons5'
 
 export type HomeRouteGroup = 'overview' | 'service' | 'monitor' | 'investigate' | 'alerts' | 'admin'
@@ -42,18 +46,21 @@ export interface HomeSidebarModule {
 
 const icons = {
   alerts: markRaw(NotificationsOutline),
-  billing: markRaw(WalletOutline),
-  exception: markRaw(ShieldCheckmarkOutline),
+  alertRules: markRaw(AlertCircleOutline),
+  analytics: markRaw(AnalyticsOutline),
+  exception: markRaw(BugOutline),
+  ingestion: markRaw(CloudUploadOutline),
+  instances: markRaw(CubeOutline),
   logs: markRaw(DocumentTextOutline),
+  metricCatalog: markRaw(FileTrayFullOutline),
   media: markRaw(SparklesOutline),
   metrics: markRaw(StatsChartOutline),
   overview: markRaw(GridOutline),
-  realtime: markRaw(ServerOutline),
-  rules: markRaw(SettingsOutline),
-  serviceList: markRaw(ListOutline),
+  realtime: markRaw(PulseOutline),
+  receipt: markRaw(ReceiptOutline),
+  serviceList: markRaw(LayersOutline),
   topology: markRaw(GitNetworkOutline),
-  trace: markRaw(GitNetworkOutline),
-  instances: markRaw(EyeOutline)
+  trace: markRaw(GitBranchOutline)
 } as const
 
 const createSidebarModule = (
@@ -106,7 +113,7 @@ export const HOME_SIDEBAR_MODULES: HomeSidebarModule[] = [
     sidebarKey: 'instance-monitor'
   }),
   createSidebarModule('real-time-monitor', '/home/real-time-monitor', undefined, {
-    title: '实时监控',
+    title: '基础设施概览',
     group: 'monitor',
     icon: icons.realtime,
     order: 50,
@@ -116,7 +123,7 @@ export const HOME_SIDEBAR_MODULES: HomeSidebarModule[] = [
   createSidebarModule('metrics-analysis', '/home/investigate/metrics', ['/home/metrics-v2', '/home/metrics-analysis'], {
     title: '指标分析',
     group: 'investigate',
-    icon: icons.metrics,
+    icon: icons.analytics,
     order: 60,
     visibility: 'sidebar',
     sidebarKey: 'metrics-analysis'
@@ -124,7 +131,7 @@ export const HOME_SIDEBAR_MODULES: HomeSidebarModule[] = [
   createSidebarModule('metrics-catalog', '/home/investigate/metrics/catalog', undefined, {
     title: '指标目录',
     group: 'investigate',
-    icon: icons.metrics,
+    icon: icons.metricCatalog,
     order: 65,
     visibility: 'sidebar',
     sidebarKey: 'metrics-catalog'
@@ -177,7 +184,7 @@ export const HOME_SIDEBAR_MODULES: HomeSidebarModule[] = [
   createSidebarModule('alert-rules', '/home/alert-rules', undefined, {
     title: '告警规则',
     group: 'alerts',
-    icon: icons.rules,
+    icon: icons.alertRules,
     order: 130,
     visibility: 'sidebar',
     sidebarKey: 'alert-rules'
@@ -185,7 +192,7 @@ export const HOME_SIDEBAR_MODULES: HomeSidebarModule[] = [
   createSidebarModule('billing', '/home/admin-billing-v2', ['/home/billing'], {
     title: '计费',
     group: 'admin',
-    icon: icons.billing,
+    icon: icons.receipt,
     order: 140,
     visibility: 'sidebar',
     sidebarKey: 'billing'
@@ -193,7 +200,7 @@ export const HOME_SIDEBAR_MODULES: HomeSidebarModule[] = [
   createSidebarModule('admin-ingestion', '/home/admin/ingestion', ['/home/admin-ingestion-v2'], {
     title: '接入管理',
     group: 'admin',
-    icon: icons.rules,
+    icon: icons.ingestion,
     order: 150,
     visibility: 'sidebar',
     sidebarKey: 'admin-ingestion'
@@ -236,7 +243,7 @@ export const HOME_ROUTE_META_BY_NAME: Record<string, HomeRouteMeta> = {
   'admin-onboarding-v2': {
     title: '接入引导',
     group: 'admin',
-    icon: icons.rules,
+    icon: icons.ingestion,
     order: 160,
     visibility: 'hidden',
     sidebarKey: 'billing'

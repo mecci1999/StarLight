@@ -3,6 +3,15 @@ import url from '@/api/url'
 import type { AlertItem, AlertRuleItem, NotificationItem } from '@/types/monitor'
 import type { MetricsDatasetScope } from './metrics'
 
+const cleanAlertQueryParams = <T extends Record<string, unknown>>(params?: T) =>
+  Object.fromEntries(
+    Object.entries(params || {}).filter(([, value]) => {
+      if (value === undefined || value === null || value === '') return false
+      if (value === 'undefined' || value === 'null') return false
+      return true
+    })
+  ) as Partial<T>
+
 // 获取告警列表
 export function fetchAlerts(params?: {
   level?: string
@@ -14,7 +23,7 @@ export function fetchAlerts(params?: {
   startTime?: number
   endTime?: number
 }) {
-  return request.get<AlertItem[]>(url.metricsAlerts, params || {})
+  return request.get<AlertItem[]>(url.metricsAlerts, cleanAlertQueryParams(params))
 }
 
 export function fetchAlertAssignees() {
@@ -46,7 +55,7 @@ export function fetchAlertRules(params?: {
   endTime?: number
   scope?: MetricsDatasetScope
 }) {
-  return request.get<AlertRuleItem[]>(url.metricsAlertRules, params || {})
+  return request.get<AlertRuleItem[]>(url.metricsAlertRules, cleanAlertQueryParams(params))
 }
 
 // 保存告警规则
@@ -69,7 +78,10 @@ export function exportAlertRules(params?: {
   endTime?: number
   scope?: MetricsDatasetScope
 }) {
-  return request.get<{ rules: AlertRuleItem[]; exportedAt: string }>(url.metricsAlertRulesExport, params || {})
+  return request.get<{ rules: AlertRuleItem[]; exportedAt: string }>(
+    url.metricsAlertRulesExport,
+    cleanAlertQueryParams(params)
+  )
 }
 
 export function importAlertRules(params: { rules: Array<Partial<AlertRuleItem>> }) {
@@ -91,10 +103,7 @@ export function fetchNotifications(params?: {
   startTime?: number
   endTime?: number
 }) {
-  const cleaned = Object.fromEntries(
-    Object.entries(params || {}).filter(([, value]) => value !== undefined && value !== null && value !== '')
-  )
-  return request.get<NotificationItem[]>(url.metricsNotifications, cleaned).catch((error) => {
+  return request.get<NotificationItem[]>(url.metricsNotifications, cleanAlertQueryParams(params)).catch((error) => {
     console.error('Failed to fetch notifications, using empty fallback:', error)
     return []
   })

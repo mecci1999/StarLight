@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "StarLight",
+  "productName": "星光",
   "version": "0.1.0",
   "identifier": "com.starlight.pc",
   "build": {
@@ -11,7 +11,7 @@
   },
   "bundle": {
     "category": "MicroserviceSystemMonitoring",
-    "copyright": "StarLight",
+    "copyright": "星光",
     "licenseFile": "./copyright/License.txt",
     "resources": [
       "tray"

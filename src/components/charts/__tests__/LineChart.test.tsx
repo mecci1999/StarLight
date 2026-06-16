@@ -128,4 +128,33 @@ describe('LineChart', () => {
     const props = chartProps.props.at(-1)
     expect(props.option.yAxis.axisLabel.formatter(17179869184)).toBe('16 GB')
   })
+
+  it('renders null metric points as gaps instead of zero values', () => {
+    chartProps.props = []
+
+    mount(LineChart, {
+      props: {
+        data: [
+          { timestamp: 1000, value: 42 },
+          { timestamp: 2000, value: null },
+          { timestamp: 3000, value: 48 }
+        ],
+        yAxisUnit: 'ms'
+      }
+    })
+
+    const props = chartProps.props.at(-1)
+    expect(props.option.series[0].connectNulls).toBe(false)
+    expect(props.option.series[0].data.map((item: any) => item.value)).toEqual([42, null, 48])
+
+    const tooltip = props.option.tooltip.formatter([
+      {
+        seriesName: 'Latency',
+        color: '#165dff',
+        data: { timestamp: 2000, value: null }
+      }
+    ])
+    expect(tooltip).toContain('无数据')
+    expect(tooltip).not.toContain('0ms')
+  })
 })

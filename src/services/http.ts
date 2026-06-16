@@ -14,7 +14,7 @@ const ERROR_MESSAGES = {
 } as const
 
 const ACCESS_TOKEN_EXPIRE_DAYS = 7
-const REFRESH_TOKEN_EXPIRE_DAYS = 30
+const REFRESH_TOKEN_EXPIRE_DAYS = 3
 
 /**
  * @description 重试选项
@@ -58,6 +58,167 @@ function wait(ms: number) {
 }
 
 const runtimeFetch = (input: RequestInfo | URL, init?: RequestInit) => globalThis.fetch(input, init)
+
+const DEBUG_DIAGNOSTICS_REFRESH_MS = 30 * 1000
+const DEBUG_DIAGNOSTICS_CAPTURE_BATCH_SIZE = 10
+const DEBUG_DIAGNOSTICS_CAPTURE_FLUSH_MS = 500
+const SENSITIVE_DEBUG_KEYS = new Set([
+  'authorization',
+  'token',
+  'accessToken',
+  'refreshToken',
+  'access_token',
+  'refresh_token'
+])
+
+type DebugDiagnosticsState = {
+  enabled?: boolean
+  expiresAt?: string | null
+}
+
+let debugDiagnosticsCache: { enabled: boolean; checkedAt: number; expiresAt?: string | null } = {
+  enabled: false,
+  checkedAt: 0,
+  expiresAt: null
+}
+let debugDiagnosticsRequest: Promise<boolean> | null = null
+let debugDiagnosticsCaptureTimer: ReturnType<typeof setTimeout> | null = null
+let debugDiagnosticsCaptureFlushing = false
+const debugDiagnosticsCaptureQueue: Array<{ level: 'debug'; args: unknown[]; bindings: Record<string, string> }> = []
+
+const isDebugDiagnosticsEndpoint = (requestUrl: string) => requestUrl.includes('/diagnostics/debug')
+
+const redactDebugPayload = (value: unknown): unknown => {
+  if (Array.isArray(value)) return value.map(redactDebugPayload)
+  if (!value || typeof value !== 'object') return value
+
+  const redacted: Record<string, unknown> = {}
+  for (const [key, nestedValue] of Object.entries(value as Record<string, unknown>)) {
+    redacted[key] = SENSITIVE_DEBUG_KEYS.has(key) ? '[REDACTED]' : redactDebugPayload(nestedValue)
+  }
+  return redacted
+}
+
+const debugLog = (enabled: boolean, message: string, details?: unknown) => {
+  if (!enabled) return
+  const safeDetails = details === undefined ? undefined : redactDebugPayload(details)
+  if (details === undefined) {
+    console.log(message)
+  } else {
+    console.log(message, safeDetails)
+  }
+  enqueueDebugDiagnosticsCapture(message, safeDetails)
+}
+
+const enqueueDebugDiagnosticsCapture = (message: string, details?: unknown) => {
+  if (!url.logDebugCapture) return
+
+  debugDiagnosticsCaptureQueue.push({
+    level: 'debug',
+    args: details === undefined ? [message] : [message, details],
+    bindings: {
+      nodeID: 'starlight-client',
+      namespace: 'starlight-client',
+      mod: 'client-http',
+      svc: 'client-http'
+    }
+  })
+
+  if (debugDiagnosticsCaptureQueue.length >= DEBUG_DIAGNOSTICS_CAPTURE_BATCH_SIZE) {
+    void flushDebugDiagnosticsCapture()
+    return
+  }
+
+  if (debugDiagnosticsCaptureTimer) return
+  debugDiagnosticsCaptureTimer = setTimeout(() => {
+    debugDiagnosticsCaptureTimer = null
+    void flushDebugDiagnosticsCapture()
+  }, DEBUG_DIAGNOSTICS_CAPTURE_FLUSH_MS)
+}
+
+const flushDebugDiagnosticsCapture = async () => {
+  if (debugDiagnosticsCaptureFlushing || debugDiagnosticsCaptureQueue.length === 0 || !url.logDebugCapture) return
+  debugDiagnosticsCaptureFlushing = true
+  const records = debugDiagnosticsCaptureQueue.splice(0, DEBUG_DIAGNOSTICS_CAPTURE_BATCH_SIZE)
+
+  try {
+    const token = getStoredToken('ACCESS_TOKEN')
+    if (!token) return
+
+    await runtimeFetch(url.logDebugCapture, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token.replace(/[^\x20-\x7E]/g, '')}`
+      },
+      body: JSON.stringify({ records }),
+      credentials: 'include'
+    })
+  } catch {
+    // 调试日志采集不能影响业务请求，也不能制造新的控制台噪音。
+  } finally {
+    debugDiagnosticsCaptureFlushing = false
+    if (debugDiagnosticsCaptureQueue.length > 0) {
+      void flushDebugDiagnosticsCapture()
+    }
+  }
+}
+
+const resolveDebugDiagnosticsEnabled = async (requestUrl: string): Promise<boolean> => {
+  if (isDebugDiagnosticsEndpoint(requestUrl)) return false
+  if (!url.logDebugDiagnostics) return false
+
+  const now = Date.now()
+  if (debugDiagnosticsCache.enabled && debugDiagnosticsCache.expiresAt) {
+    const expiresAt = Date.parse(debugDiagnosticsCache.expiresAt)
+    if (Number.isFinite(expiresAt) && expiresAt <= now) {
+      debugDiagnosticsCache = { enabled: false, checkedAt: now, expiresAt: null }
+      return false
+    }
+  }
+
+  if (now - debugDiagnosticsCache.checkedAt < DEBUG_DIAGNOSTICS_REFRESH_MS) {
+    return debugDiagnosticsCache.enabled
+  }
+
+  if (debugDiagnosticsRequest) return debugDiagnosticsRequest
+
+  debugDiagnosticsRequest = (async () => {
+    const token = getStoredToken('ACCESS_TOKEN')
+    if (!token) {
+      debugDiagnosticsCache = { enabled: false, checkedAt: Date.now(), expiresAt: null }
+      return false
+    }
+
+    try {
+      const response = await runtimeFetch(url.logDebugDiagnostics, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token.replace(/[^\x20-\x7E]/g, '')}`
+        },
+        body: '{}',
+        credentials: 'include'
+      })
+      const data = await response.json().catch(() => null)
+      const content = (data?.data?.content || data?.content || {}) as DebugDiagnosticsState
+      const enabled = Boolean(response.ok && content.enabled)
+      debugDiagnosticsCache = {
+        enabled,
+        checkedAt: Date.now(),
+        expiresAt: content.expiresAt || null
+      }
+      return enabled
+    } catch {
+      debugDiagnosticsCache = { enabled: false, checkedAt: Date.now(), expiresAt: null }
+      return false
+    } finally {
+      debugDiagnosticsRequest = null
+    }
+  })()
+
+  return debugDiagnosticsRequest
+}
 
 const parseResponseData = async (response: Response, isBlob?: boolean) => {
   if (isBlob) return response.arrayBuffer()
@@ -222,7 +383,8 @@ let isRefreshing = false
 const requestQueue = new RequestQueue()
 async function refreshTokenAndRetry(): Promise<string> {
   if (isRefreshing) {
-    console.log('🔄 已有刷新请求在进行中，加入等待队列')
+    const debugLoggingEnabled = await resolveDebugDiagnosticsEnabled(url.refreshToken)
+    debugLog(debugLoggingEnabled, '🔄 已有刷新请求在进行中，加入等待队列')
 
     return new Promise((resolve, reject) => {
       requestQueue.enqueue(resolve, reject, 1)
@@ -243,7 +405,8 @@ async function refreshTokenAndRetry(): Promise<string> {
     }
     const refreshBody = refreshToken ? JSON.stringify({ refreshToken }) : undefined
 
-    console.log('📤 正在使用refreshToken获取新的token', {
+    const debugLoggingEnabled = await resolveDebugDiagnosticsEnabled(refreshUrl)
+    debugLog(debugLoggingEnabled, '📤 正在使用refreshToken获取新的token', {
       refreshUrl,
       serviceUrl,
       hasRefreshToken: Boolean(refreshToken),
@@ -280,7 +443,7 @@ async function refreshTokenAndRetry(): Promise<string> {
       businessCode === 0 ||
       businessCode === 200
 
-    console.log('🔄 Token刷新响应', {
+    debugLog(debugLoggingEnabled, '🔄 Token刷新响应', {
       status: response.status,
       ok: response.ok,
       businessStatus,
@@ -301,12 +464,12 @@ async function refreshTokenAndRetry(): Promise<string> {
     }
 
     const content = data?.data?.content || data?.content || data?.data || data || {}
-    console.log('🔍 提取token的content对象:', content)
+    debugLog(debugLoggingEnabled, '🔍 提取token的content对象:', content)
 
     const nextAccessToken = content.accessToken || content.token || content.access_token || getCookie('ACCESS_TOKEN')
     const nextRefreshToken = content.refreshToken || content.refresh_token || getCookie('REFRESH_TOKEN')
 
-    console.log('🔑 提取到的token:', {
+    debugLog(debugLoggingEnabled, '🔑 提取到的token:', {
       hasAccessToken: !!nextAccessToken,
       accessTokenLength: nextAccessToken?.length || 0,
       hasRefreshToken: !!nextRefreshToken,
@@ -325,7 +488,7 @@ async function refreshTokenAndRetry(): Promise<string> {
     }
 
     if (nextAccessToken) {
-      console.log('🔑 Token刷新成功')
+      debugLog(debugLoggingEnabled, '🔑 Token刷新成功')
       const safeAccessToken = nextAccessToken.replace(/[\r\n]/g, '')
       await requestQueue.processQueue(safeAccessToken)
 
@@ -369,6 +532,8 @@ async function Http<T = any>(
   fullResponse: boolean = false,
   abort?: AbortController
 ): Promise<{ data: T; response: Response } | T> {
+  const debugLoggingEnabled = await resolveDebugDiagnosticsEnabled(url)
+
   // 检查是否需要阻止请求
   const shouldBlock = await shouldBlockRequest(url)
   if (shouldBlock) {
@@ -379,7 +544,7 @@ async function Http<T = any>(
   }
 
   // 打印请求信息
-  console.log(`🚀 发起请求 → ${options.method} ${url}`, {
+  debugLog(debugLoggingEnabled, `🚀 发起请求 → ${options.method} ${url}`, {
     body: options.body,
     query: options.query
   })
@@ -449,7 +614,7 @@ async function Http<T = any>(
     url += `?${queryString}`
   }
 
-  console.log('🌐 实际请求路径', {
+  debugLog(debugLoggingEnabled, '🌐 实际请求路径', {
     method: options.method,
     url
   })
@@ -493,7 +658,7 @@ async function Http<T = any>(
       const businessCode = responseData?.code ?? responseData?.data?.code
       const businessSuccess = responseData?.data?.success ?? responseData?.success
 
-      console.log('🔎 响应诊断', {
+      debugLog(debugLoggingEnabled, '🔎 响应诊断', {
         url,
         method: options.method,
         status: response.status,
@@ -506,7 +671,7 @@ async function Http<T = any>(
       })
 
       if (response.status === 401 || businessCode === 40001) {
-        console.log('🔄 Token无效，尝试刷新Token...', {
+        debugLog(debugLoggingEnabled, '🔄 Token无效，尝试刷新Token...', {
           status: response.status,
           businessCode,
           businessStatus,
@@ -517,7 +682,7 @@ async function Http<T = any>(
 
         // 限制token刷新重试次数，最多重试一次，避免无限循环
         if (tokenRefreshCount >= 1) {
-          console.log('🚫 Token刷新重试次数超过限制，清除token并重新登录')
+          debugLog(debugLoggingEnabled, '🚫 Token刷新重试次数超过限制，清除token并重新登录')
           clearStoredTokens()
           window.dispatchEvent(new Event('needReLogin'))
           throw new AppException('登录已过期，请重新登录', {
@@ -527,10 +692,10 @@ async function Http<T = any>(
         }
 
         try {
-          console.log('🔄 开始尝试刷新Token并重试请求', { url, method: options.method })
+          debugLog(debugLoggingEnabled, '🔄 开始尝试刷新Token并重试请求', { url, method: options.method })
           // 刷新token
           const token = await refreshTokenAndRetry()
-          console.log('🔄 使用新Token重试原请求', `token length: ${token?.length}`)
+          debugLog(debugLoggingEnabled, '🔄 使用新Token重试原请求', `token length: ${token?.length}`)
 
           if (token && typeof token === 'string') {
             // 移除可能导致 header 错误的字符（如换行符）
@@ -580,7 +745,7 @@ async function Http<T = any>(
       }
 
       if (response.status === 403) {
-        console.log('🤯 权限不足')
+        debugLog(debugLoggingEnabled, '🤯 权限不足')
       }
 
       if (!response.ok && response.status !== 401 && response.status !== 403 && businessCode !== 40001) {
@@ -608,7 +773,7 @@ async function Http<T = any>(
       }
 
       // 打印响应结果
-      console.log(`✅ 请求成功 → ${options.method} ${url}`, {
+      debugLog(debugLoggingEnabled, `✅ 请求成功 → ${options.method} ${url}`, {
         status: response.status,
         data: responseData
       })

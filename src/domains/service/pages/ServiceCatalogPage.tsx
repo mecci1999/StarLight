@@ -102,6 +102,17 @@ export default defineComponent({
           fetchCatalogServicesSummary({ scope: datasetScope.value })
         ])
         const items = res?.items || []
+        console.info('[ServiceCatalogPage] catalog raw items', {
+          count: items.length,
+          sample: items.slice(0, 8).map((item: any) => ({
+            id: item.identity?.id,
+            name: item.identity?.name,
+            qps: item.qps,
+            p95Latency: item.p95Latency,
+            errorRate: item.errorRate,
+            activeIncidentCount: item.activeIncidentCount
+          }))
+        })
         allRows.value = items.map((item: any) => ({
           id: item.identity?.id,
           name: item.identity?.name,
@@ -116,6 +127,8 @@ export default defineComponent({
           latency: item.p95Latency,
           errorRate: item.errorRate,
           activeIncidentCount: item.activeIncidentCount,
+          metricStatus: item.metricStatus,
+          runtimeMetrics: item.runtimeMetrics,
           instances: item.instanceCount,
           lastDeploy: item.lastDeployAt,
           status:
@@ -227,14 +240,28 @@ export default defineComponent({
       })
     }
 
-    const displayMetric = (value: number | null | undefined, suffix = '') =>
-      typeof value === 'number' ? `${value}${suffix}` : '未知'
+    const displayMetric = (value: number | null | undefined, suffix = '', status?: string) => {
+      if (typeof value === 'number') return `${value}${suffix}`
+      return status === 'unavailable' ? '暂无样本' : '未知'
+    }
 
     const columns = [
-      { title: '服务名', key: 'name' },
+      {
+        title: '服务名',
+        key: 'name',
+        fixed: 'left',
+        width: 220,
+        render: (row: ServiceItem) => (
+          <div class="service-catalog-page__service-cell">
+            <strong>{row.name || '-'}</strong>
+            <span>{row.id || 'unknown-service'}</span>
+          </div>
+        )
+      },
       {
         title: 'Owner',
         key: 'owner',
+        width: 150,
         render: (row: ServiceItem) => (
           <span
             class="service-catalog-page__link-button"
@@ -246,39 +273,46 @@ export default defineComponent({
           </span>
         )
       },
-      { title: '团队', key: 'team', render: (row: ServiceItem) => (row as any).team || '-' },
-      { title: '环境', key: 'env', render: (row: ServiceItem) => (row as any).env || '-' },
-      { title: '区域', key: 'region', render: (row: ServiceItem) => row.region || '-' },
+      { title: '团队', key: 'team', width: 140, render: (row: ServiceItem) => (row as any).team || '-' },
+      { title: '环境', key: 'env', width: 120, render: (row: ServiceItem) => (row as any).env || '-' },
+      { title: '区域', key: 'region', width: 140, render: (row: ServiceItem) => row.region || '-' },
       {
         title: '健康状态',
         key: 'health',
+        width: 130,
         render: (row: any) => <ServiceHealthBadge status={row.health} size="sm" />
       },
       {
         title: '实例数',
         key: 'instances',
+        width: 110,
         render: (row: any) => (typeof row.instances === 'number' ? row.instances : '未知')
       },
-      { title: 'QPS', key: 'qps', render: (row: any) => (typeof row.qps === 'number' ? row.qps : '未知') },
+      { title: 'QPS', key: 'qps', width: 110, render: (row: any) => displayMetric(row.qps, '', row.metricStatus?.qps) },
       {
         title: '错误率',
         key: 'errorRate',
-        render: (row: any) => (typeof row.errorRate === 'number' ? `${row.errorRate}%` : '未知')
+        width: 110,
+        render: (row: any) => displayMetric(row.errorRate, '%', row.metricStatus?.errorRate)
       },
       {
         title: 'P95',
         key: 'latency',
-        render: (row: any) => (typeof row.latency === 'number' ? `${row.latency}ms` : '未知')
+        width: 110,
+        render: (row: any) => displayMetric(row.latency, 'ms', row.metricStatus?.latency)
       },
       {
         title: '告警',
         key: 'alerts',
+        width: 100,
         render: (row: any) => (typeof row.activeIncidentCount === 'number' ? row.activeIncidentCount : '未知')
       },
-      { title: '最近部署', key: 'lastDeploy', render: (row: ServiceItem) => row.lastDeploy || '-' },
+      { title: '最近部署', key: 'lastDeploy', width: 190, render: (row: ServiceItem) => row.lastDeploy || '-' },
       {
         title: '操作',
         key: 'actions',
+        fixed: 'right',
+        width: 420,
         render: (row: any) => (
           <div class="service-catalog-page__meta-group">
             <NButton
@@ -305,7 +339,7 @@ export default defineComponent({
                 e.stopPropagation()
                 openServiceRoute('/home/investigate/traces', row.id)
               }}>
-              Traces
+              链路
             </NButton>
             <NButton
               size="small"
@@ -314,7 +348,7 @@ export default defineComponent({
                 e.stopPropagation()
                 openServiceRoute('/home/investigate/logs', row.id, 'service')
               }}>
-              Logs
+              日志
             </NButton>
             <NButton size="small" secondary type="primary" onClick={() => openServiceDetail(row.id)}>
               查看详情
@@ -375,34 +409,40 @@ export default defineComponent({
           }}
         </PageHeader>
 
-        <TimeRangeBar
-          value={timeStore.timeRange}
-          live={timeStore.isLive}
-          options={timeStore.timeOptions as any}
-          onUpdate:value={(range: any) => {
-            timeStore.setTimeRange(range)
-            loadServices()
-          }}
-          onUpdate:live={(value: boolean) => {
-            timeStore.isLive = value
-            if (value) timeStore.refreshTime()
-            loadServices()
-          }}
-          onRefresh={() => {
-            timeStore.refreshTime()
-            loadServices()
-          }}
-        />
+        <section class="service-catalog-page__control-panel">
+          <div class="service-catalog-page__control-row service-catalog-page__control-row--range">
+            <TimeRangeBar
+              value={timeStore.timeRange}
+              live={timeStore.isLive}
+              options={timeStore.timeOptions as any}
+              onUpdate:value={(range: any) => {
+                timeStore.setTimeRange(range)
+                loadServices()
+              }}
+              onUpdate:live={(value: boolean) => {
+                timeStore.isLive = value
+                if (value) timeStore.refreshTime()
+                loadServices()
+              }}
+              onRefresh={() => {
+                timeStore.refreshTime()
+                loadServices()
+              }}
+            />
+          </div>
 
-        <ScopeBar
-          value={scopeValue.value}
-          options={scopeOptions.value as any}
-          mode="global"
-          onUpdate:value={(value: any) => {
-            scopeValue.value = value
-            applyRowFiltersAndSort()
-          }}
-        />
+          <div class="service-catalog-page__control-row">
+            <ScopeBar
+              value={scopeValue.value}
+              options={scopeOptions.value as any}
+              mode="global"
+              onUpdate:value={(value: any) => {
+                scopeValue.value = value
+                applyRowFiltersAndSort()
+              }}
+            />
+          </div>
+        </section>
 
         <NGrid cols={5} xGap={16} yGap={16} class="service-catalog-page__summary-grid">
           {[
@@ -420,69 +460,88 @@ export default defineComponent({
           ))}
         </NGrid>
 
-        <div class="service-catalog-page__filters">
-          <NInput
-            v-model:value={query.value}
-            placeholder="搜索服务 / Owner / Team / Tag"
-            clearable
-            class="service-catalog-page__search"
-          />
-          <NSelect
-            v-model:value={selectedStatus.value}
-            options={[
-              { label: '全部状态', value: '' },
-              { label: '健康', value: 'healthy' },
-              { label: '轻微异常', value: 'degraded' },
-              { label: '严重异常', value: 'critical' }
-            ]}
-            class="service-catalog-page__select"
-          />
-          <NSelect v-model:value={selectedEnv.value} options={envOptions.value} class="service-catalog-page__select" />
-          <NSelect
-            v-model:value={selectedTeam.value}
-            options={teamOptions.value}
-            class="service-catalog-page__select"
-          />
-          <NSelect
-            v-model:value={sortBy.value}
-            options={[
-              { label: '按名称', value: 'name' },
-              { label: '按 QPS', value: 'qps' },
-              { label: '按错误率', value: 'errorRate' },
-              { label: '按 P95', value: 'latency' },
-              { label: '按最近部署', value: 'lastDeploy' }
-            ]}
-            class="service-catalog-page__select"
-          />
-          <NSpace>
-            <NButton
-              type={viewMode.value === 'table' ? 'primary' : 'default'}
-              onClick={() => (viewMode.value = 'table')}>
-              表格
-            </NButton>
-            <NButton type={viewMode.value === 'card' ? 'primary' : 'default'} onClick={() => (viewMode.value = 'card')}>
-              卡片
-            </NButton>
-            <NButton type="primary" onClick={loadServices}>
-              搜索
-            </NButton>
-            <NButton
-              secondary
-              onClick={() => {
-                query.value = ''
-                selectedStatus.value = ''
-                selectedEnv.value = ''
-                selectedTeam.value = ''
-                selectedOwner.value = ''
-                selectedTag.value = ''
-                scopeValue.value = { service: null, env: null, region: null }
-                sortBy.value = 'name'
-                loadServices()
-              }}>
-              重置
-            </NButton>
-          </NSpace>
-        </div>
+        <section class="service-catalog-page__filters-card">
+          <div class="service-catalog-page__filters-header">
+            <div>
+              <div class="service-catalog-page__section-title">服务筛选</div>
+              <div class="service-catalog-page__section-desc">
+                按健康状态、环境、团队与关键指标排序，快速收敛排查范围。
+              </div>
+            </div>
+            <NTag bordered={false} type="info">
+              {rows.value.length} / {allRows.value.length} 个服务
+            </NTag>
+          </div>
+          <div class="service-catalog-page__filters">
+            <NInput
+              v-model:value={query.value}
+              placeholder="搜索服务 / Owner / Team / Tag"
+              clearable
+              class="service-catalog-page__search"
+            />
+            <NSelect
+              v-model:value={selectedStatus.value}
+              options={[
+                { label: '全部状态', value: '' },
+                { label: '健康', value: 'healthy' },
+                { label: '轻微异常', value: 'degraded' },
+                { label: '严重异常', value: 'critical' }
+              ]}
+              class="service-catalog-page__select"
+            />
+            <NSelect
+              v-model:value={selectedEnv.value}
+              options={envOptions.value}
+              class="service-catalog-page__select"
+            />
+            <NSelect
+              v-model:value={selectedTeam.value}
+              options={teamOptions.value}
+              class="service-catalog-page__select"
+            />
+            <NSelect
+              v-model:value={sortBy.value}
+              options={[
+                { label: '按名称', value: 'name' },
+                { label: '按 QPS', value: 'qps' },
+                { label: '按错误率', value: 'errorRate' },
+                { label: '按 P95', value: 'latency' },
+                { label: '按最近部署', value: 'lastDeploy' }
+              ]}
+              class="service-catalog-page__select"
+            />
+            <NSpace>
+              <NButton
+                type={viewMode.value === 'table' ? 'primary' : 'default'}
+                onClick={() => (viewMode.value = 'table')}>
+                表格
+              </NButton>
+              <NButton
+                type={viewMode.value === 'card' ? 'primary' : 'default'}
+                onClick={() => (viewMode.value = 'card')}>
+                卡片
+              </NButton>
+              <NButton type="primary" onClick={loadServices}>
+                搜索
+              </NButton>
+              <NButton
+                secondary
+                onClick={() => {
+                  query.value = ''
+                  selectedStatus.value = ''
+                  selectedEnv.value = ''
+                  selectedTeam.value = ''
+                  selectedOwner.value = ''
+                  selectedTag.value = ''
+                  scopeValue.value = { service: null, env: null, region: null }
+                  sortBy.value = 'name'
+                  loadServices()
+                }}>
+                重置
+              </NButton>
+            </NSpace>
+          </div>
+        </section>
 
         {activeFilterChips.value.length > 0 && (
           <div class="service-catalog-page__chips">
@@ -507,15 +566,29 @@ export default defineComponent({
         ) : rows.value.length === 0 && !loading.value ? (
           <NEmpty description="暂无服务数据" class="service-catalog-page__empty-state" />
         ) : viewMode.value === 'table' ? (
-          <ResultTable
-            columns={columns as any}
-            data={rows.value as any}
-            loading={loading.value}
-            rowKey="id"
-            rowProps={(row: any) => ({
-              onClick: () => openServiceDetail(row.id)
-            })}
-          />
+          <section class="service-catalog-page__table-card">
+            <div class="service-catalog-page__table-header">
+              <div>
+                <div class="service-catalog-page__section-title">服务清单</div>
+                <div class="service-catalog-page__section-desc">服务名与操作列已固定，中间指标列可横向滑动查看。</div>
+              </div>
+              <NTag bordered={false}>横向滚动</NTag>
+            </div>
+            <div class="service-catalog-page__table-scroll">
+              <ResultTable
+                columns={columns as any}
+                data={rows.value as any}
+                loading={loading.value}
+                scrollX={1940}
+                maxHeight="max(360px, calc(100vh - 420px))"
+                flexHeight={false}
+                rowKey="id"
+                rowProps={(row: any) => ({
+                  onClick: () => openServiceDetail(row.id)
+                })}
+              />
+            </div>
+          </section>
         ) : (
           <div class="service-catalog-page__card-grid">
             {rows.value.map((row) => (
@@ -575,7 +648,7 @@ export default defineComponent({
                         e.stopPropagation()
                         openServiceRoute('/home/investigate/traces', row.id)
                       }}>
-                      Traces
+                      链路
                     </NButton>
                     <NButton
                       size="small"
@@ -584,7 +657,7 @@ export default defineComponent({
                         e.stopPropagation()
                         openServiceRoute('/home/investigate/logs', row.id, 'service')
                       }}>
-                      Logs
+                      日志
                     </NButton>
                     <NButton
                       size="small"
@@ -632,23 +705,19 @@ export default defineComponent({
                 <div class="service-catalog-page__quick-stat">
                   <div class="service-catalog-page__quick-stat-label">QPS</div>
                   <div class="service-catalog-page__quick-stat-value">
-                    {typeof quickView.value.redSummary?.qps === 'number' ? quickView.value.redSummary.qps : '未知'}
+                    {displayMetric(quickView.value.redSummary?.qps, '', quickView.value.metricStatus?.qps)}
                   </div>
                 </div>
                 <div class="service-catalog-page__quick-stat">
                   <div class="service-catalog-page__quick-stat-label">错误率</div>
                   <div class="service-catalog-page__quick-stat-value">
-                    {typeof quickView.value.redSummary?.errorRate === 'number'
-                      ? `${quickView.value.redSummary.errorRate}%`
-                      : '未知'}
+                    {displayMetric(quickView.value.redSummary?.errorRate, '%', quickView.value.metricStatus?.errorRate)}
                   </div>
                 </div>
                 <div class="service-catalog-page__quick-stat">
                   <div class="service-catalog-page__quick-stat-label">P95 延迟</div>
                   <div class="service-catalog-page__quick-stat-value">
-                    {typeof quickView.value.redSummary?.p95Latency === 'number'
-                      ? `${quickView.value.redSummary.p95Latency}ms`
-                      : '未知'}
+                    {displayMetric(quickView.value.redSummary?.p95Latency, 'ms', quickView.value.metricStatus?.latency)}
                   </div>
                 </div>
                 <div class="service-catalog-page__quick-stat">

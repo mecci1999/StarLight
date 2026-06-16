@@ -1,5 +1,7 @@
 // @vitest-environment jsdom
-import { computed, defineComponent, h } from 'vue'
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+import { defineComponent, h } from 'vue'
 import { mount, flushPromises } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import ServiceCatalogPage from '../pages/ServiceCatalogPage'
@@ -112,7 +114,24 @@ vi.mock('@/shared/layout/PageHeader', () => ({
 vi.mock('@/shared/components/TimeRangeBar', () => ({ default: defineComponent({ setup: () => () => h('div') }) }))
 vi.mock('@/shared/components/ScopeBar', () => ({ default: defineComponent({ setup: () => () => h('div') }) }))
 vi.mock('@/shared/components/ResultTable', () => ({
-  default: defineComponent({ setup: () => () => h('div', {}, 'table') })
+  default: defineComponent({
+    props: ['columns', 'scrollX', 'maxHeight', 'flexHeight'],
+    setup: (props) => () =>
+      h(
+        'div',
+        {
+          'data-scroll-x': props.scrollX,
+          'data-max-height': props.maxHeight,
+          'data-flex-height': String(props.flexHeight)
+        },
+        [
+          'table',
+          JSON.stringify(
+            (props.columns || []).map((column: any) => ({ key: column.key, fixed: column.fixed, width: column.width }))
+          )
+        ]
+      )
+  })
 }))
 vi.mock('@/shared/components/DetailDrawer', () => ({
   default: defineComponent({
@@ -141,5 +160,41 @@ describe('ServiceCatalogPage', () => {
     expect(wrapper.text()).toContain('服务目录加载失败，请检查后端服务或稍后重试。')
     expect(wrapper.text()).toContain('重试加载')
     expect(wrapper.text()).toContain('总服务数:未知')
+  })
+
+  it('configures service catalog table with fixed service and action columns', async () => {
+    apiMocks.fetchCatalogServices.mockResolvedValue({
+      items: [
+        {
+          identity: { id: 'svc-a', name: 'checkout', owner: 'ops', team: 'core', env: 'prod', region: 'cn' },
+          qps: 12,
+          p95Latency: 80,
+          errorRate: 0.1,
+          activeIncidentCount: 0,
+          instanceCount: 3
+        }
+      ]
+    })
+
+    const wrapper = mount(ServiceCatalogPage)
+    await flushPromises()
+
+    const table = wrapper.find('[data-scroll-x="1940"]')
+    expect(table.exists()).toBe(true)
+    expect(wrapper.find('.service-catalog-page__table-scroll').exists()).toBe(true)
+    expect(table.attributes('data-max-height')).toBe('max(360px, calc(100vh - 420px))')
+    expect(table.attributes('data-flex-height')).toBe('false')
+    expect(table.text()).toContain('"key":"name","fixed":"left","width":220')
+    expect(table.text()).toContain('"key":"actions","fixed":"right","width":420')
+  })
+
+  it('keeps the page vertically scrollable while confining wide tables', () => {
+    const styles = readFileSync(resolve(__dirname, '../pages/ServiceCatalogPage.scss'), 'utf-8')
+
+    expect(styles).toContain('height: 100%;')
+    expect(styles).toContain('min-height: 0;')
+    expect(styles).toContain('overflow-y: auto;')
+    expect(styles).toContain('overflow-x: auto;')
+    expect(styles).not.toContain('linear-gradient')
   })
 })

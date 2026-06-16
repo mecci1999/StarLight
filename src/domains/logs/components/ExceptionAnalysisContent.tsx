@@ -95,12 +95,12 @@ export default defineComponent({
           return h(
             'div',
             {
-              style: { cursor: 'pointer' },
+              class: 'exception-analysis-page__exception-cell',
               onClick: () => showExceptionDetails(row)
             },
             [
-              h('div', { class: 'font-medium' }, row.message),
-              h('div', { class: 'text-xs text-gray-500 mt-1' }, row.type)
+              h('div', { class: 'exception-analysis-page__exception-message' }, row.message),
+              h('div', { class: 'exception-analysis-page__exception-type' }, row.type)
             ]
           )
         }
@@ -136,13 +136,15 @@ export default defineComponent({
           return h(NSpace, { size: 'small', align: 'center' }, () => [
             h(NIcon, {
               component: TrendingUpOutline,
-              color: isIncreasing ? '#f56565' : '#48bb78',
+              color: isIncreasing ? 'var(--color-danger-6)' : 'var(--color-success-6)',
               style: { transform: isIncreasing ? 'none' : 'rotate(180deg)' }
             }),
             h(
               'span',
               {
-                style: { color: isIncreasing ? '#f56565' : '#48bb78' }
+                class: isIncreasing
+                  ? 'exception-analysis-page__trend-text--up'
+                  : 'exception-analysis-page__trend-text--down'
               },
               `${isIncreasing ? '+' : ''}${trend.toFixed(1)}%`
             )
@@ -199,6 +201,15 @@ export default defineComponent({
     const affectedServices = computed(
       () => new Set(analysisData.value?.exceptions.map((item) => item.service) || []).size
     )
+    const activeConditionCount = computed(() => {
+      return [
+        searchParams.service,
+        searchParams.groupBy,
+        searchParams.sortBy,
+        searchParams.sortOrder,
+        searchParams.minOccurrences
+      ].filter(Boolean).length
+    })
 
     const loadExceptions = async (resetPage = true) => {
       if (resetPage) {
@@ -248,39 +259,56 @@ export default defineComponent({
 
     return () => (
       <div class="exception-analysis-page">
-        <PageHeader title="异常分析" subtitle="分析系统异常和错误堆栈" />
+        <PageHeader title="异常分析" subtitle="按服务、错误类型和发生频次聚合异常，辅助定位高风险问题">
+          {{
+            actions: () => (
+              <NButton secondary type="primary" onClick={() => loadExceptions(false)} loading={loading.value}>
+                <NIcon component={RefreshOutline} class="exception-analysis-page__button-icon" />
+                刷新分析
+              </NButton>
+            )
+          }}
+        </PageHeader>
 
         <NScrollbar>
           <div class="exception-analysis-page__body">
             {analysisData.value && (
               <NCard bordered={false} class="exception-analysis-page__card exception-analysis-page__card--summary">
-                <NGrid cols={4} xGap={16}>
+                <NGrid cols={4} xGap={16} yGap={16}>
                   <NGridItem>
                     <NStatistic label="异常总数" value={totalExceptions.value}>
                       {{
-                        prefix: () => h(NIcon, { component: BugOutline, color: '#f56565' }),
-                        default: () => <div class="text-24px font-bold">{totalExceptions.value}</div>
+                        prefix: () => h(NIcon, { component: BugOutline, color: 'var(--color-danger-6)' }),
+                        default: () => <div class="exception-analysis-page__stat-value">{totalExceptions.value}</div>
                       }}
                     </NStatistic>
                   </NGridItem>
                   <NGridItem>
                     <NStatistic label="严重异常" value={criticalExceptions.value}>
                       {{
-                        prefix: () => h(NIcon, { component: AlertCircleOutline, color: '#ed8936' }),
-                        default: () => <div class="text-24px font-bold text-orange-500">{criticalExceptions.value}</div>
+                        prefix: () => h(NIcon, { component: AlertCircleOutline, color: 'var(--color-warning-6)' }),
+                        default: () => (
+                          <div class="exception-analysis-page__stat-value exception-analysis-page__stat-value--warning">
+                            {criticalExceptions.value}
+                          </div>
+                        )
                       }}
                     </NStatistic>
                   </NGridItem>
                   <NGridItem>
                     <NStatistic label="受影响服务" value={affectedServices.value}>
-                      {{ default: () => <div class="text-24px font-bold">{affectedServices.value}</div> }}
+                      {{
+                        default: () => <div class="exception-analysis-page__stat-value">{affectedServices.value}</div>
+                      }}
                     </NStatistic>
                   </NGridItem>
                   <NGridItem>
                     <NStatistic label="异常类型" value={analysisData.value?.exceptions.length || 0}>
                       {{
                         default: () => (
-                          <div class="text-24px font-bold">{analysisData.value?.exceptions.length || 0}</div>
+                          <div class="exception-analysis-page__stat-value">
+                            {analysisData.value?.exceptions.length || 0}
+                          </div>
                         )
                       }}
                     </NStatistic>
@@ -290,36 +318,47 @@ export default defineComponent({
             )}
 
             <NCard bordered={false} class="exception-analysis-page__card exception-analysis-page__card--filters">
-              <NSpace vertical size="medium">
+              <div class="exception-analysis-page__filter-header">
+                <div>
+                  <div class="exception-analysis-page__section-title">分析条件</div>
+                  <div class="exception-analysis-page__section-desc">
+                    聚合方式决定异常归因粒度，建议先按错误消息查看，再收敛到服务或类型。
+                  </div>
+                </div>
+                <NTag bordered={false} type="info">
+                  {activeConditionCount.value} 个条件
+                </NTag>
+              </div>
+              <div class="exception-analysis-page__filter-grid">
                 <div class="exception-analysis-page__filter-row">
                   <NInput
                     v-model:value={searchParams.service}
                     placeholder="服务名称"
                     clearable
-                    style={{ width: '180px' }}
+                    class="exception-analysis-page__service-input"
                   />
                   <NSelect
                     v-model:value={searchParams.groupBy}
                     placeholder="分组方式"
-                    style={{ width: '140px' }}
+                    class="exception-analysis-page__select"
                     options={groupByOptions}
                   />
                   <NSelect
                     v-model:value={searchParams.sortBy}
                     placeholder="排序字段"
-                    style={{ width: '140px' }}
+                    class="exception-analysis-page__select"
                     options={sortByOptions}
                   />
                   <NSelect
                     v-model:value={searchParams.sortOrder}
                     placeholder="排序方向"
-                    style={{ width: '120px' }}
+                    class="exception-analysis-page__select exception-analysis-page__select--compact"
                     options={sortOrderOptions}
                   />
                   <NInput
                     v-model:value={searchParams.minOccurrences}
                     placeholder="最小次数"
-                    style={{ width: '120px' }}
+                    class="exception-analysis-page__number-input"
                   />
                 </div>
 
@@ -330,36 +369,44 @@ export default defineComponent({
                       type="datetime"
                       placeholder="开始时间"
                       format="yyyy-MM-dd HH:mm:ss"
-                      style={{ width: '200px' }}
+                      class="exception-analysis-page__date-input"
                     />
                     <NDatePicker
                       v-model:value={searchParams.endTime}
                       type="datetime"
                       placeholder="结束时间"
                       format="yyyy-MM-dd HH:mm:ss"
-                      style={{ width: '200px' }}
+                      class="exception-analysis-page__date-input"
                     />
                   </div>
 
                   <div class="exception-analysis-page__filter-group">
                     <NButton type="primary" onClick={() => loadExceptions()} loading={loading.value}>
-                      <NIcon component={SearchOutline} class="mr-1" />
+                      <NIcon component={SearchOutline} class="exception-analysis-page__button-icon" />
                       分析
                     </NButton>
-
                     <NButton onClick={() => loadExceptions(false)}>
-                      <NIcon component={RefreshOutline} class="mr-1" />
+                      <NIcon component={RefreshOutline} class="exception-analysis-page__button-icon" />
                       刷新
                     </NButton>
                   </div>
                 </div>
-              </NSpace>
+              </div>
             </NCard>
 
             <NCard
               bordered={false}
-              class="exception-analysis-page__card exception-analysis-page__card--table mb-4"
+              class="exception-analysis-page__card exception-analysis-page__card--table"
               contentStyle={{ padding: 0 }}>
+              <div class="exception-analysis-page__table-header">
+                <div>
+                  <div class="exception-analysis-page__section-title">异常列表</div>
+                  <div class="exception-analysis-page__section-desc">
+                    按发生次数、影响用户和最近时间排序，点击行查看堆栈与样本日志。
+                  </div>
+                </div>
+                <NTag bordered={false}>{pagination.total} 类异常</NTag>
+              </div>
               <NSpin show={loading.value}>
                 {analysisData.value?.exceptions && analysisData.value.exceptions.length > 0 ? (
                   <div class="exception-analysis-page__table-shell">
@@ -384,7 +431,7 @@ export default defineComponent({
                     </div>
                   </div>
                 ) : (
-                  <div class="py-12">
+                  <div class="exception-analysis-page__empty-state">
                     <NEmpty description="暂无异常数据" />
                   </div>
                 )}
@@ -399,7 +446,7 @@ export default defineComponent({
           title="异常详情"
           bordered={false}
           class="exception-analysis-page__modal"
-          style={{ width: '90%', maxWidth: '1200px' }}>
+          style={{ width: 'min(1200px, 92vw)' }}>
           {selectedException.value && (
             <NSpace vertical size="large">
               <div class="exception-analysis-page__panel">
@@ -407,7 +454,7 @@ export default defineComponent({
                 <NGrid cols={2} xGap={16} yGap={12}>
                   <NGridItem>
                     <div class="exception-analysis-page__field-label">异常类型</div>
-                    <div class="font-medium text-base">{selectedException.value.type}</div>
+                    <div class="exception-analysis-page__field-value">{selectedException.value.type}</div>
                   </NGridItem>
                   <NGridItem>
                     <div class="exception-analysis-page__field-label">服务名称</div>
@@ -423,7 +470,7 @@ export default defineComponent({
                   </NGridItem>
                   <NGridItem>
                     <div class="exception-analysis-page__field-label">影响用户</div>
-                    <div class="font-medium text-base">
+                    <div class="exception-analysis-page__field-value">
                       {selectedException.value.affectedUsers?.toLocaleString() || '-'}
                     </div>
                   </NGridItem>
@@ -441,7 +488,7 @@ export default defineComponent({
               <div>
                 <h3 class="exception-analysis-page__section-title">异常消息</h3>
                 <div class="exception-analysis-page__code-shell">
-                  <NCode code={selectedException.value.message} language="text" class="p-4" />
+                  <NCode code={selectedException.value.message} language="text" class="exception-analysis-page__code" />
                 </div>
               </div>
 
@@ -450,7 +497,11 @@ export default defineComponent({
                   <h3 class="exception-analysis-page__section-title">堆栈跟踪</h3>
                   <div class="exception-analysis-page__code-shell exception-analysis-page__code-shell--muted">
                     <NScrollbar style={{ maxHeight: '400px' }}>
-                      <NCode code={selectedException.value.stackTrace} language="text" class="p-4" />
+                      <NCode
+                        code={selectedException.value.stackTrace}
+                        language="text"
+                        class="exception-analysis-page__code"
+                      />
                     </NScrollbar>
                   </div>
                 </div>
