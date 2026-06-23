@@ -7,7 +7,8 @@ import {
   getStoredUserInfo,
   persistAuthTokens,
   persistStoredUserInfo,
-  resolveAuthLandingRoute
+  resolveAuthLandingRoute,
+  USER_INFO_CHANGED_EVENT
 } from '../authSession'
 
 vi.mock('@tauri-apps/api/event', () => ({
@@ -29,12 +30,21 @@ const localStorageMock = {
 }
 
 const documentMock = { cookie: '' }
+const addEventListenerSpy = vi.fn()
+const removeEventListenerSpy = vi.fn()
+const dispatchEventSpy = vi.fn()
 
 beforeEach(() => {
   vi.stubGlobal('localStorage', localStorageMock)
   vi.stubGlobal('document', documentMock)
+  vi.stubGlobal('window', {
+    addEventListener: addEventListenerSpy,
+    removeEventListener: removeEventListenerSpy,
+    dispatchEvent: dispatchEventSpy
+  })
   storage.clear()
   documentMock.cookie = ''
+  dispatchEventSpy.mockClear()
 })
 
 describe('authSession', () => {
@@ -54,6 +64,17 @@ describe('authSession', () => {
 
     expect(getStoredAuthTokens()).toEqual({ accessToken: null, refreshToken: '' })
     expect(getStoredUserInfo()).toBeNull()
+  })
+
+  it('broadcasts user info changes when local session user is persisted', () => {
+    persistStoredUserInfo({ userId: 'u-1', avatar: '/uploads/avatar.webp' })
+
+    expect(dispatchEventSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: USER_INFO_CHANGED_EVENT,
+        detail: { userId: 'u-1', avatar: '/uploads/avatar.webp' }
+      })
+    )
   })
 
   it('routes admins and non-admins to the correct landing pages', () => {

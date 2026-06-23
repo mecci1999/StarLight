@@ -6,18 +6,28 @@ import {
   LogOutOutline,
   NotificationsOutline,
   OptionsOutline,
+  PersonCircleOutline,
   RefreshOutline,
   SearchOutline,
   SettingsOutline,
   TimeOutline
 } from '@vicons/ionicons5'
 import type { Component } from 'vue'
-import { computed, defineComponent, onMounted, onUnmounted, ref } from 'vue'
+import { computed, defineComponent, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { logout } from '@/api/auth'
 import { fetchNotifications, resendNotification } from '@/api/alerts'
-import { clearStoredAuthSession, getMetricsDatasetScopeLabel, getStoredUserInfo } from '@/services/authSession'
+import AvatarCropUploader from '@/shared/components/avatarCropUploader/AvatarCropUploader'
+import {
+  USER_INFO_CHANGED_EVENT,
+  clearStoredAuthSession,
+  getMetricsDatasetScopeLabel,
+  getStoredUserInfo,
+  persistStoredUserInfo
+} from '@/services/authSession'
+import { canCacheAvatarSource, getCachedAvatarSource, resolveCachedAvatarSource } from '@/services/avatarCache'
 import type { NotificationItem } from '@/types/monitor'
+import type { UserInfoType } from '@/types/userInfo'
 import {
   didResendNotificationSucceed,
   getNextRetryCount,
@@ -35,6 +45,19 @@ type SearchTarget = {
 type HeaderNotification = NotificationItem & {
   key: string
 }
+
+type StoredUserProfile = Partial<UserInfoType> & {
+  nickname?: string
+}
+
+const isRenderableAvatar = (avatar?: string) =>
+  Boolean(
+    avatar &&
+      (/^(https?:)?\/\//.test(avatar) ||
+        avatar.startsWith('/') ||
+        avatar.startsWith('data:') ||
+        avatar.startsWith('blob:'))
+  )
 
 const searchTargets: SearchTarget[] = [
   {
@@ -106,15 +129,20 @@ export default defineComponent({
     const notificationError = ref('')
     const resendingKey = ref('')
     const notifications = ref<HeaderNotification[]>([])
+    const storedUser = ref<StoredUserProfile>(getStoredUserInfo() || {})
+    const renderedAvatar = ref('')
 
     const userInfo = computed(() => {
-      const stored = getStoredUserInfo() || {}
+      const stored = storedUser.value
       return {
-        name: stored.nickName || stored.email || '星光用户',
+        userId: stored.userId || '',
+        name: stored.nickName || stored.nickname || stored.email || '星光用户',
         email: stored.email || '未绑定邮箱',
-        avatar: stored.avatar || '',
+        avatar: isRenderableAvatar(stored.avatar) ? stored.avatar || '' : '',
         role: stored.isAdmin ? '管理员' : '普通用户',
-        scopeLabel: getMetricsDatasetScopeLabel(stored)
+        scopeLabel: getMetricsDatasetScopeLabel(stored),
+        timezone: stored.timezone || 'UTC+8',
+        locale: stored.locale || 'zh-CN'
       }
     })
 
@@ -186,6 +214,27 @@ export default defineComponent({
       }
     }
 
+    const refreshStoredUser = (user?: StoredUserProfile | null) => {
+      const nextUser = user || getStoredUserInfo() || {}
+      if (import.meta.env.DEV) {
+        console.info('[AvatarSync][header:refreshStoredUser]', {
+          source: user ? 'event' : 'storage',
+          previousAvatar: storedUser.value.avatar,
+          nextAvatar: nextUser.avatar,
+          userId: nextUser.userId
+        })
+      }
+      storedUser.value = nextUser
+    }
+
+    const handleUserInfoChanged = (event: Event) => {
+      refreshStoredUser((event as CustomEvent<StoredUserProfile>).detail)
+    }
+
+    const handleUserStorageChanged = (event: StorageEvent) => {
+      if (event.key === 'user') refreshStoredUser()
+    }
+
     const loadNotifications = async () => {
       notificationLoading.value = true
       notificationError.value = ''
@@ -234,6 +283,42 @@ export default defineComponent({
       showUserPopover.value = false
       await router.replace('/login')
     }
+
+    const openProfilePage = () => {
+      showUserPopover.value = false
+      navigateTo('/home/profile')
+    }
+
+    const handleAvatarUploaded = ({ avatar, user }: { avatar: string; user: StoredUserProfile }) => {
+      const nextAvatar = user.avatar || avatar
+      storedUser.value = { ...storedUser.value, ...user, avatar: nextAvatar }
+      if (import.meta.env.DEV) {
+        console.info('[AvatarSync][header:onUploaded]', {
+          emittedAvatar: avatar,
+          userAvatar: user.avatar,
+          nextAvatar,
+          storedAvatar: storedUser.value.avatar,
+          user
+        })
+      }
+      persistStoredUserInfo(storedUser.value)
+    }
+
+    watch(
+      () => userInfo.value.avatar,
+      (avatar) => {
+        if (!avatar) {
+          renderedAvatar.value = ''
+          return
+        }
+        const cachedAvatar = getCachedAvatarSource(avatar)
+        renderedAvatar.value = cachedAvatar || (canCacheAvatarSource(avatar) ? '' : avatar)
+        void resolveCachedAvatarSource(avatar).then((cachedAvatar) => {
+          if (userInfo.value.avatar === avatar) renderedAvatar.value = cachedAvatar
+        })
+      },
+      { immediate: true }
+    )
 
     const renderSearchPanel = () => (
       <div class="header-search-panel">
@@ -344,9 +429,40 @@ export default defineComponent({
     const renderUserPopover = () => (
       <div class="header-user-popover">
         <div class="header-user-card">
-          <NAvatar size={46} round class="header-user-card__avatar" src={userInfo.value.avatar || undefined}>
-            {userInfo.value.name.charAt(0)}
-          </NAvatar>
+          <AvatarCropUploader
+            userId={userInfo.value.userId}
+            disabled={!userInfo.value.userId}
+            onUploaded={handleAvatarUploaded}>
+            {{
+              default: ({ open, uploading }: { open: () => void; uploading: boolean }) => (
+                <button
+                  type="button"
+                  class="header-user-card__avatar-action"
+                  onClick={open}
+                  disabled={uploading || !userInfo.value.userId}>
+                  {renderedAvatar.value ? (
+                    <NAvatar
+                      key={renderedAvatar.value}
+                      size={46}
+                      round
+                      class="header-user-card__avatar"
+                      src={renderedAvatar.value}
+                      renderFallback={() => (
+                        <span class="header-user-card__avatar header-user-card__avatar-fallback">
+                          {userInfo.value.name.charAt(0)}
+                        </span>
+                      )}
+                    />
+                  ) : (
+                    <span key={userInfo.value.name} class="header-user-card__avatar header-user-card__avatar-fallback">
+                      {userInfo.value.name.charAt(0)}
+                    </span>
+                  )}
+                  <span>{uploading ? '上传中' : '更换'}</span>
+                </button>
+              )
+            }}
+          </AvatarCropUploader>
           <div class="header-user-card__main">
             <div class="header-user-card__name">{userInfo.value.name}</div>
             <div class="header-user-card__email">{userInfo.value.email}</div>
@@ -362,6 +478,17 @@ export default defineComponent({
         </div>
         <NDivider class="header-popover-divider" />
         <div class="header-user-menu" role="menu">
+          <button type="button" class="header-user-menu__item" onClick={openProfilePage}>
+            <span class="header-user-menu__icon">
+              <NIcon size={17}>
+                <PersonCircleOutline />
+              </NIcon>
+            </span>
+            <span class="header-user-menu__copy">
+              <strong>编辑个人资料</strong>
+              <em>修改昵称、时区与语言偏好</em>
+            </span>
+          </button>
           <button type="button" class="header-user-menu__item" onClick={() => navigateTo('/home/settings')}>
             <span class="header-user-menu__icon">
               <NIcon size={17}>
@@ -413,11 +540,15 @@ export default defineComponent({
 
     onMounted(() => {
       window.addEventListener('keydown', handleGlobalShortcut)
+      window.addEventListener(USER_INFO_CHANGED_EVENT, handleUserInfoChanged)
+      window.addEventListener('storage', handleUserStorageChanged)
       loadNotifications()
     })
 
     onUnmounted(() => {
       window.removeEventListener('keydown', handleGlobalShortcut)
+      window.removeEventListener(USER_INFO_CHANGED_EVENT, handleUserInfoChanged)
+      window.removeEventListener('storage', handleUserStorageChanged)
     })
 
     return () => (
@@ -484,13 +615,26 @@ export default defineComponent({
             {{
               trigger: () => (
                 <button type="button" class="header-avatar-button" aria-label="用户信息">
-                  <NAvatar
-                    size={30}
-                    round
-                    class="header-avatar-button__avatar"
-                    src={userInfo.value.avatar || undefined}>
-                    {userInfo.value.name.charAt(0)}
-                  </NAvatar>
+                  {renderedAvatar.value ? (
+                    <NAvatar
+                      key={renderedAvatar.value}
+                      size={30}
+                      round
+                      class="header-avatar-button__avatar"
+                      src={renderedAvatar.value}
+                      renderFallback={() => (
+                        <span class="header-avatar-button__avatar header-avatar-button__avatar-fallback">
+                          {userInfo.value.name.charAt(0)}
+                        </span>
+                      )}
+                    />
+                  ) : (
+                    <span
+                      key={userInfo.value.name}
+                      class="header-avatar-button__avatar header-avatar-button__avatar-fallback">
+                      {userInfo.value.name.charAt(0)}
+                    </span>
+                  )}
                 </button>
               ),
               default: renderUserPopover

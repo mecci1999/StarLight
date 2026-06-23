@@ -622,6 +622,17 @@ type PersistedOverviewPanelState = {
   baselines: Record<string, OverviewPanelDefinition>
 }
 
+type OverviewCardsExportPayload = {
+  type: 'starlight-overview-cards'
+  version: 1
+  exportedAt: string
+  panel: {
+    id: string
+    name: string
+  }
+  widgets: OverviewPanelWidget[]
+}
+
 type PersistedOverviewDefaultView = {
   panelId: string
   timeRange: TimeRangeKey
@@ -632,6 +643,9 @@ type PersistedOverviewDefaultView = {
 function cloneValue<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T
 }
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  value !== null && typeof value === 'object' && !Array.isArray(value)
 
 const normalizePanelEditable = (panel: OverviewPanelDefinition): OverviewPanelDefinition => ({
   ...panel,
@@ -835,6 +849,7 @@ export default defineComponent({
     const panelName = ref('')
     const isRestoringOverviewState = ref(true)
     const widgetGridRef = ref<HTMLElement | null>(null)
+    const cardsImportInputRef = ref<HTMLInputElement | null>(null)
     const widgetGridItemRefs = new Map<string, HTMLElement>()
     const widgetShellRefs = new Map<string, HTMLElement>()
     const overviewLoadState = {
@@ -1391,6 +1406,107 @@ export default defineComponent({
         panel.id === currentPanel.value.id ? updater(cloneValue(panel)) : panel
       )
       updatePanels(nextPanels)
+    }
+
+    const exportCurrentPanelCards = () => {
+      if (!currentPanel.value) return
+      const widgets = currentPanel.value.widgets || []
+      if (!widgets.length) {
+        message.warning('当前看板没有可导出的卡片')
+        return
+      }
+
+      const payload: OverviewCardsExportPayload = {
+        type: 'starlight-overview-cards',
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        panel: {
+          id: currentPanel.value.id,
+          name: currentPanel.value.name
+        },
+        widgets: widgets.map((widget) => normalizeOverviewWidget(cloneValue(widget)))
+      }
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      const safePanelName =
+        currentPanel.value.name.replace(/[\\/:*?"<>|\s]+/g, '-').replace(/^-+|-+$/g, '') || 'overview'
+      link.href = url
+      link.download = `starlight-${safePanelName}-cards.json`
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      URL.revokeObjectURL(url)
+      message.success(`已导出 ${widgets.length} 张卡片配置`)
+    }
+
+    const openImportCardsFilePicker = () => {
+      if (isLargeScreenMode.value) {
+        showLargeScreenReadonlyPrompt()
+        return
+      }
+      if (!currentPanelEditable.value) return
+      cardsImportInputRef.value?.click()
+    }
+
+    const isImportableOverviewWidget = (value: unknown): value is OverviewPanelWidget =>
+      isRecord(value) &&
+      typeof value.id === 'string' &&
+      typeof value.title === 'string' &&
+      typeof value.description === 'string' &&
+      typeof value.kind === 'string' &&
+      overviewWidgetCatalog.some((item) => item.kind === value.kind) &&
+      typeof value.size === 'string' &&
+      ['S', 'M', 'L'].includes(value.size) &&
+      typeof value.capability === 'string' &&
+      isRecord(value.config)
+
+    const parseImportedCards = (rawConfig: unknown) => {
+      const rawWidgets = Array.isArray(rawConfig)
+        ? rawConfig
+        : isRecord(rawConfig) && Array.isArray(rawConfig.widgets)
+          ? rawConfig.widgets
+          : []
+      return rawWidgets
+        .filter(isImportableOverviewWidget)
+        .map((widget) => normalizeOverviewWidget(widget))
+        .filter((widget) => {
+          if (widget.kind !== 'query-card') return true
+          const query = getQueryWidgetQuery(widget)
+          return Boolean(query && canExecuteQuery(query))
+        })
+    }
+
+    const importCurrentPanelCards = async (file: File) => {
+      if (!currentPanelEditable.value || isLargeScreenMode.value) return
+      try {
+        const rawConfig = JSON.parse(await file.text()) as unknown
+        const widgets = parseImportedCards(rawConfig)
+        if (!widgets.length) {
+          message.warning('未找到可导入的卡片配置')
+          return
+        }
+
+        replaceCurrentPanel((panel) => ({
+          ...panel,
+          widgets: widgets.map((widget) => cloneValue(widget))
+        }))
+        activeWidgetTag.value = ''
+        message.success(`已导入 ${widgets.length} 张卡片配置`)
+        await nextTick()
+        loadOverview()
+      } catch (error) {
+        console.error('Failed to import overview cards:', error)
+        message.error('导入失败，请确认文件是有效的看板卡片 JSON')
+      }
+    }
+
+    const handleCardsImportFileChange = (event: Event) => {
+      const input = event.target as HTMLInputElement
+      const file = input.files?.[0]
+      input.value = ''
+      if (!file) return
+      importCurrentPanelCards(file)
     }
 
     const normalizeAccessibleQuery = (query: QuerySpec): QuerySpec => {
@@ -4487,7 +4603,7 @@ export default defineComponent({
                         <NSwitch
                           value={Boolean(
                             queryCardDraft.value.compare &&
-                            normalizeQueryCompareConfig(queryCardDraft.value.compare).enabled
+                              normalizeQueryCompareConfig(queryCardDraft.value.compare).enabled
                           )}
                           onUpdateValue={(value: boolean) =>
                             value
@@ -4634,7 +4750,7 @@ export default defineComponent({
                         <NSwitch
                           value={Boolean(
                             queryStatementDraft.value.compare &&
-                            normalizeQueryCompareConfig(queryStatementDraft.value.compare).enabled
+                              normalizeQueryCompareConfig(queryStatementDraft.value.compare).enabled
                           )}
                           onUpdateValue={(value: boolean) =>
                             value
@@ -5645,6 +5761,15 @@ export default defineComponent({
               }}
               onToggle-large-screen={toggleLargeScreenMode}
               onAdd-widget={openCreateWidget}
+              onExport-cards={exportCurrentPanelCards}
+              onImport-cards={openImportCardsFilePicker}
+            />
+            <input
+              ref={cardsImportInputRef}
+              type="file"
+              accept="application/json,.json"
+              class="overview-page__cards-import-input"
+              onChange={handleCardsImportFileChange}
             />
           </>
         ) : (

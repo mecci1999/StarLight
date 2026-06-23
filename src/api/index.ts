@@ -5,6 +5,7 @@ import * as subscription from './subscription'
 import * as auth from './auth'
 import * as user from './user'
 import * as videoUpscale from './videoUpscale'
+import * as microApps from './microApps'
 import url from './url'
 
 const api = {
@@ -15,6 +16,7 @@ const api = {
   auth,
   user,
   videoUpscale,
+  microApps,
   url
 }
 
@@ -25,5 +27,6 @@ export * from './subscription'
 export * from './auth'
 export * from './user'
 export * from './videoUpscale'
+export * from './microApps'
 
 export default api

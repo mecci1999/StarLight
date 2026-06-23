@@ -1,0 +1,90 @@
+.avatar-crop-uploader {
+  display: grid;
+  gap: var(--spacing-4);
+
+  &__input {
+    display: none;
+  }
+
+  &__modal {
+    width: min(520px, calc(100vw - 32px));
+  }
+
+  &__stage-shell {
+    display: grid;
+    justify-items: center;
+    gap: var(--spacing-3);
+
+    p {
+      margin: 0;
+      color: var(--color-text-3);
+      font-size: var(--font-size-body-1);
+    }
+  }
+
+  &__stage {
+    position: relative;
+    width: 280px;
+    height: 280px;
+    overflow: hidden;
+    border-radius: var(--radius-xl);
+    background:
+      linear-gradient(45deg, color-mix(in srgb, var(--color-bg-1) 70%, #000) 25%, transparent 25%),
+      linear-gradient(-45deg, color-mix(in srgb, var(--color-bg-1) 70%, #000) 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, color-mix(in srgb, var(--color-bg-1) 70%, #000) 75%),
+      linear-gradient(-45deg, transparent 75%, color-mix(in srgb, var(--color-bg-1) 70%, #000) 75%);
+    background-color: var(--color-fill-2);
+    background-position:
+      0 0,
+      0 10px,
+      10px -10px,
+      -10px 0;
+    background-size: 20px 20px;
+    box-shadow:
+      inset 0 0 0 1px color-mix(in srgb, var(--color-border-2) 76%, transparent),
+      0 18px 42px color-mix(in srgb, var(--color-text-1) 10%, transparent);
+    cursor: grab;
+    touch-action: none;
+
+    &:active {
+      cursor: grabbing;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      user-select: none;
+    }
+  }
+
+  &__mask {
+    position: absolute;
+    inset: 0;
+    border: 1px solid color-mix(in srgb, var(--color-text-5) 74%, transparent);
+    border-radius: var(--radius-xl);
+    box-shadow:
+      inset 0 0 0 999px color-mix(in srgb, #000 18%, transparent),
+      inset 0 0 0 2px color-mix(in srgb, var(--color-primary-6) 58%, transparent);
+    pointer-events: none;
+  }
+
+  &__controls {
+    display: grid;
+    grid-template-columns: 42px minmax(0, 1fr);
+    align-items: center;
+    gap: var(--spacing-3);
+
+    span {
+      color: var(--color-text-2);
+      font-size: var(--font-size-body-2);
+      font-weight: var(--font-weight-medium);
+    }
+  }
+
+  &__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--spacing-2);
+  }
+}

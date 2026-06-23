@@ -18,6 +18,8 @@ const metricsV2Prefix = `${prefix + URLEnum.METRICS}/${VersionEnum.V2}`
 const subscriptionPrefix = `${prefix + URLEnum.SUBSCRIPTION}/${VersionEnum.V1}`
 const adminMetricsPrefix = `${prefix + URLEnum.METRICS}/${VersionEnum.V1}/admin`
 const videoPrefix = `${prefix}/video/${VersionEnum.V1}`
+const microAppPrefix = `${prefix + URLEnum.MICRO_APP}/${VersionEnum.V1}`
+const filePrefix = `${prefix + URLEnum.FILE}/${VersionEnum.V1}`
 
 export default {
   // 验证模块
@@ -38,6 +40,11 @@ export default {
 
   // 用户模块
   getUserInfo: `${userPrefix}/getUserInfo`, // 获取用户信息
+  updateUserInfo: `${userPrefix}/update`, // 更新用户信息
+  updateUserAvatar: `${userPrefix}/update`, // 更新用户头像
+
+  // 文件模块
+  fileUpload: `${filePrefix}/uploadFile`, // 上传文件
 
   // 日志模块
   logSearch: `${logsPrefix}/search`, // 日志搜索
@@ -126,5 +133,21 @@ export default {
   // 视频增强模块
   videoUpscaleTasks: `${videoPrefix}/upscale/tasks`,
   videoUpscaleTask: (id: string) => `${videoPrefix}/upscale/task?id=${encodeURIComponent(id)}`,
-  videoUpscaleDownload: `${videoPrefix}/upscale/download`
+  videoUpscaleDownload: `${videoPrefix}/upscale/download`,
+
+  // 微应用模块
+  microAppUpload: `${microAppPrefix}/upload`,
+  microAppUploadChunk: `${microAppPrefix}/uploadChunk`,
+  microAppCompleteUpload: `${microAppPrefix}/completeUpload`,
+  microAppList: `${microAppPrefix}/list`,
+  microAppReview: `${microAppPrefix}/review`,
+  microAppPublish: `${microAppPrefix}/publish`,
+  microAppRollback: `${microAppPrefix}/rollback`,
+  microAppUpdateAccess: `${microAppPrefix}/updateAccess`,
+  microAppDownload: `${microAppPrefix}/download`,
+  microAppRuntimeTicket: `${microAppPrefix}/runtime-ticket`,
+  microAppExchangeSession: `${microAppPrefix}/exchange-session`,
+  microAppScopedApi: `${microAppPrefix}/scoped-api`,
+  microAppAuditLogs: `${microAppPrefix}/auditLogs`,
+  microAppInstalls: `${microAppPrefix}/installs`
 }

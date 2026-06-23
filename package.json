@@ -74,6 +74,7 @@
     "crypto-js": "^4.2.0",
     "dayjs": "^1.11.13",
     "echarts": "^6.0.0",
+    "fflate": "^0.8.3",
     "highlight.js": "^11.11.1",
     "lodash-es": "^4.17.21",
     "mitt": "^3.0.1",

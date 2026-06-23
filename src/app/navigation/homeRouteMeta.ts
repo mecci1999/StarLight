@@ -12,6 +12,7 @@ import {
   GitNetworkOutline,
   GridOutline,
   LayersOutline,
+  RocketOutline,
   NotificationsOutline,
   PulseOutline,
   ReceiptOutline,
@@ -55,6 +56,7 @@ const icons = {
   metricCatalog: markRaw(FileTrayFullOutline),
   media: markRaw(SparklesOutline),
   metrics: markRaw(StatsChartOutline),
+  microApps: markRaw(RocketOutline),
   overview: markRaw(GridOutline),
   realtime: markRaw(PulseOutline),
   receipt: markRaw(ReceiptOutline),
@@ -204,6 +206,14 @@ export const HOME_SIDEBAR_MODULES: HomeSidebarModule[] = [
     order: 150,
     visibility: 'sidebar',
     sidebarKey: 'admin-ingestion'
+  }),
+  createSidebarModule('micro-apps', '/home/micro-apps', undefined, {
+    title: '微应用',
+    group: 'admin',
+    icon: icons.microApps,
+    order: 155,
+    visibility: 'sidebar',
+    sidebarKey: 'micro-apps'
   })
 ].sort((a, b) => a.order - b.order)
 
@@ -238,8 +248,11 @@ export const HOME_ROUTE_META_BY_NAME: Record<string, HomeRouteMeta> = {
   'metrics-catalog': routeMeta('metrics-catalog'),
   'metrics-v2': routeMeta('metrics-analysis'),
   settings: routeMeta('admin-ingestion', { title: '应用设置', visibility: 'hidden', sidebarKey: 'admin-ingestion' }),
+  profile: routeMeta('admin-ingestion', { title: '个人资料', visibility: 'hidden', sidebarKey: 'admin-ingestion' }),
   'admin-ingestion': routeMeta('admin-ingestion'),
   'admin-ingestion-v2': routeMeta('admin-ingestion', { visibility: 'hidden' }),
+  'micro-apps': routeMeta('micro-apps'),
+  'micro-app-runtime': routeMeta('micro-apps', { title: '微应用运行', visibility: 'hidden' }),
   'admin-onboarding-v2': {
     title: '接入引导',
     group: 'admin',

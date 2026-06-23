@@ -2,9 +2,9 @@
   height: 100%;
   overflow: auto;
   padding: 24px;
-  --settings-system-theme-color: var(--color-text-1);
-  --settings-system-theme-color-hover: var(--color-text-2);
-  --settings-system-theme-color-soft: color-mix(in srgb, var(--color-text-1) 16%, transparent);
+  --settings-system-theme-color: var(--color-primary-6);
+  --settings-system-theme-color-hover: var(--color-primary-5);
+  --settings-system-theme-color-soft: color-mix(in srgb, var(--color-primary-6) 14%, transparent);
   // background:
   //   radial-gradient(circle at 8% 6%, color-mix(in srgb, var(--color-primary-2) 55%, transparent), transparent 28%),
   //   color-mix(in srgb, var(--color-bg-1) 94%, white 6%);
@@ -193,23 +193,51 @@
       grid-column: 1 / -1;
     }
 
-    :deep(.n-radio-group) {
-      --n-button-border-color-active: var(--settings-system-theme-color);
-      --n-button-color-active: var(--settings-system-theme-color-soft);
-      --n-button-box-shadow-focus: inset 0 0 0 1px var(--settings-system-theme-color),
-        0 0 0 2px var(--settings-system-theme-color-soft);
-      --n-button-box-shadow-hover: inset 0 0 0 1px var(--settings-system-theme-color-hover);
-      --n-button-text-color-active: var(--settings-system-theme-color);
-      --n-button-text-color-hover: var(--settings-system-theme-color-hover);
+    .n-radio-group {
+      --n-button-border-color-active: var(--settings-system-theme-color) !important;
     }
 
-    :deep(.n-radio-group .n-radio-button.n-radio-button--checked) {
+    .n-radio-button {
+      --n-button-border-color: var(--color-border-2) !important;
+      --n-button-border-color-active: var(--settings-system-theme-color) !important;
+      --n-button-border-color-hover: var(--settings-system-theme-color-hover) !important;
+      --n-button-box-shadow: inset 0 0 0 1px transparent !important;
+      --n-button-box-shadow-focus:
+        inset 0 0 0 1px var(--settings-system-theme-color),
+        0 0 0 2px var(--settings-system-theme-color-soft) !important;
+      --n-button-box-shadow-hover: inset 0 0 0 1px var(--settings-system-theme-color-hover) !important;
+      --n-button-color: var(--color-bg-2) !important;
+      --n-button-color-active: var(--settings-system-theme-color-soft) !important;
+      --n-button-color-hover: color-mix(in srgb, var(--color-fill-2) 76%, var(--color-bg-2)) !important;
+      --n-button-text-color: var(--color-text-2) !important;
+      --n-button-text-color-active: var(--settings-system-theme-color) !important;
+      --n-button-text-color-hover: var(--settings-system-theme-color-hover) !important;
+      color: var(--color-text-2);
+    }
+
+    .n-radio-button:hover {
+      color: var(--settings-system-theme-color-hover);
+    }
+
+    .n-radio-button .n-radio-button__state-border {
+      border-color: var(--color-border-2) !important;
+    }
+
+    .n-radio-button:hover .n-radio-button__state-border {
+      border-color: var(--settings-system-theme-color-hover) !important;
+    }
+
+    .n-radio-group .n-radio-button.n-radio-button--checked {
       border-color: var(--settings-system-theme-color) !important;
       background: var(--settings-system-theme-color-soft) !important;
       color: var(--settings-system-theme-color) !important;
     }
 
-    :deep(.n-radio-group .n-radio-group__splitor.n-radio-group__splitor--checked) {
+    .n-radio-group .n-radio-button.n-radio-button--checked .n-radio-button__state-border {
+      border-color: var(--settings-system-theme-color) !important;
+    }
+
+    .n-radio-group .n-radio-group__splitor.n-radio-group__splitor--checked {
       background-color: var(--settings-system-theme-color) !important;
     }
   }
@@ -242,7 +270,7 @@
       line-height: 1.45;
     }
 
-    :deep(.n-switch) {
+    .n-switch {
       --n-rail-color-active: var(--settings-system-theme-color);
       --n-loading-color: var(--settings-system-theme-color);
       --n-box-shadow-focus: 0 0 0 2px var(--settings-system-theme-color-soft);

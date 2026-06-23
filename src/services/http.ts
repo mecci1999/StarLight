@@ -611,7 +611,9 @@ async function Http<T = any>(
   // 添加查询参数
   if (options.query) {
     const queryString = new URLSearchParams(options.query).toString()
-    url += `?${queryString}`
+    if (queryString) {
+      url += `?${queryString}`
+    }
   }
 
   debugLog(debugLoggingEnabled, '🌐 实际请求路径', {

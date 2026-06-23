@@ -6,5 +6,6 @@ describe('api url', () => {
     expect(import.meta.env.DEV).toBe(true)
     expect(url.emailVerifyCode).toBe('/api/auth/v1/verifyCode')
     expect(url.refreshToken).toBe('/api/auth/v1/refreshToken')
+    expect(url.fileUpload).toBe('/api/file/v1/uploadFile')
   })
 })

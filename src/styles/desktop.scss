@@ -327,7 +327,7 @@ html[data-blur='1'] {
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-lg);
   border: 1px solid var(--color-border-1);
-  padding: var(--spacing-2);
+  padding: 4px 8px !important;
 
   .n-dropdown-option {
     border-radius: var(--radius-md);

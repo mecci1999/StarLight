@@ -24,7 +24,9 @@ export default defineComponent({
     'rename-panel',
     'delete-panel',
     'restore-panel',
-    'toggle-large-screen'
+    'toggle-large-screen',
+    'export-cards',
+    'import-cards'
   ],
   setup(props, { emit }) {
     const panelSelectOptions = computed(() =>
@@ -35,7 +37,11 @@ export default defineComponent({
     )
 
     const panelActionOptions = computed<DropdownOption[]>(() => {
-      const actions: DropdownOption[] = [{ label: '创建用户面板副本', key: 'duplicate' }]
+      const actions: DropdownOption[] = [
+        { label: '导出当前卡片配置', key: 'export-cards' },
+        { label: '导入卡片配置', key: 'import-cards', disabled: !props.canEdit },
+        { label: '创建用户面板副本', key: 'duplicate' }
+      ]
       if (props.panel.kind === 'user') {
         actions.push({ label: '重命名当前面板', key: 'rename' })
         if (props.canRestore) {
@@ -51,6 +57,8 @@ export default defineComponent({
       if (key === 'rename') emit('rename-panel')
       if (key === 'restore') emit('restore-panel')
       if (key === 'delete') emit('delete-panel')
+      if (key === 'export-cards') emit('export-cards')
+      if (key === 'import-cards') emit('import-cards')
     }
 
     return () => (
@@ -83,7 +91,11 @@ export default defineComponent({
           </div>
           <div class="panel-toolbar__actions">
             <div class="panel-toolbar__buttons">
-              <NDropdown trigger="click" options={panelActionOptions.value} onSelect={handlePanelAction}>
+              <NDropdown
+                trigger="click"
+                options={panelActionOptions.value}
+                menuProps={() => ({ class: 'panel-toolbar__action-menu' })}
+                onSelect={handlePanelAction}>
                 <NButton secondary>面板操作</NButton>
               </NDropdown>
               <NButton secondary onClick={() => emit('save-default')}>

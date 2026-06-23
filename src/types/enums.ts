@@ -132,7 +132,9 @@ export enum URLEnum {
   CONFIG = '/config', // 配置模块
   LOGS = '/logs', // 日志模块
   METRICS = '/metrics', // 指标模块
-  SUBSCRIPTION = '/subscription' // 订阅模块
+  SUBSCRIPTION = '/subscription', // 订阅模块
+  MICRO_APP = '/micro-app', // 微应用模块
+  FILE = '/file' // 文件模块
 }
 
 /**

@@ -162,6 +162,12 @@ const routes: Array<RouteRecordRaw> = [
         component: () => import('@/domains/settings/pages/SettingsPage')
       },
       {
+        path: 'profile',
+        name: 'profile',
+        meta: mustGetHomeRouteMeta('profile'),
+        component: () => import('@/domains/profile/pages/ProfilePage')
+      },
+      {
         path: 'video-upscale',
         name: 'video-upscale',
         meta: mustGetHomeRouteMeta('video-upscale'),
@@ -172,6 +178,18 @@ const routes: Array<RouteRecordRaw> = [
         name: 'admin-ingestion',
         meta: mustGetHomeRouteMeta('admin-ingestion'),
         component: () => import('@/domains/admin/pages/IngestionPage')
+      },
+      {
+        path: 'micro-apps',
+        name: 'micro-apps',
+        meta: mustGetHomeRouteMeta('micro-apps'),
+        component: () => import('@/domains/microApps/pages/MicroAppCenterPage')
+      },
+      {
+        path: 'micro-apps/:appId',
+        name: 'micro-app-runtime',
+        meta: mustGetHomeRouteMeta('micro-app-runtime'),
+        component: () => import('@/domains/microApps/pages/MicroAppRuntimePage')
       },
       {
         path: 'admin-ingestion-v2',

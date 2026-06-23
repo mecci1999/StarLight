@@ -15,6 +15,10 @@
     z-index: 20;
   }
 
+  &__cards-import-input {
+    display: none;
+  }
+
   &__grid-item,
   &__widget-shell {
     min-height: 0;

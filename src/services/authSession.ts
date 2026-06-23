@@ -13,6 +13,8 @@ export type AuthTokens = {
   refreshToken?: string | null
 }
 
+export const USER_INFO_CHANGED_EVENT = 'starlight:user-info-changed'
+
 export function getStoredAuthTokens(): AuthTokens {
   return {
     accessToken: localStorage.getItem('ACCESS_TOKEN') || getCookie('ACCESS_TOKEN'),
@@ -46,6 +48,14 @@ export function getStoredUserInfo(): Partial<UserInfoType> | null {
 
 export function persistStoredUserInfo(user: Partial<UserInfoType>) {
   localStorage.setItem('user', JSON.stringify(user))
+  if (import.meta.env.DEV) {
+    console.info('[AvatarSync][authSession:persistStoredUserInfo]', {
+      userId: user.userId,
+      avatar: user.avatar,
+      hasWindow: typeof window !== 'undefined'
+    })
+  }
+  window.dispatchEvent(new CustomEvent(USER_INFO_CHANGED_EVENT, { detail: user }))
 }
 
 export function clearStoredUserInfo() {

@@ -65,4 +65,9 @@
       justify-content: flex-end;
     }
   }
+
+  &__action-menu {
+    min-width: 184px;
+    padding: 8px;
+  }
 }
