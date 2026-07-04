@@ -22,6 +22,7 @@ export type QueryAlertOperator = '>' | '<' | '=' | '>=' | '<='
 
 export type QueryAlertRule = {
   ruleId?: string
+  enabled?: boolean
   level: QueryAlertLevel
   operator: QueryAlertOperator
   threshold: number
@@ -98,7 +99,10 @@ const alertLevelRank: Record<QueryAlertLevel, number> = {
   info: 1
 }
 
-export const normalizeQueryAlertRules = (alert?: QuerySpec['alert'] | null): QueryAlertRule[] => {
+export const normalizeQueryAlertRules = (
+  alert?: QuerySpec['alert'] | null,
+  options?: { includeDisabled?: boolean }
+): QueryAlertRule[] => {
   if (!alert?.enabled) return []
 
   const unit = alert.unit || ''
@@ -109,16 +113,19 @@ export const normalizeQueryAlertRules = (alert?: QuerySpec['alert'] | null): Que
     .filter((rule) => typeof rule.threshold === 'number' && Number.isFinite(rule.threshold))
     .map((rule) => ({
       ...rule,
+      enabled: rule.enabled ?? true,
       operator: rule.operator || alert.operator || '>',
       unit: rule.unit ?? unit,
       duration: rule.duration || duration,
       channels: rule.channels?.length ? rule.channels : channels,
       level: rule.level || 'warning'
     }))
+    .filter((rule) => options?.includeDisabled || rule.enabled !== false)
 
   if (!normalizedRules.length && typeof alert.threshold === 'number' && Number.isFinite(alert.threshold)) {
     normalizedRules.push({
       ruleId: alert.ruleId,
+      enabled: alert.enabled,
       level: alert.level || 'warning',
       operator: alert.operator || '>',
       threshold: alert.threshold,

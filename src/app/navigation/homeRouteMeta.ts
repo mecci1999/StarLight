@@ -4,6 +4,7 @@ import {
   AlertCircleOutline,
   AnalyticsOutline,
   BugOutline,
+  ChatboxEllipsesOutline,
   CloudUploadOutline,
   CubeOutline,
   DocumentTextOutline,
@@ -48,6 +49,7 @@ export interface HomeSidebarModule {
 const icons = {
   alerts: markRaw(NotificationsOutline),
   alertRules: markRaw(AlertCircleOutline),
+  alertNotifications: markRaw(ChatboxEllipsesOutline),
   analytics: markRaw(AnalyticsOutline),
   exception: markRaw(BugOutline),
   ingestion: markRaw(CloudUploadOutline),
@@ -191,6 +193,14 @@ export const HOME_SIDEBAR_MODULES: HomeSidebarModule[] = [
     visibility: 'sidebar',
     sidebarKey: 'alert-rules'
   }),
+  createSidebarModule('alert-notifications', '/home/alert-notifications', undefined, {
+    title: '通知历史',
+    group: 'alerts',
+    icon: icons.alertNotifications,
+    order: 135,
+    visibility: 'sidebar',
+    sidebarKey: 'alert-notifications'
+  }),
   createSidebarModule('billing', '/home/admin-billing-v2', ['/home/billing'], {
     title: '计费',
     group: 'admin',
@@ -277,7 +287,7 @@ export const HOME_ROUTE_META_BY_NAME: Record<string, HomeRouteMeta> = {
   'alert-list': routeMeta('alert-list'),
   'alerts-inbox-incident': routeMeta('alert-list', { title: '告警收件箱', visibility: 'hidden' }),
   'alerts-inbox': routeMeta('alert-list', { title: '告警收件箱', visibility: 'hidden' }),
-  'alert-notifications': routeMeta('alert-list', { title: '通知历史', visibility: 'hidden' }),
+  'alert-notifications': routeMeta('alert-notifications'),
   'alert-rules': routeMeta('alert-rules'),
   'video-upscale': routeMeta('video-upscale', { visibility: 'hidden' }),
   'investigate-logs': routeMeta('log-center'),

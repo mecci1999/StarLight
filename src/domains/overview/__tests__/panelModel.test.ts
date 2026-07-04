@@ -6,7 +6,8 @@ import {
   canWidgetUseSmallSize,
   createUserPanelDefinition,
   normalizeOverviewWidget,
-  getAllowedWidgetVisualizations
+  getAllowedWidgetVisualizations,
+  type OverviewPanelWidget
 } from '../panelModel'
 
 describe('overview panel model', () => {
@@ -132,6 +133,57 @@ describe('overview panel model', () => {
 
     expect((normalized.config as any).query.timeRange).toBe('-7d')
     expect((normalized.config as any).query.visualizationHint).toBe('donut')
+  })
+
+  it('preserves query-card alert rules during widget normalization', () => {
+    const widget: OverviewPanelWidget<'query-card'> = {
+      id: 'query-card-alert',
+      title: 'CPU 告警卡片',
+      kind: 'query-card',
+      size: 'M',
+      capability: 'metrics',
+      description: '',
+      config: {
+        query: {
+          scope: 'system',
+          sourceKind: 'auto',
+          subject: { type: 'system' },
+          metricRef: 'service.cpu.usage',
+          aggregation: 'avg',
+          timeRange: '-15m',
+          visualizationHint: 'line',
+          alert: {
+            enabled: true,
+            operator: '>',
+            threshold: 90,
+            unit: '%',
+            duration: 5,
+            level: 'warning',
+            channels: ['InApp'],
+            rules: [
+              {
+                level: 'warning',
+                operator: '>',
+                threshold: 90,
+                unit: '%',
+                duration: 5,
+                channels: ['InApp']
+              }
+            ]
+          }
+        }
+      },
+      editor: {
+        timeRange: '1h',
+        visualization: 'bar'
+      }
+    }
+
+    const normalized = normalizeOverviewWidget(widget)
+
+    expect(normalized.config.query.alert).toEqual(widget.config.query.alert)
+    expect(normalized.config.query.timeRange).toBe('-1h')
+    expect(normalized.config.query.visualizationHint).toBe('bar')
   })
 
   it('keeps shared panel controls active for raw QuerySpec cards', () => {

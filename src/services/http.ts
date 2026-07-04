@@ -35,6 +35,7 @@ export type RetryOptions = {
  * @property {RetryOptions} [retry] 重试选项
  * @property {boolean} [noRetry] 是否禁用重试
  * @property {boolean} [suppressErrorLog] 是否抑制预期失败的控制台错误日志
+ * @property {boolean} [suppressSuccessMessage] 是否抑制成功提示
  * @return HttpParams
  */
 export type HttpParams = {
@@ -46,6 +47,7 @@ export type HttpParams = {
   retry?: RetryOptions // 重试选项
   noRetry?: boolean // 是否禁用重试
   suppressErrorLog?: boolean // 是否抑制预期失败的错误日志
+  suppressSuccessMessage?: boolean // 是否抑制成功提示
 }
 
 /**

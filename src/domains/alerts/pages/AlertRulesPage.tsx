@@ -17,12 +17,10 @@ import {
   NGridItem,
   useMessage
 } from 'naive-ui'
-import { ref, h, onMounted, computed, watch } from 'vue'
+import { ref, h, onMounted, computed } from 'vue'
 import { useRoute } from 'vue-router'
-import { useTimeStore } from '@/store/useTimeStore'
 import PageHeader from '@/shared/layout/PageHeader'
 import ResultTable from '@/shared/components/ResultTable'
-import TimeRangeBar from '@/shared/components/TimeRangeBar'
 import {
   fetchAlertRules,
   saveAlertRule,
@@ -32,9 +30,19 @@ import {
   exportAlertRules,
   importAlertRules
 } from '@/api/alerts'
-import { fetchCatalogServices, type MetricsDatasetScope } from '@/api/metrics'
+import { fetchCatalogServices, getDashboardState, saveDashboardState, type MetricsDatasetScope } from '@/api/metrics'
 import { getPreferredMetricsDatasetScope } from '@/services/authSession'
 import type { AlertRuleItem } from '@/types/monitor'
+import {
+  CUSTOM_DASHBOARD_STORAGE_KEY,
+  OVERVIEW_PANEL_STATE_STORAGE_KEY,
+  removeCustomDashboardWidgetsAlertRule,
+  removeOverviewPanelStateAlertRule,
+  syncCustomDashboardWidgetsWithAlertRule,
+  syncOverviewPanelStateWithAlertRule,
+  type PersistedCustomDashboardWidget,
+  type PersistedOverviewPanelState
+} from '@/domains/alerts/alertRuleOverviewSync'
 import './AlertRulesPage.scss'
 
 export default defineComponent({
@@ -42,7 +50,6 @@ export default defineComponent({
   setup() {
     const message = useMessage()
     const route = useRoute()
-    const timeStore = useTimeStore()
     const datasetScope = computed<MetricsDatasetScope>(() => getPreferredMetricsDatasetScope())
     const routeServiceId = computed(() => {
       const serviceId = typeof route.query.serviceId === 'string' ? route.query.serviceId.trim() : ''
@@ -54,7 +61,7 @@ export default defineComponent({
     const showImportModal = ref(false)
     const editingRule = ref<any>(null)
     const importPayload = ref('[]')
-    const selectedRuleType = ref<'metrics' | 'logs' | 'trace' | 'quota'>('metrics')
+    const selectedRuleType = ref<'all' | 'metrics' | 'logs' | 'trace' | 'quota'>('all')
 
     const formData = ref({
       name: '',
@@ -69,6 +76,7 @@ export default defineComponent({
     })
 
     const serviceOptions = ref([{ label: '全部服务', value: 'all' }])
+    const serviceLabelMap = computed(() => new Map(serviceOptions.value.map((item) => [item.value, item.label])))
 
     const loadServiceOptions = async () => {
       try {
@@ -114,22 +122,59 @@ export default defineComponent({
     ]
 
     const channelOptions = [
-      { label: '邮件', value: 'email' },
-      { label: 'Slack', value: 'slack' },
-      { label: 'Webhook', value: 'webhook' },
-      { label: '短信', value: 'sms' }
+      { label: 'Email', value: 'Email' },
+      { label: 'Webhook', value: 'Webhook' },
+      { label: '站内通知', value: 'InApp' }
     ]
 
     const columns = [
-      { title: '规则名称', key: 'name', width: 200 },
-      { title: '服务', key: 'service', width: 150 },
-      { title: '监控指标', key: 'metric', width: 120 },
+      {
+        title: '规则名称',
+        key: 'name',
+        fixed: 'left',
+        width: 260,
+        render(row: AlertRuleItem) {
+          return (
+            <div class="alert-rules-page__rule-cell">
+              <strong>{row.name || '未命名规则'}</strong>
+              <span>{row.id || 'pending-rule'}</span>
+            </div>
+          )
+        }
+      },
+      {
+        title: '服务',
+        key: 'service',
+        fixed: 'left',
+        width: 190,
+        render(row: AlertRuleItem) {
+          return (
+            <div class="alert-rules-page__service-cell">
+              <strong>{serviceLabelMap.value.get(row.service) || row.service || '全部服务'}</strong>
+              <span>{row.service === 'all' ? '全局规则' : row.service || 'all'}</span>
+            </div>
+          )
+        }
+      },
+      {
+        title: '监控指标',
+        key: 'metric',
+        width: 190,
+        render(row: AlertRuleItem) {
+          return <span class="alert-rules-page__metric-token">{row.metric || '-'}</span>
+        }
+      },
       {
         title: '条件',
         key: 'condition',
         width: 150,
-        render(row: any) {
-          return `${row.operator} ${row.threshold}${row.unit || ''}`
+        render(row: AlertRuleItem) {
+          return (
+            <span class="alert-rules-page__condition-pill">
+              {row.operator} {row.threshold}
+              {row.unit || ''}
+            </span>
+          )
         }
       },
       {
@@ -169,27 +214,36 @@ export default defineComponent({
       {
         title: '通知渠道',
         key: 'channels',
-        width: 150,
-        render(row: any) {
-          return row.channels.join(', ')
+        width: 180,
+        render(row: AlertRuleItem) {
+          return (
+            <span class="alert-rules-page__channel-list">{row.channels?.length ? row.channels.join(', ') : '-'}</span>
+          )
         }
       },
       {
         title: '操作',
         key: 'actions',
-        width: 200,
-        render(row: any) {
-          return h(NSpace, null, {
-            default: () => [
-              h(NButton, { size: 'small', type: 'primary', onClick: () => handleEdit(row) }, { default: () => '编辑' }),
-              h(
-                NButton,
-                { size: 'small', type: row.enabled ? 'warning' : 'success', onClick: () => handleToggle(row) },
-                { default: () => (row.enabled ? '禁用' : '启用') }
-              ),
-              h(NButton, { size: 'small', type: 'error', onClick: () => handleDelete(row) }, { default: () => '删除' })
-            ]
-          })
+        fixed: 'right',
+        width: 230,
+        render(row: AlertRuleItem) {
+          return (
+            <div class="alert-rules-page__table-actions">
+              <NButton size="small" type="primary" secondary onClick={() => handleEdit(row)}>
+                编辑
+              </NButton>
+              <NButton
+                size="small"
+                type={row.enabled ? 'warning' : 'success'}
+                secondary
+                onClick={() => handleToggle(row)}>
+                {row.enabled ? '禁用' : '启用'}
+              </NButton>
+              <NButton size="small" type="error" secondary onClick={() => handleDelete(row)}>
+                删除
+              </NButton>
+            </div>
+          )
         }
       }
     ]
@@ -204,9 +258,10 @@ export default defineComponent({
     const scopeLabel = computed(() => (datasetScope.value === 'system' ? 'Darwin 系统' : '用户接入'))
 
     const resolveRuleType = (metric: string) => {
-      if (metric === 'error_rate' || metric.includes('log')) return 'logs'
-      if (metric === 'response_time' || metric.includes('trace')) return 'trace'
-      if (metric === 'qps' || metric.includes('quota')) return 'quota'
+      const normalizedMetric = metric.toLowerCase()
+      if (normalizedMetric.includes('log')) return 'logs'
+      if (normalizedMetric.includes('trace') || normalizedMetric.includes('response.time')) return 'trace'
+      if (normalizedMetric.includes('qps') || normalizedMetric.includes('quota')) return 'quota'
       return 'metrics'
     }
 
@@ -215,24 +270,73 @@ export default defineComponent({
       if (routeServiceId.value) {
         list = list.filter((rule) => rule.service === routeServiceId.value)
       }
+      if (selectedRuleType.value === 'all') return list
       return list.filter((rule) => resolveRuleType(rule.metric) === selectedRuleType.value)
     })
 
+    const syncOverviewCardsForAlertRule = async (rule: AlertRuleItem) => {
+      let synced = false
+      const saved = await getDashboardState<PersistedOverviewPanelState | null>(OVERVIEW_PANEL_STATE_STORAGE_KEY, null)
+      if (saved?.panels?.length) {
+        const { changed, state } = syncOverviewPanelStateWithAlertRule(saved, rule)
+        if (changed) {
+          await saveDashboardState<PersistedOverviewPanelState>(OVERVIEW_PANEL_STATE_STORAGE_KEY, state)
+          synced = true
+        }
+      }
+
+      const customWidgets = await getDashboardState<PersistedCustomDashboardWidget[]>(CUSTOM_DASHBOARD_STORAGE_KEY, [])
+      if (customWidgets.length) {
+        const { changed, widgets } = syncCustomDashboardWidgetsWithAlertRule(customWidgets, rule)
+        if (changed) {
+          await saveDashboardState<PersistedCustomDashboardWidget[]>(CUSTOM_DASHBOARD_STORAGE_KEY, widgets)
+          synced = true
+        }
+      }
+
+      return synced
+    }
+
+    const removeAlertRuleFromOverviewCards = async (ruleId: string) => {
+      let synced = false
+      const saved = await getDashboardState<PersistedOverviewPanelState | null>(OVERVIEW_PANEL_STATE_STORAGE_KEY, null)
+      if (saved?.panels?.length) {
+        const { changed, state } = removeOverviewPanelStateAlertRule(saved, ruleId)
+        if (changed) {
+          await saveDashboardState<PersistedOverviewPanelState>(OVERVIEW_PANEL_STATE_STORAGE_KEY, state)
+          synced = true
+        }
+      }
+
+      const customWidgets = await getDashboardState<PersistedCustomDashboardWidget[]>(CUSTOM_DASHBOARD_STORAGE_KEY, [])
+      if (customWidgets.length) {
+        const { changed, widgets } = removeCustomDashboardWidgetsAlertRule(customWidgets, ruleId)
+        if (changed) {
+          await saveDashboardState<PersistedCustomDashboardWidget[]>(CUSTOM_DASHBOARD_STORAGE_KEY, widgets)
+          synced = true
+        }
+      }
+
+      return synced
+    }
+
     const loadRules = async () => {
       loading.value = true
-      rulesData.value = await fetchAlertRules({
-        serviceId: routeServiceId.value,
-        scope: datasetScope.value,
-        startTime: timeStore.startTime,
-        endTime: timeStore.endTime
-      })
-      loading.value = false
+      try {
+        rulesData.value = await fetchAlertRules({
+          serviceId: routeServiceId.value,
+          scope: datasetScope.value
+        })
+      } catch (error) {
+        console.error('Failed to load alert rules:', error)
+        rulesData.value = []
+        message.error('加载告警规则失败，请稍后重试')
+      } finally {
+        loading.value = false
+      }
     }
 
     onMounted(() => {
-      if (route.query.timeRange && typeof route.query.timeRange === 'string') {
-        timeStore.setTimeRange(route.query.timeRange as any)
-      }
       if (routeServiceId.value) {
         formData.value.service = routeServiceId.value
       }
@@ -240,19 +344,12 @@ export default defineComponent({
       loadRules()
     })
 
-    watch(
-      () => [timeStore.startTime, timeStore.endTime],
-      () => {
-        loadRules()
-      }
-    )
-
     const handleAdd = () => {
       formData.value = {
         name: '',
         service: '',
         metric:
-          selectedRuleType.value === 'metrics'
+          selectedRuleType.value === 'all' || selectedRuleType.value === 'metrics'
             ? 'cpu_usage'
             : selectedRuleType.value === 'logs'
               ? 'error_rate'
@@ -283,12 +380,24 @@ export default defineComponent({
     }
 
     const handleToggle = async (rule: AlertRuleItem) => {
-      rule.enabled = !rule.enabled
-      await updateAlertRule(rule)
+      const updated = await updateAlertRule({ ...rule, enabled: !rule.enabled })
+      Object.assign(rule, updated)
+      try {
+        await syncOverviewCardsForAlertRule(updated)
+      } catch (error) {
+        console.error('Failed to sync overview card alert rule status:', error)
+        message.warning('规则状态已更新，但同步到看板卡片失败，请稍后重试')
+      }
     }
 
     const handleDelete = async (rule: AlertRuleItem) => {
       await deleteAlertRule(rule.id)
+      try {
+        await removeAlertRuleFromOverviewCards(rule.id)
+      } catch (error) {
+        console.error('Failed to remove overview card alert rule:', error)
+        message.warning('规则已删除，但同步移除看板卡片规则失败，请稍后重试')
+      }
       const index = rulesData.value.findIndex((r) => r.id === rule.id)
       if (index > -1) rulesData.value.splice(index, 1)
     }
@@ -302,15 +411,19 @@ export default defineComponent({
       const updated = await bulkUpdateAlertRules({ ids, enabled })
       const updateMap = new Map(updated.map((item) => [item.id, item]))
       rulesData.value = rulesData.value.map((rule) => updateMap.get(rule.id) || rule)
+      try {
+        await Promise.all(updated.map((rule) => syncOverviewCardsForAlertRule(rule)))
+      } catch (error) {
+        console.error('Failed to sync overview card alert rule statuses:', error)
+        message.warning('规则状态已批量更新，但同步到看板卡片失败，请稍后重试')
+      }
       message.success(enabled ? '批量启用成功' : '批量禁用成功')
     }
 
     const handleExport = async () => {
       const exported = await exportAlertRules({
         serviceId: routeServiceId.value,
-        scope: datasetScope.value,
-        startTime: timeStore.startTime,
-        endTime: timeStore.endTime
+        scope: datasetScope.value
       })
       const blob = new Blob([JSON.stringify(exported.rules, null, 2)], { type: 'application/json' })
       const downloadUrl = URL.createObjectURL(blob)
@@ -347,6 +460,12 @@ export default defineComponent({
         }
         const updated = await updateAlertRule(ruleToUpdate)
         Object.assign(editingRule.value, updated)
+        try {
+          await syncOverviewCardsForAlertRule(updated)
+        } catch (error) {
+          console.error('Failed to sync overview card alert rule:', error)
+          message.warning('规则已更新，但同步到看板卡片失败，请稍后重试')
+        }
         showEditModal.value = false
       } else {
         const ruleToSave: Omit<AlertRuleItem, 'id'> = {
@@ -381,6 +500,7 @@ export default defineComponent({
         <div class="alert-rules-page__toolbar-card">
           <div class="alert-rules-page__toolbar-primary">
             <NTabs v-model:value={selectedRuleType.value} class="alert-rules-page__tabs">
+              <NTabPane name="all" tab="全部规则" />
               <NTabPane name="metrics" tab="指标规则" />
               <NTabPane name="logs" tab="日志规则" />
               <NTabPane name="trace" tab="链路规则" />
@@ -388,21 +508,9 @@ export default defineComponent({
             </NTabs>
           </div>
           <div class="alert-rules-page__toolbar-secondary">
-            <TimeRangeBar
-              value={timeStore.timeRange}
-              live={timeStore.isLive}
-              options={timeStore.timeOptions as any}
-              onUpdate:value={(range: any) => {
-                timeStore.setTimeRange(range)
-                loadRules()
-              }}
-              onUpdate:live={(value: boolean) => {
-                timeStore.isLive = value
-                if (value) timeStore.refreshTime()
-                loadRules()
-              }}
-              onRefresh={loadRules}
-            />
+            <NButton loading={loading.value} onClick={loadRules}>
+              刷新规则
+            </NButton>
           </div>
         </div>
 
@@ -476,7 +584,16 @@ export default defineComponent({
           </div>
         </NCard>
 
-        <NCard bordered={false} class="alert-rules-page__table-card" contentStyle={{ padding: 0 }}>
+        <section class="alert-rules-page__table-card">
+          <div class="alert-rules-page__table-header">
+            <div>
+              <div class="alert-rules-page__section-title">规则清单</div>
+              <div class="alert-rules-page__section-desc">
+                规则名称、服务与操作列已固定，中间条件与通知列可横向滑动查看。
+              </div>
+            </div>
+            <NTag bordered={false}>横向滚动</NTag>
+          </div>
           {loading.value ? (
             <div class="alert-rules-page__table-loading">
               <NSpin size="large" />
@@ -490,11 +607,13 @@ export default defineComponent({
                 pagination={{ pageSize: 10, showSizePicker: true, pageSizes: [10, 20, 50] }}
                 bordered={false}
                 singleLine={false}
+                scrollX={1510}
+                flexHeight={false}
                 rowKey={(row: any) => row.id}
               />
             </div>
           )}
-        </NCard>
+        </section>
 
         <NModal v-model:show={showAddModal.value} title="添加规则" preset="card" style={{ width: '600px' }}>
           <NForm model={formData.value} labelPlacement="left" labelWidth={100}>

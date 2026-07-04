@@ -162,6 +162,7 @@ export type OverviewWidgetKind =
 export type OverviewWidgetConfigMap = {
   'query-card': {
     query: import('@/domains/metrics/queryModel').QuerySpec
+    excludeDistributionItems?: string[]
   }
   'metric-summary': MetricSummaryConfig
   'risk-service': RiskServiceConfig

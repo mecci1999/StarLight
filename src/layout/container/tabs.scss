@@ -1,5 +1,5 @@
 .container-tabs {
-  --container-tabs-active-bg: var(--color-bg-1);
+  --container-tabs-active-bg: var(--color-bg-2);
   --container-tabs-active-shadow: 0 2px 5px rgba(29, 33, 41, 0.1), 0 10px 22px -12px rgba(29, 33, 41, 0.32);
   --container-tabs-hover-bg: color-mix(in srgb, var(--color-fill-2) 78%, var(--color-bg-2));
   --container-tabs-strip-bg: color-mix(in srgb, var(--color-bg-1) 88%, var(--color-fill-2));
@@ -7,7 +7,7 @@
   flex: 0 0 auto;
   min-width: 0;
   height: 40px;
-  padding: 5px var(--spacing-3) 0 4px;
+  padding: 5px var(--spacing-3) 0 0;
   background: var(--container-tabs-strip-bg);
 
   &__track {

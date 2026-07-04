@@ -1,6 +1,19 @@
 import { defineComponent, ref, onMounted, watch, h, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { NButton, NCard, NGrid, NGridItem, NInput, NSelect, NTag, useMessage, NModal, NForm, NFormItem } from 'naive-ui'
+import {
+  NButton,
+  NCard,
+  NGrid,
+  NGridItem,
+  NInput,
+  NSelect,
+  NTag,
+  NSpin,
+  useMessage,
+  NModal,
+  NForm,
+  NFormItem
+} from 'naive-ui'
 import { AlertCircleOutline, CheckmarkCircleOutline, CloseCircleOutline } from '@vicons/ionicons5'
 import {
   acknowledgeAlert,
@@ -20,6 +33,13 @@ import { useTimeStore } from '@/store/useTimeStore'
 import { getPreferredMetricsDatasetScope } from '@/services/authSession'
 import './AlertInboxPage.scss'
 import './AlertInboxPage.scss'
+
+const formatDateTime = (raw: string | undefined): string => {
+  if (!raw) return '-'
+  const date = new Date(raw)
+  if (Number.isNaN(date.getTime())) return raw
+  return date.toLocaleString('zh-CN', { hour12: false })
+}
 
 export default defineComponent({
   name: 'AlertInboxPage',
@@ -189,7 +209,7 @@ export default defineComponent({
         title: '时间',
         key: 'time',
         render(row: any) {
-          return <div class="alert-inbox-page__mono-time">{row.time}</div>
+          return <div class="alert-inbox-page__mono-time">{formatDateTime(row.time)}</div>
         }
       },
       {
@@ -416,14 +436,37 @@ export default defineComponent({
           ))}
         </NGrid>
 
-        <ResultTable
-          columns={columns}
-          data={alertData.value}
-          loading={loading.value}
-          rowKey={(row: any) => row.id}
-          class="alert-inbox-page__table"
-          rowProps={(row: any) => ({ onClick: () => handleViewDetail(row) })}
-        />
+        <section class="alert-inbox-page__table-card">
+          <div class="alert-inbox-page__table-header">
+            <div>
+              <div class="alert-inbox-page__section-title">告警清单</div>
+              <div class="alert-inbox-page__section-desc">
+                等级、状态与操作列包含主要动作，中间信息列可横向滑动查看。
+              </div>
+            </div>
+            <NTag bordered={false}>横向滚动</NTag>
+          </div>
+          {loading.value ? (
+            <div class="alert-inbox-page__table-loading">
+              <NSpin size="large" />
+            </div>
+          ) : (
+            <div class="alert-inbox-page__table-shell">
+              <ResultTable
+                class="alert-inbox-page__table"
+                columns={columns}
+                data={alertData.value}
+                pagination={{ pageSize: 10, showSizePicker: true, pageSizes: [10, 20, 50] }}
+                bordered={false}
+                singleLine={false}
+                scrollX={1200}
+                flexHeight={false}
+                rowKey={(row: any) => row.id}
+                rowProps={(row: any) => ({ onClick: () => handleViewDetail(row) })}
+              />
+            </div>
+          )}
+        </section>
 
         <DetailDrawer
           show={showDetailDrawer.value}
@@ -445,7 +488,7 @@ export default defineComponent({
             <div class="alert-inbox-page__detail">
               <div>
                 <span class="alert-inbox-page__detail-label">时间：</span>
-                {selectedAlert.value.time}
+                {formatDateTime(selectedAlert.value.time)}
               </div>
               <div>
                 <span class="alert-inbox-page__detail-label">状态：</span>

@@ -152,7 +152,7 @@ describe('NotificationCenterPage', () => {
         sentAt: 'now',
         type: 'CPU 告警',
         service: 'gateway',
-        channel: 'email',
+        channel: 'Email',
         target: 'ops@example.com',
         status: 'sent',
         content: 'delivered'

@@ -937,7 +937,7 @@ export default defineComponent({
     }
 
     const buildAlertRulesFromQuery = (title: string, query: QuerySpec): DashboardAlertRuleDraft[] => {
-      const rules = normalizeQueryAlertRules(query.alert)
+      const rules = normalizeQueryAlertRules(query.alert, { includeDisabled: true })
       if (!rules.length) return []
       const service = query.subject.type === 'service' ? query.subject.id || 'all' : 'all'
       return rules.map((rule) => ({
@@ -950,7 +950,7 @@ export default defineComponent({
         unit: rule.unit || query.display?.value?.unit || query.display?.yAxis?.unit || '',
         duration: rule.duration || 5,
         level: rule.level || 'warning',
-        enabled: true,
+        enabled: rule.enabled !== false,
         channels: rule.channels?.length ? rule.channels : ['Email']
       }))
     }
@@ -1121,7 +1121,7 @@ export default defineComponent({
         : null
       const previousRules = normalizeQueryAlertRules(previousWidget?.query.alert)
       if (previousRules.length && query.alert?.enabled) {
-        const nextRules = normalizeQueryAlertRules(query.alert).map((rule) => ({
+        const nextRules = normalizeQueryAlertRules(query.alert, { includeDisabled: true }).map((rule) => ({
           ...rule,
           ruleId: rule.ruleId || previousRules.find((item) => item.level === rule.level)?.ruleId
         }))
@@ -1149,7 +1149,7 @@ export default defineComponent({
       try {
         const createdRules = await createAlertRuleForQuery(title, query)
         if (createdRules.length) {
-          const nextRules = normalizeQueryAlertRules(query.alert).map((rule, index) => ({
+          const nextRules = normalizeQueryAlertRules(query.alert, { includeDisabled: true }).map((rule, index) => ({
             ...rule,
             ruleId: createdRules[index]?.id || rule.ruleId
           }))

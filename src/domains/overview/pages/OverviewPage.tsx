@@ -1,5 +1,7 @@
 import { computed, defineComponent, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { save as saveFile } from '@tauri-apps/plugin-dialog'
+import { writeTextFile } from '@tauri-apps/plugin-fs'
 import {
   NButton,
   NCard,
@@ -167,11 +169,15 @@ type QueryWidgetConfig = OverviewPanelWidget<'query-card'>['config']
 type OverviewAlertRuleDraft = Omit<AlertRuleItem, 'id'> & { id?: string }
 type OverviewResultTableColumn = { title: string; key: string }
 type OverviewResultTableRow = Record<string, unknown>
+type OverviewDistributionData = Extract<CardData, { kind: 'distribution' }>
 type OverviewAutoRefreshKey = 'off' | 'auto' | '15s' | '30s' | '1m' | '5m'
 type PersistedOverviewAutoRefreshState = {
   autoRefresh: OverviewAutoRefreshKey
   updatedAt?: number
 }
+
+const isTauriRuntime = () => Boolean((window as unknown as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__)
+
 type OverviewMetricDiscoveryPreset = {
   key: string
   displayedMetrics: OverviewWidgetDisplayMetricKey[]
@@ -1408,7 +1414,7 @@ export default defineComponent({
       updatePanels(nextPanels)
     }
 
-    const exportCurrentPanelCards = () => {
+    const exportCurrentPanelCards = async () => {
       if (!currentPanel.value) return
       const widgets = currentPanel.value.widgets || []
       if (!widgets.length) {
@@ -1426,18 +1432,39 @@ export default defineComponent({
         },
         widgets: widgets.map((widget) => normalizeOverviewWidget(cloneValue(widget)))
       }
+      const safePanelName =
+        currentPanel.value.name.replace(/[\\/:*?"<>|\s]+/g, '-').replace(/^-+|-+$/g, '') || 'overview'
+      const filename = `starlight-${safePanelName}-cards.json`
+
+      if (isTauriRuntime()) {
+        try {
+          const targetPath = await saveFile({
+            defaultPath: filename,
+            filters: [{ name: 'StarLight 看板卡片配置', extensions: ['json'] }]
+          })
+          if (!targetPath) {
+            message.info('已取消导出卡片配置')
+            return
+          }
+          await writeTextFile(targetPath, JSON.stringify(payload, null, 2))
+          message.success(`已导出 ${widgets.length} 张卡片配置：${targetPath}`)
+        } catch (error) {
+          console.error('Failed to export overview cards:', error)
+          message.error('导出卡片配置失败，请重新选择保存位置后再试')
+        }
+        return
+      }
+
       const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' })
       const url = URL.createObjectURL(blob)
       const link = document.createElement('a')
-      const safePanelName =
-        currentPanel.value.name.replace(/[\\/:*?"<>|\s]+/g, '-').replace(/^-+|-+$/g, '') || 'overview'
       link.href = url
-      link.download = `starlight-${safePanelName}-cards.json`
+      link.download = filename
       document.body.appendChild(link)
       link.click()
       link.remove()
       URL.revokeObjectURL(url)
-      message.success(`已导出 ${widgets.length} 张卡片配置`)
+      message.success(`已开始下载 ${widgets.length} 张卡片配置：${filename}`)
     }
 
     const openImportCardsFilePicker = () => {
@@ -1487,12 +1514,22 @@ export default defineComponent({
           return
         }
 
+        const alertSyncResult = await persistAlertRulesForImportedWidgets(widgets)
+
         replaceCurrentPanel((panel) => ({
           ...panel,
-          widgets: widgets.map((widget) => cloneValue(widget))
+          widgets: alertSyncResult.widgets.map((widget) => cloneValue(widget))
         }))
         activeWidgetTag.value = ''
-        message.success(`已导入 ${widgets.length} 张卡片配置`)
+        if (alertSyncResult.failedCount > 0) {
+          message.warning(
+            `已导入 ${widgets.length} 张卡片配置，${alertSyncResult.failedCount} 张卡片的告警规则同步失败`
+          )
+        } else if (alertSyncResult.persistedCount > 0) {
+          message.success(`已导入 ${widgets.length} 张卡片配置，并同步 ${alertSyncResult.persistedCount} 条告警规则`)
+        } else {
+          message.success(`已导入 ${widgets.length} 张卡片配置`)
+        }
         await nextTick()
         loadOverview()
       } catch (error) {
@@ -1748,6 +1785,7 @@ export default defineComponent({
       const unit = resolveQueryAlertUnit(query)
       const nextRules = rules.map((rule) => ({
         ...rule,
+        enabled: rule.enabled ?? true,
         operator: rule.operator || query.alert?.operator || '>',
         unit: rule.unit ?? unit,
         duration: rule.duration || 5,
@@ -1757,7 +1795,7 @@ export default defineComponent({
       const primaryRule = nextRules.find((rule) => rule.level === 'warning') || nextRules[0]
 
       return {
-        enabled: true,
+        enabled: nextRules.some((rule) => rule.enabled !== false),
         operator: primaryRule?.operator || query.alert?.operator || '>',
         threshold: primaryRule?.threshold ?? query.alert?.threshold ?? 0,
         unit: primaryRule?.unit ?? unit,
@@ -1781,6 +1819,7 @@ export default defineComponent({
         .filter((rule) => typeof rule.threshold === 'number' && Number.isFinite(rule.threshold))
         .map((rule) => ({
           ...rule,
+          enabled: rule.enabled ?? true,
           operator: rule.operator || query.alert?.operator || '>',
           unit: rule.unit ?? unit,
           duration: rule.duration || inheritedDuration,
@@ -1794,6 +1833,7 @@ export default defineComponent({
         return [
           {
             ruleId: query.alert.ruleId,
+            enabled: query.alert.enabled ?? true,
             level: query.alert.level || 'warning',
             operator: query.alert.operator || '>',
             threshold: query.alert.threshold,
@@ -1883,12 +1923,17 @@ export default defineComponent({
           {rules.map((rule, index) => {
             const meta = alertLevelMeta[rule.level]
             return (
-              <div class="overview-page__query-alert-rule-row" key={`${rule.level}-${rule.threshold}-${index}`}>
+              <div class="overview-page__query-alert-rule-row" key={rule.ruleId || `${mode}-${index}`}>
                 <div class="overview-page__query-alert-rule-title">
                   <NTag size="small" bordered={false} type={meta?.tagType || 'warning'}>
                     {meta?.label || rule.level}
                   </NTag>
                   <span>阈值 {index + 1}</span>
+                  {rule.enabled === false ? (
+                    <NTag size="small" bordered={false} type="default">
+                      已停用
+                    </NTag>
+                  ) : null}
                   <NButton
                     size="tiny"
                     quaternary
@@ -1899,6 +1944,13 @@ export default defineComponent({
                   </NButton>
                 </div>
                 <div class="overview-page__query-alert-rule-fields">
+                  <label class="overview-page__query-alert-rule-field">
+                    <span>状态</span>
+                    <NSwitch
+                      value={rule.enabled !== false}
+                      onUpdateValue={(value: boolean) => updateQueryAlertRuleDraft(mode, index, { enabled: value })}
+                    />
+                  </label>
                   <label class="overview-page__query-alert-rule-field">
                     <span>级别</span>
                     <NSelect
@@ -1979,7 +2031,7 @@ export default defineComponent({
     }
 
     const buildAlertRulesFromOverviewQuery = (title: string, query: QuerySpec): OverviewAlertRuleDraft[] => {
-      const rules = normalizeQueryAlertRules(query.alert)
+      const rules = normalizeQueryAlertRules(query.alert, { includeDisabled: true })
       if (!rules.length) return []
       return rules.map((rule) => ({
         ...(rule.ruleId ? { id: rule.ruleId } : {}),
@@ -1996,15 +2048,70 @@ export default defineComponent({
       }))
     }
 
-    const persistAlertRuleForOverviewQuery = async (title: string, query: QuerySpec) => {
+    const persistAlertRuleForOverviewQuery = async (
+      title: string,
+      query: QuerySpec,
+      options?: { createNew?: boolean }
+    ) => {
       const rules = buildAlertRulesFromOverviewQuery(title, query)
       if (!rules.length) return []
       return Promise.all(
         rules.map((rule) => {
+          if (options?.createNew) {
+            const { id, ...ruleToCreate } = rule
+            return saveAlertRule(ruleToCreate)
+          }
           if (!rule.id) return saveAlertRule(rule)
           return updateAlertRule({ ...rule, id: rule.id })
         })
       )
+    }
+
+    const attachPersistedAlertRuleIds = (query: QuerySpec, rules: AlertRuleItem[]) => {
+      if (!rules.length) return
+      const nextRules = normalizeQueryAlertRules(query.alert, { includeDisabled: true }).map((rule, index) => ({
+        ...rule,
+        ruleId: rules[index]?.id || rule.ruleId
+      }))
+      const alert = query.alert
+      query.alert = {
+        enabled: alert?.enabled ?? true,
+        operator: alert?.operator || '>',
+        threshold: alert?.threshold ?? 0,
+        unit: alert?.unit,
+        duration: alert?.duration,
+        level: alert?.level,
+        channels: alert?.channels,
+        ruleId: nextRules[0]?.ruleId,
+        rules: nextRules
+      }
+    }
+
+    const persistAlertRulesForImportedWidgets = async (widgets: OverviewPanelWidget[]) => {
+      let persistedCount = 0
+      let failedCount = 0
+      const nextWidgets = await Promise.all(
+        widgets.map(async (widget) => {
+          const nextWidget = cloneValue(widget)
+          if (nextWidget.kind !== 'query-card') return nextWidget
+
+          const query = getQueryWidgetQuery(nextWidget)
+          if (!query || !normalizeQueryAlertRules(query.alert, { includeDisabled: true }).length) return nextWidget
+
+          try {
+            const rules = await persistAlertRuleForOverviewQuery(nextWidget.title, query, { createNew: true })
+            persistedCount += rules.length
+            attachPersistedAlertRuleIds(query, rules)
+          } catch (error) {
+            failedCount += 1
+            console.error('Failed to persist imported overview widget alert rules:', error)
+          }
+
+          return nextWidget
+        })
+      )
+
+      return { widgets: nextWidgets, persistedCount, failedCount }
     }
 
     const applySchemaMetricToQueryDraft = (item: MetricsCatalogSchemaItem) => {
@@ -2433,7 +2540,7 @@ export default defineComponent({
               ? normalizeQueryAlertRules(getQueryWidgetQuery(existingWidget)?.alert)
               : []
           if (existingRules.length && query.alert?.enabled) {
-            const nextRules = normalizeQueryAlertRules(query.alert).map((rule) => ({
+            const nextRules = normalizeQueryAlertRules(query.alert, { includeDisabled: true }).map((rule) => ({
               ...rule,
               ruleId: rule.ruleId || existingRules.find((item) => item.level === rule.level)?.ruleId
             }))
@@ -2454,7 +2561,7 @@ export default defineComponent({
           try {
             const rules = await persistAlertRuleForOverviewQuery(normalizedDraft.title, query)
             if (rules.length) {
-              const nextRules = normalizeQueryAlertRules(query.alert).map((rule, index) => ({
+              const nextRules = normalizeQueryAlertRules(query.alert, { includeDisabled: true }).map((rule, index) => ({
                 ...rule,
                 ruleId: rules[index]?.id || rule.ruleId
               }))
@@ -3443,6 +3550,19 @@ export default defineComponent({
       )
     }
 
+    const resolveDistributionItems = (widget: OverviewPanelWidget, data: OverviewDistributionData) => {
+      const excludedNames =
+        widget.kind === 'query-card'
+          ? (widget as OverviewPanelWidget<'query-card'>).config.excludeDistributionItems || []
+          : []
+      if (!excludedNames.length) return data.items || []
+
+      const excludedNameSet = new Set(excludedNames.map((name) => name.trim()).filter(Boolean))
+      if (!excludedNameSet.size) return data.items || []
+
+      return (data.items || []).filter((item) => !excludedNameSet.has(item.name))
+    }
+
     const renderQueryDrivenWidget = (widget: OverviewPanelWidget, query?: QuerySpec) => {
       const cardData = queryWidgetResults.value[widget.id]
       const queryCardConfig =
@@ -3541,11 +3661,12 @@ export default defineComponent({
       }
 
       if (cardData.kind === 'distribution') {
+        const distributionItems = resolveDistributionItems(widget, cardData)
         return renderWithAlertSummary(
           widget.editor?.visualization === 'donut' ? (
-            <PieChart data={cardData.items || []} height={widget.size === 'L' ? '260px' : '220px'} variant="monitor" />
+            <PieChart data={distributionItems} height={widget.size === 'L' ? '260px' : '220px'} variant="monitor" />
           ) : (
-            <BarChart data={cardData.items || []} height={widget.size === 'L' ? '260px' : '220px'} variant="monitor" />
+            <BarChart data={distributionItems} height={widget.size === 'L' ? '260px' : '220px'} variant="monitor" />
           )
         )
       }
@@ -4054,12 +4175,12 @@ export default defineComponent({
 
     const renderOverviewSkeleton = () => {
       const skeletonCards = [
-        { key: 'hero', size: 'L', lines: 4, chart: true },
-        { key: 'health', size: 'S', lines: 3, chart: false },
-        { key: 'latency', size: 'S', lines: 3, chart: false },
-        { key: 'trend', size: 'M', lines: 3, chart: true },
-        { key: 'incidents', size: 'M', lines: 5, chart: false },
-        { key: 'ingest', size: 'S', lines: 4, chart: false }
+        { key: 'hero', size: 'L', lines: 7 },
+        { key: 'health', size: 'S', lines: 5 },
+        { key: 'latency', size: 'S', lines: 5 },
+        { key: 'trend', size: 'M', lines: 6 },
+        { key: 'incidents', size: 'M', lines: 7 },
+        { key: 'ingest', size: 'S', lines: 5 }
       ] as const
 
       return (
@@ -4087,14 +4208,6 @@ export default defineComponent({
                     <div class="overview-page__skeleton-pill" />
                   </div>
                   <div class="overview-page__skeleton-card-subtitle" />
-                  {card.chart ? (
-                    <div class="overview-page__skeleton-chart">
-                      <span />
-                      <span />
-                      <span />
-                      <span />
-                    </div>
-                  ) : null}
                   <div class="overview-page__skeleton-lines">
                     {Array.from({ length: card.lines }).map((_, index) => (
                       <span key={index} />

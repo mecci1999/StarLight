@@ -4,6 +4,7 @@ import { isPermissionGranted, requestPermission } from '@tauri-apps/plugin-notif
 import { Suspense, KeepAlive } from 'vue'
 import WindowActionBar from '@/components/WindowActionBar'
 import Header from '@/layout/container/header/index'
+import ClientNotificationHost from '@/shared/components/ClientNotificationHost/ClientNotificationHost'
 import './index.scss'
 
 export default defineComponent({
@@ -59,6 +60,7 @@ export default defineComponent({
             }}
           </WindowActionBar>
         </div>
+        <ClientNotificationHost />
         <Suspense>
           {{
             default: () => (

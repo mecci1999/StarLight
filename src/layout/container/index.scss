@@ -231,4 +231,10 @@
   border-top: 1px solid var(--color-border-1);
   border-top-left-radius: 8px;
   background: var(--color-bg-white);
+
+  &.is-micro-app-runtime {
+    border: 0;
+    border-radius: 0;
+    background: var(--color-bg-white);
+  }
 }

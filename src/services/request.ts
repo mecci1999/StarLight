@@ -97,7 +97,12 @@ const responseInterceptor = async <T>(
 
     // 除了二维码登录接口，其他接口都需要展示成功信息
     const responseMessage = (serviceData as any)?.data?.message || (serviceData as any)?.message
-    if (responseMessage && !url.includes('/qrcode') && url !== urls.metricsStats) {
+    if (
+      responseMessage &&
+      !requestOptions?.suppressSuccessMessage &&
+      !url.includes('/qrcode') &&
+      url !== urls.metricsStats
+    ) {
       window.$message.success(responseMessage)
     }
 

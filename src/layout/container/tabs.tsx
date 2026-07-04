@@ -27,7 +27,8 @@ export default defineComponent({
 
     const addCurrentRoute = () => {
       if (!route.path.startsWith('/home')) return
-      const title = String(route.meta?.title || route.name || route.path)
+      const queryTitle = Array.isArray(route.query.title) ? route.query.title[0] : route.query.title
+      const title = String(queryTitle || route.meta?.title || route.name || route.path)
       const nextTab = { key: route.fullPath, path: route.fullPath, title }
       const existingIndex = tabs.value.findIndex((tab) => tab.key === nextTab.key)
       if (existingIndex >= 0) {

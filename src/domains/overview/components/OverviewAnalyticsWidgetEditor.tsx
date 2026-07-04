@@ -144,6 +144,15 @@ export default defineComponent({
       })
     }
 
+    const isEditableKeyboardTarget = (target: EventTarget | null) => {
+      if (!(target instanceof Element)) return false
+      return Boolean(target.closest('input, textarea, [contenteditable="true"], .n-input, .n-input-number, .n-select'))
+    }
+
+    const stopEditableKeyPropagation = (event: KeyboardEvent) => {
+      if (isEditableKeyboardTarget(event.target)) event.stopPropagation()
+    }
+
     const renderFormColumn = () => (
       <div class="overview-analytics-editor__form-column">
         <NCard bordered={false} class="overview-analytics-editor__section-card">
@@ -467,7 +476,7 @@ export default defineComponent({
         onUpdate:show={handleDrawerVisibility}>
         {{
           default: () => (
-            <div class="overview-analytics-editor">
+            <div class="overview-analytics-editor" onKeydown={stopEditableKeyPropagation}>
               {viewportMode.value === 'compact' ? (
                 <div class="overview-analytics-editor__compact-switcher">
                   <button

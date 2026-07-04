@@ -178,7 +178,6 @@ html[data-blur='1'] {
   color: var(--color-primary-6);
 }
 
-// Message 组件样式
 .n-message {
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
@@ -280,6 +279,64 @@ html[data-blur='1'] {
   }
 }
 
+// 分页器主题适配
+.n-pagination {
+  color: var(--color-text-2);
+
+  .n-pagination-item {
+    min-width: 28px;
+    border-color: var(--color-border-1) !important;
+    border-radius: var(--radius-md) !important;
+    background: var(--color-bg-2) !important;
+    color: var(--color-text-2) !important;
+    transition:
+      border-color var(--duration-fast) var(--ease-default),
+      background var(--duration-fast) var(--ease-default),
+      color var(--duration-fast) var(--ease-default),
+      box-shadow var(--duration-fast) var(--ease-default);
+
+    &:hover:not(.n-pagination-item--disabled):not(.n-pagination-item--active) {
+      border-color: var(--color-primary-3) !important;
+      background: var(--color-primary-1) !important;
+      color: var(--color-primary-6) !important;
+    }
+
+    &.n-pagination-item--active {
+      border-color: var(--color-primary-6) !important;
+      background: var(--color-primary-6) !important;
+      color: var(--color-text-5) !important;
+      box-shadow: 0 4px 10px color-mix(in srgb, var(--color-primary-6) 24%, transparent);
+    }
+
+    &.n-pagination-item--disabled {
+      border-color: var(--color-border-1) !important;
+      background: var(--color-fill-1) !important;
+      color: var(--color-text-4) !important;
+      opacity: 0.78;
+    }
+  }
+
+  .n-pagination-prefix,
+  .n-pagination-suffix,
+  .n-pagination-quick-jumper {
+    color: var(--color-text-3);
+  }
+
+  .n-base-selection,
+  .n-input {
+    border-radius: var(--radius-md);
+    background: var(--color-bg-2);
+    color: var(--color-text-1);
+  }
+
+  .n-base-selection:hover,
+  .n-input:hover,
+  .n-base-selection.n-base-selection--active,
+  .n-input.n-input--focus {
+    border-color: var(--color-primary-5) !important;
+  }
+}
+
 // 抽屉样式优化
 .n-drawer {
   border-radius: var(--radius-xl) 0 0 var(--radius-xl);
@@ -350,6 +407,11 @@ html[data-blur='1'] {
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-lg);
   border: 1px solid var(--color-border-1);
+}
+
+// Message 默认位置避开顶部操作栏，减少贴边感
+.n-message-container {
+  top: 64px !important;
 }
 
 // ========================================

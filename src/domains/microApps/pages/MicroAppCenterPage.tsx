@@ -25,17 +25,23 @@ import { resolveUploadedFileUrl, uploadFile } from '@/api/file'
 import {
   downloadMicroApp,
   getMicroApps,
+  previewDownloadMicroApp,
   publishMicroApp,
   rollbackMicroApp,
   reviewMicroApp,
   updateMicroAppAccess,
-  uploadMicroApp,
+  uploadMicroAppPackage,
   type MicroAppItem,
   type MicroAppManifest,
   type MicroAppVisibility,
   type MicroAppVersion
 } from '@/api/microApps'
-import { getInstalledMicroApps, installMicroAppLocally, type InstalledMicroApp } from '../services/localMicroAppStore'
+import {
+  getInstalledMicroApps,
+  installMicroAppLocally,
+  prepareMicroAppPreview,
+  type InstalledMicroApp
+} from '../services/localMicroAppStore'
 import { parseMicroAppZip } from '../services/localMicroAppStore'
 import './MicroAppCenterPage.scss'
 
@@ -63,6 +69,15 @@ const platformOptions: Array<{ label: string; value: 'all' | MicroAppPlatform }>
 const platformLabel: Record<MicroAppPlatform, string> = {
   desktop: '桌面端',
   app: 'App 端'
+}
+
+const microAppVersionStatusLabel: Record<MicroAppVersion['status'], string> = {
+  uploaded: '已上传',
+  pending_review: '待审核',
+  approved: '已审核',
+  rejected: '已拒绝',
+  published: '已发布',
+  deprecated: '已废弃'
 }
 
 type AccessForm = {
@@ -114,6 +129,8 @@ export default defineComponent({
     const selectedFileName = ref('')
     const selectedIconName = ref('')
     const iconUploading = ref(false)
+    const packageUploading = ref(false)
+    const previewLoading = ref(false)
     const packageBase64 = ref('')
     const currentUser = computed(() => getStoredUserInfo())
     const isAdmin = computed(() => Boolean(currentUser.value?.isAdmin))
@@ -309,7 +326,74 @@ export default defineComponent({
       }
     }
 
+    const buildPreviewPayload = (manifest: MicroAppManifest, version?: MicroAppVersion) => ({
+      ticket: '',
+      user: currentUser.value,
+      app: {
+        appId: manifest.appId,
+        name: manifest.name,
+        description: manifest.description,
+        preview: true
+      },
+      version: version || {
+        appId: manifest.appId,
+        version: manifest.version,
+        manifest,
+        status: 'uploaded',
+        packageSha256: 'preview',
+        packageSize: 0
+      },
+      endpoints: {
+        exchangeSession: '',
+        scopedApi: ''
+      },
+      previewMode: true
+    })
+
+    const openPreview = async (base64: string, manifest: MicroAppManifest, version?: MicroAppVersion) => {
+      const record = await prepareMicroAppPreview(base64, manifest, buildPreviewPayload(manifest, version))
+      uploadVisible.value = false
+      await router.push({
+        path: `/home/micro-apps/${record.key}`,
+        query: { preview: '1', previewKey: record.key, title: record.title }
+      })
+    }
+
+    const previewSelectedPackage = async () => {
+      if (!packageBase64.value) {
+        message.error('请先选择微应用 zip 包')
+        return
+      }
+      previewLoading.value = true
+      try {
+        const parsed = parseMicroAppZip(packageBase64.value)
+        await openPreview(packageBase64.value, parsed.manifest)
+      } catch (error) {
+        message.error(error instanceof Error ? error.message : '微应用预览失败')
+      } finally {
+        previewLoading.value = false
+      }
+    }
+
+    const previewReviewVersion = async (version: MicroAppVersion) => {
+      previewLoading.value = true
+      try {
+        const detail = await previewDownloadMicroApp({ appId: version.appId, version: version.version })
+        if (!detail.packageBase64) throw new Error('预览包内容为空')
+        await openPreview(detail.packageBase64, detail.manifest, detail)
+      } catch (error) {
+        message.error(error instanceof Error ? error.message : '待审核微应用预览失败')
+      } finally {
+        previewLoading.value = false
+      }
+    }
+
     const handleUpload = async () => {
+      if (!packageBase64.value) {
+        message.error('请先选择微应用 zip 包')
+        return
+      }
+
       const manifest: MicroAppManifest = {
         appId: uploadForm.value.appId,
         name: uploadForm.value.name,
@@ -320,20 +404,27 @@ export default defineComponent({
         iconFileId: uploadForm.value.iconFileId,
         permissions: { userInfo: true }
       }
-      await uploadMicroApp({
-        manifest,
-        packageBase64: packageBase64.value,
-        visibility: uploadForm.value.visibility,
-        allowedUsers: userListFromText(uploadForm.value.allowedUsers),
-        rolloutUsers: userListFromText(uploadForm.value.rolloutUsers),
-        rolloutTenants: userListFromText(uploadForm.value.rolloutTenants),
-        rolloutPercent: Number(uploadForm.value.rolloutPercent),
-        releaseChannel: uploadForm.value.releaseChannel
-      })
-      uploadVisible.value = false
-      message.success('微应用已提交审核')
-      await loadApps()
-      activeTab.value = 'mine'
+      packageUploading.value = true
+      try {
+        await uploadMicroAppPackage({
+          manifest,
+          packageBase64: packageBase64.value,
+          visibility: uploadForm.value.visibility,
+          allowedUsers: userListFromText(uploadForm.value.allowedUsers),
+          rolloutUsers: userListFromText(uploadForm.value.rolloutUsers),
+          rolloutTenants: userListFromText(uploadForm.value.rolloutTenants),
+          rolloutPercent: Number(uploadForm.value.rolloutPercent),
+          releaseChannel: uploadForm.value.releaseChannel
+        })
+        uploadVisible.value = false
+        message.success('微应用已提交审核')
+        await loadApps()
+        activeTab.value = 'mine'
+      } catch (error) {
+        message.error(error instanceof Error ? error.message : '微应用上传失败')
+      } finally {
+        packageUploading.value = false
+      }
     }
 
     const handleReview = async (version: MicroAppVersion, decision: 'approved' | 'rejected') => {
@@ -384,11 +475,17 @@ export default defineComponent({
       await installMicroAppLocally(version)
       message.success('微应用已下载到本地')
       installedApps.value = getInstalledMicroApps()
-      router.push({ path: `/home/micro-apps/${app.appId}`, query: { app: app.appId, version: version.version } })
+      router.push({
+        path: `/home/micro-apps/${app.appId}`,
+        query: { app: app.appId, version: version.version, title: version.manifest.name || app.name }
+      })
     }
 
     const openInstalledApp = (app: InstalledMicroApp) => {
-      router.push({ path: `/home/micro-apps/${app.appId}`, query: { app: app.appId, version: app.version } })
+      router.push({
+        path: `/home/micro-apps/${app.appId}`,
+        query: { app: app.appId, version: app.version, title: app.manifest.name || app.appId }
+      })
     }
 
     const handleRollback = async (app: MicroAppItem) => {
@@ -397,7 +494,7 @@ export default defineComponent({
       await loadApps()
     }
 
-    const statusTag = (status: string) => {
+    const statusTag = (status: MicroAppVersion['status']) => {
       const type: NonNullable<TagProps['type']> =
         status === 'published'
           ? 'success'
@@ -406,7 +503,7 @@ export default defineComponent({
             : status === 'approved'
               ? 'info'
               : 'warning'
-      return <NTag type={type}>{status}</NTag>
+      return <NTag type={type}>{microAppVersionStatusLabel[status]}</NTag>
     }
 
     const appColumns: DataTableColumns<MicroAppItem> = [
@@ -672,6 +769,9 @@ export default defineComponent({
                         </NDescriptionsItem>
                       </NDescriptions>
                       <NSpace class="micro-app-center__card-actions">
+                        <NButton secondary loading={previewLoading.value} onClick={() => previewReviewVersion(version)}>
+                          预览应用
+                        </NButton>
                         <NButton type="primary" onClick={() => handleReview(version, 'approved')}>
                           审核通过
                         </NButton>
@@ -785,9 +885,22 @@ export default defineComponent({
             </NFormItem>
           </NForm>
           <NSpace justify="end">
-            <NButton onClick={() => (uploadVisible.value = false)}>取消</NButton>
-            <NButton type="primary" onClick={handleUpload}>
-              提交微应用
+            <NButton disabled={packageUploading.value} onClick={() => (uploadVisible.value = false)}>
+              取消
+            </NButton>
+            <NButton
+              secondary
+              loading={previewLoading.value}
+              disabled={!packageBase64.value || packageUploading.value}
+              onClick={previewSelectedPackage}>
+              上传前预览
+            </NButton>
+            <NButton
+              type="primary"
+              loading={packageUploading.value}
+              disabled={!packageBase64.value}
+              onClick={handleUpload}>
+              {packageUploading.value ? '上传中…' : '提交微应用'}
             </NButton>
           </NSpace>
         </NModal>

@@ -3,6 +3,7 @@ import { unzipSync, strFromU8 } from 'fflate'
 import { BaseDirectory, exists, mkdir, readFile, writeFile, writeTextFile } from '@tauri-apps/plugin-fs'
 
 const STORAGE_KEY = 'starlight-installed-micro-apps'
+const PREVIEW_STORAGE_KEY_PREFIX = 'starlight-micro-app-preview:'
 const MICRO_APP_ROOT = 'micro-apps'
 
 export type InstalledMicroApp = {
@@ -22,6 +23,16 @@ export type ParsedMicroAppZip = {
   files: Record<string, Uint8Array>
 }
 
+export type MicroAppPreviewRecord = {
+  key: string
+  appId: string
+  version: string
+  title: string
+  subtitle: string
+  runtimeUrl: string
+  createdAt: string
+}
+
 const readInstalledMap = (): Record<string, InstalledMicroApp> => {
   try {
     return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}')
@@ -39,6 +50,11 @@ const isTauriRuntime = () => Boolean((window as unknown as { __TAURI_INTERNALS__
 const microAppDir = (appId: string, version: string) => `${MICRO_APP_ROOT}/${appId}/${version}`
 const microAppZipPath = (appId: string, version: string) => `${microAppDir(appId, version)}/package.zip`
 const microAppManifestPath = (appId: string, version: string) => `${microAppDir(appId, version)}/manifest.json`
+
+const previewStorageKey = (key: string) => `${PREVIEW_STORAGE_KEY_PREFIX}${key}`
+
+const createPreviewKey = (manifest: MicroAppVersion['manifest']) =>
+  `preview-${manifest.appId}-${manifest.version}-${Date.now()}`.replace(/[^a-zA-Z0-9_-]/g, '_')
 
 export const bytesToBase64 = (bytes: Uint8Array) => {
   let binary = ''
@@ -101,6 +117,18 @@ export const getInstalledMicroApp = async (appId: string) => {
 }
 
 export const getInstalledMicroApps = () => Object.values(readInstalledMap())
+
+export const getMicroAppPreviewRecord = (key: string): MicroAppPreviewRecord | null => {
+  try {
+    return JSON.parse(sessionStorage.getItem(previewStorageKey(key)) || 'null')
+  } catch {
+    return null
+  }
+}
+
+export const clearMicroAppPreviewRecord = (key: string) => {
+  sessionStorage.removeItem(previewStorageKey(key))
+}
 
 export const base64ToBytes = (base64: string) => {
   const binary = atob(base64)
@@ -169,6 +197,37 @@ export const buildMicroAppObjectUrl = (installed: InstalledMicroApp, runtimePayl
     : `${bridgeScript}${html}`
   const nextHtml = rewriteHtmlAssets(htmlWithBridge, assetUrls)
   return URL.createObjectURL(new Blob([nextHtml], { type: 'text/html' }))
+}
+
+export const prepareMicroAppPreview = async (
+  packageBase64: string,
+  manifest: MicroAppVersion['manifest'],
+  runtimePayload: unknown
+) => {
+  const key = createPreviewKey(manifest)
+  const runtimeUrl = await buildMicroAppRuntimeUrl(
+    {
+      appId: key,
+      version: manifest.version,
+      manifest,
+      zipBase64: packageBase64,
+      packageSha256: 'preview',
+      installedAt: new Date().toISOString(),
+      storage: isTauriRuntime() ? 'appData' : 'localStorage'
+    },
+    runtimePayload
+  )
+  const record: MicroAppPreviewRecord = {
+    key,
+    appId: manifest.appId,
+    version: manifest.version,
+    title: manifest.name || manifest.appId,
+    subtitle: `${manifest.appId} / ${manifest.version}`,
+    runtimeUrl,
+    createdAt: new Date().toISOString()
+  }
+  sessionStorage.setItem(previewStorageKey(key), JSON.stringify(record))
+  return record
 }
 
 export const buildMicroAppRuntimeUrl = async (installed: InstalledMicroApp, runtimePayload: unknown) => {

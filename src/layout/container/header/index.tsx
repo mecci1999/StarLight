@@ -7,10 +7,12 @@ import {
   NotificationsOutline,
   OptionsOutline,
   PersonCircleOutline,
+  PulseOutline,
   RefreshOutline,
   SearchOutline,
   SettingsOutline,
-  TimeOutline
+  TimeOutline,
+  WarningOutline
 } from '@vicons/ionicons5'
 import type { Component } from 'vue'
 import { computed, defineComponent, onMounted, onUnmounted, ref, watch } from 'vue'
@@ -33,6 +35,7 @@ import {
   getNextRetryCount,
   rollbackRetryCount
 } from '@/domains/alerts/notificationCenterModel'
+import { clearClientNotificationBadge, clientNotificationUnreadCount } from '@/services/clientNotifications'
 import './index.scss'
 
 type SearchTarget = {
@@ -44,6 +47,7 @@ type SearchTarget = {
 
 type HeaderNotification = NotificationItem & {
   key: string
+  alertLevel: '' | 'critical' | 'warning' | 'info'
 }
 
 type StoredUserProfile = Partial<UserInfoType> & {
@@ -86,12 +90,26 @@ const searchTargets: SearchTarget[] = [
   }
 ]
 
+const formatRelativeTime = (raw: string | undefined): string => {
+  if (!raw) return '-'
+  const date = new Date(raw)
+  if (Number.isNaN(date.getTime())) return raw
+  const now = Date.now()
+  const diff = now - date.getTime()
+  if (diff < 60_000) return '刚刚'
+  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}分钟前`
+  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}小时前`
+  if (diff < 604_800_000) return `${Math.floor(diff / 86_400_000)}天前`
+  return date.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' })
+}
+
 const normalizeNotification = (item: Record<string, unknown>, index: number): HeaderNotification => {
   const rawStatus = String(item.status || '')
+  const alertLevel = String(item.type || '')
   return {
     key: String(item.key || item.id || `notification-${index}`),
     serviceId: typeof item.serviceId === 'string' ? item.serviceId : undefined,
-    sendTime: String(item.sendTime || item.sentAt || '-'),
+    sendTime: formatRelativeTime(String(item.sentAt || item.sendTime || '')),
     ruleName: String(item.ruleName || item.type || '系统通知'),
     service: String(item.service || '系统'),
     channel: String(item.channel || 'unknown'),
@@ -102,6 +120,14 @@ const normalizeNotification = (item: Record<string, unknown>, index: number): He
         : rawStatus === 'success' || rawStatus === 'failed' || rawStatus === 'pending'
           ? rawStatus
           : 'unknown',
+    alertLevel:
+      alertLevel === 'critical'
+        ? 'critical'
+        : alertLevel === 'warning'
+          ? 'warning'
+          : alertLevel === 'info'
+            ? 'info'
+            : '',
     retryCount: typeof item.retryCount === 'number' ? item.retryCount : 0,
     content: String(item.content || '暂无通知内容'),
     errorMessage: typeof item.errorMessage === 'string' ? item.errorMessage : ''
@@ -116,6 +142,12 @@ const statusConfig: Record<
   failed: { label: '失败', type: 'error', icon: CloseCircleOutline },
   pending: { label: '发送中', type: 'warning', icon: TimeOutline },
   unknown: { label: '未知', type: 'default', icon: AlertCircleOutline }
+}
+
+const alertLevelIcons: Record<string, Component> = {
+  critical: PulseOutline,
+  warning: WarningOutline,
+  info: NotificationsOutline
 }
 
 export default defineComponent({
@@ -148,7 +180,9 @@ export default defineComponent({
 
     const pendingCount = computed(() => notifications.value.filter((item) => item.status === 'pending').length)
     const failedCount = computed(() => notifications.value.filter((item) => item.status === 'failed').length)
-    const unreadCount = computed(() => pendingCount.value + failedCount.value)
+    const unreadCount = computed(() =>
+      Math.max(pendingCount.value + failedCount.value, clientNotificationUnreadCount.value)
+    )
     const recentNotifications = computed(() => notifications.value.slice(0, 5))
     const notificationSummaryText = computed(() => {
       if (notificationLoading.value) return '正在同步通知状态…'
@@ -346,10 +380,20 @@ export default defineComponent({
     const renderNotificationItem = (item: HeaderNotification) => {
       const config = statusConfig[item.status]
       const StatusIcon = config.icon
+      const alertLevelConfig =
+        item.alertLevel === 'critical'
+          ? { type: 'error' as const, label: '严重' }
+          : item.alertLevel === 'warning'
+            ? { type: 'warning' as const, label: '警告' }
+            : item.alertLevel === 'info'
+              ? { type: 'info' as const, label: '提示' }
+              : null
+      const AlertIcon = alertLevelConfig ? alertLevelIcons[item.alertLevel] || alertLevelIcons.info : StatusIcon
+      const iconLevel = alertLevelConfig ? item.alertLevel : item.status
       return (
         <div class="header-notification-item" key={item.key}>
-          <div class={[`header-notification-item__status`, `is-${item.status}`]}>
-            <NIcon size={16} component={StatusIcon} />
+          <div class={[`header-notification-item__status`, `is-${iconLevel}`]}>
+            <NIcon size={16} component={AlertIcon} />
           </div>
           <button
             type="button"
@@ -362,9 +406,15 @@ export default defineComponent({
             <span class="header-notification-item__text">{item.errorMessage || item.content}</span>
           </button>
           <div class="header-notification-item__actions">
-            <NTag size="small" bordered={false} type={config.type}>
-              {config.label}
-            </NTag>
+            {alertLevelConfig ? (
+              <NTag size="small" bordered={false} type={alertLevelConfig.type}>
+                {alertLevelConfig.label}
+              </NTag>
+            ) : (
+              <NTag size="small" bordered={false} type={config.type}>
+                {config.label}
+              </NTag>
+            )}
             {item.status === 'failed' ? (
               <NButton
                 size="tiny"
@@ -585,10 +635,14 @@ export default defineComponent({
           <NPopover
             trigger="click"
             placement="bottom-end"
+            displayDirective="show"
             show={showNotificationPopover.value}
             onUpdateShow={(value) => {
               showNotificationPopover.value = value
-              if (value) loadNotifications()
+              if (value) {
+                clearClientNotificationBadge()
+                loadNotifications()
+              }
             }}>
             {{
               trigger: () => (

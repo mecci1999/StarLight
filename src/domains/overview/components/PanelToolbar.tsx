@@ -77,7 +77,7 @@ export default defineComponent({
               ) : (
                 <div class="panel-toolbar__title">{props.panel.name}</div>
               )}
-              {props.capabilities.map((capability) => (
+              {/* {props.capabilities.map((capability) => (
                 <NTag
                   key={capability.key}
                   size="small"
@@ -85,7 +85,7 @@ export default defineComponent({
                   type={capability.available ? (capability.frontendReady ? 'success' : 'warning') : 'default'}>
                   {capability.label}
                 </NTag>
-              ))}
+              ))} */}
             </div>
             <div class="panel-toolbar__description">{props.panel.description}</div>
           </div>

@@ -66,9 +66,10 @@
         "minHeight": 600,
         "skipTaskbar": false,
         "transparent": false,
+        "backgroundColor": "#f6f8fb",
         "visible": false,
         "titleBarStyle": "Overlay",
-        "hiddenTitle": true        
+        "hiddenTitle": true
       },
       {
         "label": "tray",
@@ -94,7 +95,8 @@
       }
     ],
     "security": {
-      "csp": null
+      "csp": null,
+      "capabilities": ["default-capability", "desktop-capability"]
     },
     "macOSPrivateApi": true
   }

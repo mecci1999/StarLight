@@ -145,6 +145,7 @@ export default {
   microAppRollback: `${microAppPrefix}/rollback`,
   microAppUpdateAccess: `${microAppPrefix}/updateAccess`,
   microAppDownload: `${microAppPrefix}/download`,
+  microAppPreviewDownload: `${microAppPrefix}/previewDownload`,
   microAppRuntimeTicket: `${microAppPrefix}/runtime-ticket`,
   microAppExchangeSession: `${microAppPrefix}/exchange-session`,
   microAppScopedApi: `${microAppPrefix}/scoped-api`,

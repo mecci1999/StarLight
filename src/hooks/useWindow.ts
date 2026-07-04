@@ -55,6 +55,7 @@ export const useWindow = () => {
       skipTaskbar: false,
       decorations: !isCompatibility.value,
       transparent: isCompatibility.value,
+      backgroundColor: '#f6f8fb',
       titleBarStyle: 'overlay', // mac覆盖标签栏
       hiddenTitle: true, // mac隐藏标题栏
       visible: false
