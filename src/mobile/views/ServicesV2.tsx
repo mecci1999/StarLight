@@ -55,7 +55,7 @@ export default defineComponent({
             <h2 class="mobile-services-v2__title">服务目录</h2>
             <div class="mobile-services-v2__subtitle">移动端摘要列表</div>
           </div>
-          <NButton size="small" secondary type="primary" onClick={loadServices}>
+          <NButton size="small" secondary type="primary" onClick={() => loadServices()}>
             刷新
           </NButton>
         </div>

@@ -185,7 +185,7 @@ export default defineComponent({
             </div>
           </div>
         ) : status.value === 'scanned' ? (
-          <NFlex vertical align="center" gap={16} class="mobile-scan-login__result">
+          <NFlex vertical align="center" size={16} class="mobile-scan-login__result">
             <div class="mobile-scan-login__status-icon is-scanned">
               <NIcon size={48} color="var(--color-primary-6)">
                 <PhCheckCircle />
@@ -195,7 +195,7 @@ export default defineComponent({
             <span class="mobile-scan-login__status-sub">请在桌面端确认登录</span>
           </NFlex>
         ) : status.value === 'confirmed' ? (
-          <NFlex vertical align="center" gap={16} class="mobile-scan-login__result">
+          <NFlex vertical align="center" size={16} class="mobile-scan-login__result">
             <div class="mobile-scan-login__status-icon is-success">
               <NIcon size={48} color="var(--color-success-6)">
                 <PhCheckCircle />
@@ -205,7 +205,7 @@ export default defineComponent({
             <span class="mobile-scan-login__status-sub">正在跳转...</span>
           </NFlex>
         ) : status.value === 'expired' ? (
-          <NFlex vertical align="center" gap={16} class="mobile-scan-login__result">
+          <NFlex vertical align="center" size={16} class="mobile-scan-login__result">
             <div class="mobile-scan-login__status-icon is-expired">
               <NIcon size={48} color="var(--color-warning-6)">
                 <PhWarningCircle />
@@ -217,7 +217,7 @@ export default defineComponent({
             </NButton>
           </NFlex>
         ) : (
-          <NFlex vertical align="center" gap={16} class="mobile-scan-login__result">
+          <NFlex vertical align="center" size={16} class="mobile-scan-login__result">
             <div class="mobile-scan-login__status-icon is-error">
               <NIcon size={48} color="var(--color-danger-6)">
                 <PhXCircle />

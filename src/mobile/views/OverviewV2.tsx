@@ -502,7 +502,7 @@ export default defineComponent({
     // ── Widget Renderers ──
 
     // ── Alert helpers (mirror desktop OverviewPage) ──
-    const alertLevelMeta = {
+    const alertLevelMeta: Record<string, { label: string; tagType: 'error' | 'warning' | 'info'; color: string }> = {
       critical: { label: '严重', tagType: 'error' as const, color: 'var(--color-danger-6)' },
       warning: { label: '警告', tagType: 'warning' as const, color: 'var(--color-warning-6)' },
       info: { label: '提示', tagType: 'info' as const, color: 'var(--color-primary-6)' }
@@ -655,7 +655,7 @@ export default defineComponent({
                     <svg class="mobile-overview-v2__number-trend-icon" viewBox="0 0 12 12" aria-hidden="true">
                       <path d={data.compare.direction === 'up' ? 'M2 8L6 4L10 8' : 'M2 4L6 8L10 4'} />
                     </svg>
-                    <span>{Math.abs(data.compare.percent ?? 0).toFixed(1)}%</span>
+                    <span>{Math.abs((data.compare as any).percent ?? 0).toFixed(1)}%</span>
                   </div>
                 ) : null}
               </div>
@@ -677,7 +677,7 @@ export default defineComponent({
               }))}
               height="200px"
               variant="monitor"
-              thresholdLines={thresholdLines}
+              {...(thresholdLines?.length ? ({ thresholdLines } as any) : {})}
               loading={loading.value}
             />
           ) : (
