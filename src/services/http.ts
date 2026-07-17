@@ -349,8 +349,13 @@ function shouldRetry(attempt: number, maxRetries: number, abort?: AbortControlle
  */
 const shouldBlockRequest = async (url: string) => {
   try {
-    const currentWindow = WebviewWindow.getCurrent()
-    const isLoginWindow = currentWindow.label === 'login'
+    let isLoginWindow = false
+    try {
+      const currentWindow = WebviewWindow.getCurrent()
+      isLoginWindow = currentWindow.label === 'login'
+    } catch {
+      isLoginWindow = false
+    }
 
     // 如果不是登录窗口,不阻止请求
     if (!isLoginWindow) return false

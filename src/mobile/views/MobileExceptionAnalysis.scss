@@ -1,0 +1,329 @@
+.mobile-exception-analysis {
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: clamp(12px, 4vw, 20px) clamp(12px, 4vw, 16px);
+  background: var(--color-bg-1);
+
+  // ── Header ──────────────────────────────
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--spacing-4);
+  }
+
+  &__title {
+    margin: 0;
+    color: var(--color-text-1);
+    font-size: var(--font-size-title-2);
+    font-weight: var(--font-weight-medium);
+  }
+
+  // ── Time Range Filter ───────────────────
+
+  &__time-filter {
+    display: flex;
+    gap: var(--spacing-2);
+    margin-bottom: var(--spacing-3);
+  }
+
+  &__time-chip {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 48px;
+    height: 32px;
+    padding: 0 var(--spacing-3);
+    border: 1px solid var(--color-border-2);
+    border-radius: var(--radius-full);
+    background: var(--color-fill-1);
+    color: var(--color-text-2);
+    font-size: var(--font-size-caption);
+    font-weight: var(--font-weight-medium);
+    cursor: pointer;
+    transition: all var(--duration-fast) var(--ease-default);
+
+    &--active {
+      border-color: var(--color-primary);
+      background: var(--color-primary);
+      color: #fff;
+    }
+
+    &:active {
+      transform: scale(0.96);
+    }
+  }
+
+  // ── Severity Filter Chips ───────────────
+
+  &__severity-filter {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-2);
+    margin-bottom: var(--spacing-4);
+  }
+
+  &__severity-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-1);
+    height: 32px;
+    padding: 0 var(--spacing-3);
+    border: 1px solid var(--color-border-2);
+    border-radius: var(--radius-full);
+    background: var(--color-fill-1);
+    cursor: pointer;
+    transition: all var(--duration-fast) var(--ease-default);
+
+    &--critical {
+      border-color: rgba(var(--color-error-rgb), 0.3);
+      color: var(--color-error);
+    }
+
+    &--error {
+      border-color: rgba(var(--color-error-rgb), 0.25);
+      color: var(--color-error);
+    }
+
+    &--warning {
+      border-color: rgba(var(--color-warning-rgb), 0.3);
+      color: var(--color-warning);
+    }
+
+    &--info {
+      border-color: rgba(var(--color-primary-rgb), 0.3);
+      color: var(--color-primary);
+    }
+
+    &--inactive {
+      opacity: 0.35;
+      filter: grayscale(0.6);
+    }
+
+    &:active {
+      transform: scale(0.96);
+    }
+  }
+
+  &__severity-chip-label {
+    font-size: var(--font-size-caption);
+    font-weight: var(--font-weight-medium);
+  }
+
+  &__severity-chip-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 20px;
+    height: 18px;
+    padding: 0 5px;
+    border-radius: var(--radius-full);
+    background: var(--color-fill-2);
+    color: var(--color-text-2);
+    font-size: 11px;
+    font-weight: var(--font-weight-bold);
+    line-height: 1;
+  }
+
+  // ── States ──────────────────────────────
+
+  &__loading {
+    display: flex;
+    justify-content: center;
+    padding: var(--spacing-10) 0;
+  }
+
+  &__error {
+    margin-top: var(--spacing-8);
+  }
+
+  &__empty-state {
+    display: flex;
+    justify-content: center;
+    padding: var(--spacing-10) 0;
+  }
+
+  // ── Severity Groups ─────────────────────
+
+  &__severity-group {
+    margin-bottom: var(--spacing-4);
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+  }
+
+  &__severity-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--spacing-1) 0;
+    margin-bottom: var(--spacing-2);
+
+    &--critical {
+      color: var(--color-error);
+    }
+
+    &--error {
+      color: var(--color-error);
+    }
+
+    &--warning {
+      color: var(--color-warning);
+    }
+
+    &--info {
+      color: var(--color-primary);
+    }
+  }
+
+  &__severity-header-label {
+    font-size: var(--font-size-body-2);
+    font-weight: var(--font-weight-bold);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  &__severity-header-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 24px;
+    height: 22px;
+    padding: 0 6px;
+    border-radius: var(--radius-full);
+    background: var(--color-fill-2);
+    color: var(--color-text-2);
+    font-size: var(--font-size-caption);
+    font-weight: var(--font-weight-bold);
+    line-height: 1;
+  }
+
+  // ── List ────────────────────────────────
+
+  &__list {
+    display: flex;
+    flex-direction: column;
+  }
+
+  &__card-wrapper {
+    cursor: pointer;
+    transition: transform var(--duration-fast) var(--ease-default);
+
+    &:active {
+      transform: scale(0.99);
+    }
+  }
+
+  &__list-card {
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+    cursor: pointer;
+    transition: box-shadow var(--duration-fast) var(--ease-default);
+    margin-bottom: var(--spacing-2);
+
+    &:active {
+      box-shadow: var(--shadow-md);
+    }
+  }
+
+  &__card-header {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--spacing-2);
+  }
+
+  &__card-main {
+    flex: 1;
+    min-width: 0;
+  }
+
+  &__card-message {
+    color: var(--color-text-1);
+    font-size: var(--font-size-body-2);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.5;
+    word-break: break-all;
+    margin-bottom: var(--spacing-1);
+  }
+
+  &__card-meta {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--spacing-2);
+  }
+
+  &__card-count {
+    color: var(--color-text-3);
+    font-size: var(--font-size-caption);
+  }
+
+  &__card-time {
+    color: var(--color-text-3);
+    font-size: var(--font-size-caption);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__card-expand {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    padding-top: var(--spacing-1);
+    color: var(--color-text-3);
+  }
+
+  // ── Detail (expanded) ───────────────────
+
+  &__card-detail {
+    margin-top: var(--spacing-3);
+    padding-top: var(--spacing-3);
+    border-top: 1px solid var(--color-border-1);
+  }
+
+  &__detail-section {
+    margin-bottom: var(--spacing-3);
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+  }
+
+  &__detail-title {
+    color: var(--color-text-3);
+    font-size: var(--font-size-caption);
+    font-weight: var(--font-weight-medium);
+    margin-bottom: var(--spacing-1);
+  }
+
+  &__detail-content {
+    color: var(--color-text-1);
+    font-size: var(--font-size-body-1);
+    line-height: 1.6;
+    word-break: break-all;
+  }
+
+  &__detail-stack {
+    margin: 0;
+    padding: var(--spacing-2);
+    background: var(--color-fill-1);
+    border-radius: var(--radius-md);
+    color: var(--color-text-2);
+    font-size: var(--font-size-caption);
+    line-height: 1.5;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+
+  &__detail-meta {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-1);
+    color: var(--color-text-2);
+    font-size: var(--font-size-body-1);
+  }
+}

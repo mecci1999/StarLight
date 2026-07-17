@@ -29,6 +29,9 @@
     "tauri:build:debug": "tauri build --debug",
     "========= 启动StarLight ios 程序 =========": "",
     "tauri:ios:dev": "tauri ios dev",
+    "ios:sim": "bash scripts/ios-sim-build.sh",
+    "ios:deploy": "node scripts/ios-deploy.mjs deploy",
+    "ios:check": "node scripts/ios-deploy.mjs status",
     "========= 启动StarLight android 程序 =========": "",
     "tauri:android:dev": "tauri android dev",
     "========= 初始化 ios =========": "",
@@ -58,6 +61,7 @@
   },
   "dependencies": {
     "@fingerprintjs/fingerprintjs": "^4.6.2",
+    "@phosphor-icons/vue": "^2.2.1",
     "@tauri-apps/api": "2.4.0",
     "@tauri-apps/plugin-autostart": "2.2.0",
     "@tauri-apps/plugin-clipboard-manager": "2.2.2",

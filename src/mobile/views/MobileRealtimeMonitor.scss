@@ -1,0 +1,171 @@
+.mobile-realtime-monitor {
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: clamp(12px, 4vw, 20px) clamp(12px, 4vw, 16px);
+  background: var(--color-bg-1);
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--spacing-3);
+  }
+
+  &__title {
+    margin: 0;
+    color: var(--color-text-1);
+    font-size: var(--font-size-title-2);
+    font-weight: var(--font-weight-medium);
+  }
+
+  &__header-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2);
+  }
+
+  &__service-select {
+    margin-bottom: var(--spacing-3);
+  }
+
+  &__time-range {
+    display: flex;
+    gap: var(--spacing-2);
+    margin-bottom: var(--spacing-3);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
+  }
+
+  &__loading {
+    display: flex;
+    justify-content: center;
+    padding: var(--spacing-10) 0;
+  }
+
+  &__empty-state {
+    display: flex;
+    justify-content: center;
+    padding: var(--spacing-10) 0;
+  }
+
+  &__gauges {
+    margin-bottom: var(--spacing-3);
+  }
+
+  &__gauge-card {
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+  }
+
+  &__gauge-card-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  &__gauge-label {
+    color: var(--color-text-3);
+    font-size: var(--font-size-body-1);
+    font-weight: var(--font-weight-medium);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  &__gauge-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100px;
+    height: 100px;
+    margin: 12px auto;
+    color: var(--color-text-3);
+  }
+
+  &__gauge-value {
+    color: var(--color-text-1);
+    font-family: var(--font-family-mono, 'SF Mono', 'Fira Code', monospace);
+    font-size: clamp(14px, 4vw, 18px);
+    font-weight: var(--font-weight-bold);
+  }
+
+  &__stats {
+    margin-bottom: var(--spacing-3);
+  }
+
+  &__stat-card {
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+
+    :deep(.n-statistic) {
+      text-align: center;
+    }
+
+    :deep(.n-statistic__label) {
+      color: var(--color-text-3);
+      font-size: var(--font-size-body-1);
+    }
+
+    :deep(.n-statistic-content) {
+      color: var(--color-text-1);
+      font-size: clamp(16px, 4.5vw, 22px);
+      font-weight: var(--font-weight-semibold);
+    }
+  }
+
+  &__stat-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: clamp(28px, 7vw, 36px);
+    height: clamp(28px, 7vw, 36px);
+    margin: 0 auto var(--spacing-1);
+    border-radius: var(--radius-md);
+
+    &--qps {
+      color: var(--color-primary-6);
+      background: var(--color-primary-1);
+    }
+
+    &--latency {
+      color: var(--color-warning-6);
+      background: var(--color-warning-1);
+    }
+
+    &--error {
+      color: var(--color-danger-6);
+      background: var(--color-danger-1);
+    }
+
+    &--connections {
+      color: var(--color-success-6);
+      background: var(--color-success-1);
+    }
+  }
+
+  &__charts {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-3);
+    margin-bottom: var(--spacing-3);
+  }
+
+  &__chart-card {
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+  }
+
+  &__system-card {
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+  }
+
+  &__system-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-2);
+  }
+}

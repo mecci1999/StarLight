@@ -82,7 +82,7 @@ export function resolveAuthLandingRoute(isDesktop: boolean, user?: Partial<UserI
     return isAdmin ? 'home' : isOnboardingCompleted ? 'home' : 'onboarding'
   }
 
-  return isAdmin ? 'mobile-home' : isOnboardingCompleted ? 'mobile-home' : 'mobile-onboarding-notice'
+  return isAdmin ? 'mobile-overview-v2' : isOnboardingCompleted ? 'mobile-overview-v2' : 'mobile-onboarding-notice'
 }
 
 export function getPreferredMetricsDatasetScope(user?: Partial<UserInfoType> | null): MetricsDatasetScope {

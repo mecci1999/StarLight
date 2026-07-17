@@ -1,0 +1,57 @@
+.mobile-header-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  min-height: 48px;
+  box-sizing: border-box;
+  margin-bottom: var(--spacing-4);
+
+  &__avatar-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    cursor: pointer;
+    overflow: hidden;
+  }
+
+  &__avatar-fallback {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--color-primary-6);
+    color: #fff;
+    font-size: var(--font-size-body-3, 14px);
+    font-weight: var(--font-weight-semibold);
+  }
+
+  &__search {
+    flex: 1;
+    min-width: 0;
+
+    :deep(.n-input) {
+      border-radius: var(--radius-full);
+      background: var(--color-fill-1);
+
+      .n-input__input-el {
+        font-size: var(--font-size-body-2, 13px);
+      }
+    }
+  }
+
+  &__actions {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-1);
+    flex-shrink: 0;
+  }
+}

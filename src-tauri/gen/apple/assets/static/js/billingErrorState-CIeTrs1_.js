@@ -1,0 +1,1 @@
+const e=["用户没有有效订阅","用户当前没有订阅","用户未认证","管理员未认证","Service 'subscription' is not registered yet","Service 'subscription-billing' is not registered yet"],s=(s,i)=>{(s=>{const i=s instanceof Error?s.message:String(s||"");e.some(e=>i.includes(e))})(i)};export{s as r};

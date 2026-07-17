@@ -79,7 +79,7 @@ describe('authSession', () => {
 
   it('routes admins and non-admins to the correct landing pages', () => {
     expect(resolveAuthLandingRoute(true, { isAdmin: true })).toBe('home')
-    expect(resolveAuthLandingRoute(false, { isAdmin: true })).toBe('mobile-home')
+    expect(resolveAuthLandingRoute(false, { isAdmin: true })).toBe('mobile-overview-v2')
 
     expect(resolveAuthLandingRoute(true, { isAdmin: false, isOnboardingCompleted: false })).toBe('onboarding')
     expect(resolveAuthLandingRoute(true, { isAdmin: false, isOnboardingCompleted: true })).toBe('home')

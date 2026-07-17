@@ -5,9 +5,9 @@
   "identifier": "com.starlight-app.app",
   "build": {
     "beforeDevCommand": "pnpm dev",
-    "beforeBuildCommand": "pnpm build",
-    "frontendDist": "../dist",
-    "devUrl": "http://127.0.0.1:6130"
+    "beforeBuildCommand": "echo skip",
+    "devUrl": "http://127.0.0.1:6130",
+    "frontendDist": "../dist"
   },
   "bundle": {
     "resources": [

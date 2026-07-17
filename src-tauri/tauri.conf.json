@@ -5,7 +5,7 @@
   "identifier": "com.starlight.pc",
   "build": {
     "beforeDevCommand": "pnpm dev",
-    "devUrl": "http://127.0.0.1:6130",
+    "devUrl": "http://192.168.166.157:6130",
     "beforeBuildCommand": "pnpm build",
     "frontendDist": "../dist"
   },

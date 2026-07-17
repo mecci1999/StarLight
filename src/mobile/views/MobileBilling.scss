@@ -1,0 +1,319 @@
+.mobile-billing {
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: clamp(12px, 4vw, 20px) clamp(12px, 4vw, 16px);
+  background: var(--color-bg-1);
+
+  // ── Header ──────────────────────────────
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--spacing-3);
+  }
+
+  &__title {
+    margin: 0;
+    color: var(--color-text-1);
+    font-size: var(--font-size-title-2);
+    font-weight: var(--font-weight-medium);
+  }
+
+  &__subtitle {
+    margin-top: var(--spacing-1);
+    color: var(--color-text-3);
+    font-size: var(--font-size-body-1);
+  }
+
+  // ── Tab bar ─────────────────────────────
+
+  &__tab-bar {
+    display: flex;
+    gap: var(--spacing-1);
+    margin-bottom: var(--spacing-3);
+    padding: var(--spacing-1);
+    background: var(--color-fill-2);
+    border-radius: var(--radius-md);
+  }
+
+  &__tab {
+    display: flex;
+    flex: 1;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-1);
+    padding: var(--spacing-2) var(--spacing-3);
+    border-radius: var(--radius-sm);
+    color: var(--color-text-3);
+    font-size: var(--font-size-body-2);
+    font-weight: var(--font-weight-medium);
+    cursor: pointer;
+    transition:
+      background var(--duration-fast) var(--ease-default),
+      color var(--duration-fast) var(--ease-default);
+
+    &--active {
+      background: var(--color-bg-1);
+      color: var(--color-primary-6);
+      box-shadow: var(--shadow-sm);
+    }
+  }
+
+  // ── Content ─────────────────────────────
+
+  &__content {
+    display: flex;
+    flex-direction: column;
+  }
+
+  // ── States ──────────────────────────────
+
+  &__loading {
+    display: flex;
+    justify-content: center;
+    padding: var(--spacing-10) 0;
+  }
+
+  &__error-state {
+    display: flex;
+    justify-content: center;
+    padding: var(--spacing-8) 0;
+  }
+
+  &__empty-state {
+    display: flex;
+    justify-content: center;
+    padding: var(--spacing-10) 0;
+  }
+
+  // ── Plans - card list ───────────────────
+
+  &__plans-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-3);
+  }
+
+  &__plan-card {
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--color-border-1);
+    box-shadow: var(--shadow-sm);
+    transition:
+      border-color var(--duration-fast) var(--ease-default),
+      box-shadow var(--duration-fast) var(--ease-default);
+
+    &--current {
+      border-color: var(--color-primary-6);
+      box-shadow: 0 0 0 1px var(--color-primary-6);
+    }
+  }
+
+  &__plan-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-3);
+    margin-bottom: var(--spacing-3);
+    padding-bottom: var(--spacing-3);
+    border-bottom: 1px solid var(--color-border-1);
+  }
+
+  &__plan-name-row {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2);
+    min-width: 0;
+  }
+
+  &__plan-name {
+    color: var(--color-text-1);
+    font-size: var(--font-size-title-1);
+    font-weight: var(--font-weight-semibold);
+  }
+
+  &__plan-price {
+    display: flex;
+    align-items: baseline;
+    flex-shrink: 0;
+  }
+
+  &__plan-price-value {
+    color: var(--color-text-1);
+    font-size: var(--font-size-title-2);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: -0.02em;
+  }
+
+  &__plan-price-period {
+    margin-left: 2px;
+    color: var(--color-text-3);
+    font-size: var(--font-size-body-1);
+  }
+
+  &__plan-features {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2);
+    margin-bottom: var(--spacing-3);
+  }
+
+  &__plan-feature {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-2);
+    color: var(--color-text-2);
+    font-size: var(--font-size-body-2);
+  }
+
+  &__plan-feature-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--color-primary-5);
+    flex-shrink: 0;
+  }
+
+  &__plan-status {
+    padding-top: var(--spacing-2);
+    border-top: 1px solid var(--color-border-1);
+  }
+
+  // ── Payment - admin summary ─────────────
+
+  &__admin-summary {
+    margin-bottom: var(--spacing-3);
+  }
+
+  &__summary-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--spacing-2);
+  }
+
+  &__summary-card {
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+
+    :deep(.n-statistic__label) {
+      font-size: var(--font-size-caption);
+      color: var(--color-text-3);
+    }
+
+    :deep(.n-statistic-content) {
+      font-size: var(--font-size-title-3);
+      font-weight: var(--font-weight-semibold);
+    }
+  }
+
+  // ── Payment - history list ──────────────
+
+  &__payment-section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-3);
+  }
+
+  &__payment-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2);
+  }
+
+  &__payment-card {
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--color-border-1);
+    box-shadow: var(--shadow-sm);
+  }
+
+  &__payment-card-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--spacing-2);
+    margin-bottom: var(--spacing-2);
+  }
+
+  &__payment-card-desc {
+    flex: 1;
+    color: var(--color-text-1);
+    font-size: var(--font-size-body-2);
+    font-weight: var(--font-weight-medium);
+    line-height: 1.4;
+    word-break: break-all;
+  }
+
+  &__payment-card-body {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  &__payment-card-amount {
+    color: var(--color-text-1);
+    font-size: var(--font-size-title-2);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: -0.02em;
+  }
+
+  &__payment-card-date {
+    color: var(--color-text-3);
+    font-size: var(--font-size-body-1);
+  }
+
+  // ── Usage - quotas ──────────────────────
+
+  &__usage-section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-3);
+  }
+
+  &__usage-plan-badge {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-3);
+    padding: var(--spacing-2) var(--spacing-3);
+    background: var(--color-fill-2);
+    border-radius: var(--radius-md);
+  }
+
+  &__usage-expiry {
+    color: var(--color-text-3);
+    font-size: var(--font-size-caption);
+  }
+
+  &__usage-quotas {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-3);
+  }
+
+  &__usage-quota-card {
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--color-border-1);
+    box-shadow: var(--shadow-sm);
+  }
+
+  &__usage-quota-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: var(--spacing-2);
+  }
+
+  &__usage-quota-label {
+    color: var(--color-text-2);
+    font-size: var(--font-size-body-2);
+    font-weight: var(--font-weight-medium);
+  }
+
+  &__usage-quota-value {
+    margin-bottom: var(--spacing-2);
+    color: var(--color-text-1);
+    font-size: var(--font-size-title-3);
+    font-weight: var(--font-weight-semibold);
+    letter-spacing: -0.02em;
+  }
+}

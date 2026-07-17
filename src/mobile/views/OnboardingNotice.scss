@@ -1,0 +1,20 @@
+.mobile-onboarding-notice {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: clamp(36px, 12vw, 52px) clamp(24px, 8vw, 36px);
+  background: var(--color-fill-1);
+
+  &__footer {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-3);
+  }
+
+  &__hint {
+    font-size: var(--font-size-body-1);
+    color: var(--color-text-3);
+  }
+}

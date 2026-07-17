@@ -1,6 +1,6 @@
 import { defineComponent, ref, onMounted } from 'vue'
 import { NCard, NButton, NEmpty, NSpin, NTag } from 'naive-ui'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { fetchCatalogServices } from '@/api'
 
 import type { ServiceItem } from '@/types/monitor'
@@ -10,13 +10,16 @@ export default defineComponent({
   name: 'MobileServicesV2',
   setup() {
     const router = useRouter()
+    const route = useRoute()
     const loading = ref(false)
     const services = ref<ServiceItem[]>([])
 
-    const loadServices = async () => {
+    const loadServices = async (keyword?: string) => {
       loading.value = true
       try {
-        const res = await fetchCatalogServices({ page: 1, pageSize: 50 })
+        const params: any = { page: 1, pageSize: 50, scope: 'system' }
+        if (keyword) params.keyword = keyword
+        const res = await fetchCatalogServices(params)
         const items = res?.items || []
         services.value = items.map((item: any) => ({
           id: item.identity?.id,
@@ -43,7 +46,7 @@ export default defineComponent({
       }
     }
 
-    onMounted(loadServices)
+    onMounted(() => loadServices(route.query.keyword as string))
 
     return () => (
       <div class="mobile-services-v2">

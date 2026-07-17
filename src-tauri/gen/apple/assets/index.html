@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/logo.svg" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no viewport-fit=cover" />
+    <title>星光</title>
+
+    <style>
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+      }
+      #app {
+        min-height: 100%;
+        margin: 0;
+        background: #f6f8fb;
+      }
+      .n-message-container {
+        top: calc(env(safe-area-inset-top, 44px) + 16px) !important;
+      }
+    </style>
+    <script>
+      window.__BUILD_TIME__ = '2026-07-10T11:40:00';
+      window.addEventListener('load', function() {
+        console.log('[INDEX] load event fired');
+        console.log('[INDEX] html height:', getComputedStyle(document.documentElement).height);
+        console.log('[INDEX] body height:', getComputedStyle(document.body).height);
+        console.log('[INDEX] #app height:', getComputedStyle(document.getElementById('app')).height);
+        console.log('[INDEX] viewport:', window.innerWidth, 'x', window.innerHeight);
+        console.log('[INDEX] location:', location.href);
+      });
+    </script>
+
+    <!--引入iconpark图标库-->
+    <script defer src="/icon.js"></script>
+    <script type="module" crossorigin src="/static/js/index-BbGtXUV-.js"></script>
+    <link rel="modulepreload" crossorigin href="/static/js/invariable-Dbw4irbL.js">
+    <link rel="stylesheet" crossorigin href="/static/css/invariable-D0fh3uF9.css">
+    <link rel="stylesheet" crossorigin href="/static/css/index-PVD-J7IE.css">
+  </head>
+
+  <body>
+    <div id="app"></div>
+  </body>
+</html>

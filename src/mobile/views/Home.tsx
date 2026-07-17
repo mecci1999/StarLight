@@ -1,19 +1,28 @@
 import { defineComponent, ref, onMounted } from 'vue'
-import { NCard, NStatistic, NGrid, NGridItem, NIcon, NList, NListItem, NThing, NTag, NSpace, NButton } from 'naive-ui'
-import { PulseOutline, TimeOutline, ServerOutline, WarningOutline } from '@vicons/ionicons5'
+import {
+  NCard,
+  NStatistic,
+  NGrid,
+  NGridItem,
+  NIcon,
+  NList,
+  NListItem,
+  NThing,
+  NTag,
+  NSpin,
+  NEmpty,
+  NButton
+} from 'naive-ui'
+import { PhActivity, PhClock, PhWarning } from '@phosphor-icons/vue'
 import { fetchAlerts, fetchOverviewSummary, type MetricsDatasetScope } from '@/api'
 import { getPreferredMetricsDatasetScope } from '@/services/authSession'
+import './Home.scss'
 
 export default defineComponent({
   name: 'MobileHome',
   setup() {
     const datasetScope = ref<MetricsDatasetScope>(getPreferredMetricsDatasetScope())
-    const stats = ref<any>({
-      totalRequests: null,
-      p95Latency: null,
-      activeInstances: null,
-      alerts: []
-    })
+    const stats = ref<any>({ totalRequests: null, p95Latency: null, alerts: [] })
     const loading = ref(true)
     const loadError = ref(false)
 
@@ -28,115 +37,93 @@ export default defineComponent({
         stats.value = {
           totalRequests: totals.totalRequests ?? null,
           p95Latency: totals.p95Latency ?? null,
-          activeInstances: null,
           alerts: Array.isArray(alertsRes) ? alertsRes.slice(0, 5) : []
         }
         loadError.value = false
-      } catch (error) {
-        console.error('Failed to load mobile home data:', error)
-        stats.value = {
-          totalRequests: null,
-          p95Latency: null,
-          activeInstances: null,
-          alerts: []
-        }
+      } catch {
         loadError.value = true
       } finally {
         loading.value = false
       }
     }
 
-    const displayMetric = (value: number | null | undefined, suffix = '') =>
-      typeof value === 'number' ? `${value}${suffix}` : '未知'
+    const displayMetric = (v: number | null | undefined, s = '') => (typeof v === 'number' ? `${v}${s}` : '--')
 
-    onMounted(() => {
-      loadData()
-    })
+    onMounted(() => loadData())
 
     return () => (
-      <div style={{ padding: '16px', backgroundColor: 'var(--color-bg-1)', minHeight: '100vh' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-          <h2 style={{ margin: '0', fontSize: '20px', color: 'var(--color-text-1)' }}>星光移动端</h2>
-          <NSpace>
-            <NTag type="info" size="small" bordered={false}>
-              实时视图
-            </NTag>
-          </NSpace>
+      <div class="mobile-home">
+        <div class="mobile-home__header">
+          <h1 class="mobile-home__title">星光概览</h1>
+          <NTag type="info" size="small" bordered={false}>
+            实时视图
+          </NTag>
         </div>
 
-        <div style={{ marginBottom: '16px' }}>
-          <NSpace>
-            <NButton type="primary" secondary onClick={() => window.location.assign('/mobile/overview-v2')}>
-              新版概览
+        {loading.value ? (
+          <div class="mobile-home__loading">
+            <NSpin size="large" />
+          </div>
+        ) : loadError.value ? (
+          <div class="mobile-home__error">
+            <NEmpty description="数据加载失败" />
+            <NButton size="small" type="primary" onClick={loadData}>
+              重试
             </NButton>
-            <NButton secondary onClick={() => window.location.assign('/mobile/services-v2')}>
-              新版服务
-            </NButton>
-          </NSpace>
-        </div>
+          </div>
+        ) : (
+          <>
+            <NGrid cols={2} xGap={12} yGap={12} class="mobile-home__metrics">
+              <NGridItem>
+                <NCard size="small" bordered={false} class="mobile-home__metric-card">
+                  <div class="mobile-home__metric-icon mobile-home__metric-icon--blue">
+                    <NIcon size={20}>
+                      <PhActivity />
+                    </NIcon>
+                  </div>
+                  <NStatistic label="请求总量">{displayMetric(stats.value.totalRequests)}</NStatistic>
+                </NCard>
+              </NGridItem>
+              <NGridItem>
+                <NCard size="small" bordered={false} class="mobile-home__metric-card">
+                  <div class="mobile-home__metric-icon mobile-home__metric-icon--orange">
+                    <NIcon size={20}>
+                      <PhClock />
+                    </NIcon>
+                  </div>
+                  <NStatistic label="P95 延迟">{displayMetric(stats.value.p95Latency, 'ms')}</NStatistic>
+                </NCard>
+              </NGridItem>
+            </NGrid>
 
-        {loadError.value ? (
-          <NCard size="small" style={{ marginBottom: '16px' }}>
-            <div style={{ color: 'var(--color-text-3)' }}>移动端数据暂时不可用，请稍后重试。</div>
-          </NCard>
-        ) : null}
-
-        <NGrid cols={2} xGap={12} yGap={12}>
-          <NGridItem>
-            <NCard size="small">
-              <NStatistic label="请求总量">
-                {{
-                  prefix: () => <NIcon component={PulseOutline} color="#165dff" />,
-                  default: () => displayMetric(stats.value.totalRequests)
-                }}
-              </NStatistic>
+            <div class="mobile-home__section-title">活跃告警</div>
+            <NCard size="small" bordered={false} class="mobile-home__alerts-card">
+              {stats.value.alerts?.length > 0 ? (
+                <NList>
+                  {stats.value.alerts.map((alert: any) => (
+                    <NListItem key={alert.id}>
+                      <NThing title={alert.service}>
+                        {{
+                          'header-extra': () => (
+                            <NTag type={alert.level === 'critical' ? 'error' : 'warning'} size="small" bordered={false}>
+                              {alert.level}
+                            </NTag>
+                          ),
+                          description: () => alert.message,
+                          avatar: () => (
+                            <div class={['mobile-home__alert-dot', `mobile-home__alert-dot--${alert.level}`]} />
+                          )
+                        }}
+                      </NThing>
+                    </NListItem>
+                  ))}
+                </NList>
+              ) : (
+                <NEmpty description="暂无活跃告警" />
+              )}
             </NCard>
-          </NGridItem>
-          <NGridItem>
-            <NCard size="small">
-              <NStatistic label="P95 延迟 (ms)">
-                {{
-                  prefix: () => <NIcon component={TimeOutline} color="#ff7d00" />,
-                  default: () => displayMetric(stats.value.p95Latency, 'ms')
-                }}
-              </NStatistic>
-            </NCard>
-          </NGridItem>
-          <NGridItem span={2}>
-            <NCard size="small">
-              <NStatistic label="Active Instances">
-                {{
-                  prefix: () => <NIcon component={ServerOutline} color="#00b42a" />,
-                  default: () => displayMetric(stats.value.activeInstances)
-                }}
-              </NStatistic>
-            </NCard>
-          </NGridItem>
-        </NGrid>
-
-        <h3 style={{ margin: '24px 0 12px 0', fontSize: '16px', color: '#666' }}>Active Alerts</h3>
-
-        <NCard size="small">
-          <NList>
-            {stats.value.alerts?.map((alert: any) => (
-              <NListItem key={alert.id}>
-                <NThing title={alert.service}>
-                  {{
-                    'header-extra': () => (
-                      <NTag type={alert.level === 'critical' ? 'error' : 'warning'} size="small">
-                        {alert.level}
-                      </NTag>
-                    ),
-                    description: () => alert.message,
-                    avatar: () => (
-                      <NIcon component={WarningOutline} color={alert.level === 'critical' ? '#d03050' : '#f0a020'} />
-                    )
-                  }}
-                </NThing>
-              </NListItem>
-            ))}
-          </NList>
-        </NCard>
+          </>
+        )}
       </div>
     )
   }

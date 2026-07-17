@@ -38,35 +38,67 @@ const routes: Array<RouteRecordRaw> = [
     component: () => import('@/domains/admin/pages/OnboardingPage')
   },
   {
-    path: '/mobile/onboarding-notice',
-    name: 'mobile-onboarding-notice',
-    component: () => import('@/mobile/views/OnboardingNotice')
+    path: '/mobile',
+    component: () => import('@/mobile/layout/MobileLayout'),
+    children: [
+      { path: 'overview-v2', name: 'mobile-overview-v2', component: () => import('@/mobile/views/OverviewV2') },
+      {
+        path: 'onboarding-notice',
+        name: 'mobile-onboarding-notice',
+        component: () => import('@/mobile/views/OnboardingNotice')
+      },
+      { path: 'services-v2', name: 'mobile-services-v2', component: () => import('@/mobile/views/ServicesV2') },
+      {
+        path: 'service-detail-v2/:serviceId',
+        name: 'mobile-service-detail-v2',
+        component: () => import('@/mobile/views/ServiceDetailV2')
+      },
+      {
+        path: 'alerts-inbox',
+        name: 'mobile-alerts-inbox',
+        component: () => import('@/mobile/views/MobileAlertsInbox')
+      },
+      { path: 'alert-rules', name: 'mobile-alert-rules', component: () => import('@/mobile/views/MobileAlertRules') },
+      {
+        path: 'notifications',
+        name: 'mobile-notifications',
+        component: () => import('@/mobile/views/MobileNotificationCenter')
+      },
+      { path: 'log-center', name: 'mobile-log-center', component: () => import('@/mobile/views/MobileLogCenter') },
+      {
+        path: 'exception-analysis',
+        name: 'mobile-exception-analysis',
+        component: () => import('@/mobile/views/MobileExceptionAnalysis')
+      },
+      {
+        path: 'trace-explorer',
+        name: 'mobile-trace-explorer',
+        component: () => import('@/mobile/views/MobileTraceExplorer')
+      },
+      {
+        path: 'metrics-explorer',
+        name: 'mobile-metrics-explorer',
+        component: () => import('@/mobile/views/MobileMetricsExplorer')
+      },
+      {
+        path: 'instance-monitor',
+        name: 'mobile-instance-monitor',
+        component: () => import('@/mobile/views/MobileInstanceMonitor')
+      },
+      { path: 'topology', name: 'mobile-topology', component: () => import('@/mobile/views/MobileTopology') },
+      {
+        path: 'realtime-monitor',
+        name: 'mobile-realtime-monitor',
+        component: () => import('@/mobile/views/MobileRealtimeMonitor')
+      },
+      { path: 'settings', name: 'mobile-settings', component: () => import('@/mobile/views/MobileSettings') },
+      { path: 'profile', name: 'mobile-profile', component: () => import('@/mobile/views/MobileProfile') },
+      { path: 'billing', name: 'mobile-billing', component: () => import('@/mobile/views/MobileBilling') },
+      { path: 'ingestion', name: 'mobile-ingestion', component: () => import('@/mobile/views/MobileIngestion') }
+    ]
   },
-  {
-    path: '/mobile/overview-v2',
-    name: 'mobile-overview-v2',
-    component: () => import('@/mobile/views/OverviewV2')
-  },
-  {
-    path: '/mobile/services-v2',
-    name: 'mobile-services-v2',
-    component: () => import('@/mobile/views/ServicesV2')
-  },
-  {
-    path: '/mobile/service-detail-v2/:serviceId',
-    name: 'mobile-service-detail-v2',
-    component: () => import('@/mobile/views/ServiceDetailV2')
-  },
-  {
-    path: '/mobile/home',
-    name: 'mobile-home',
-    component: () => import('@/mobile/views/Home')
-  },
-  {
-    path: '/mobile/login',
-    name: 'mobile-login',
-    component: () => import('@/views/loginWindow/index')
-  },
+  { path: '/mobile/login', name: 'mobile-login', component: () => import('@/mobile/views/Login') },
+  { path: '/mobile/scan-login', name: 'mobile-scan-login', component: () => import('@/mobile/views/MobileScanLogin') },
   {
     path: '/home',
     name: 'home',

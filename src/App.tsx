@@ -22,7 +22,7 @@ export default defineComponent({
       try {
         return type() === 'windows' || type() === 'linux' || type() === 'macos'
       } catch (error) {
-        return true
+        return false
       }
     })
 
@@ -84,6 +84,11 @@ export default defineComponent({
     }
 
     onMounted(async () => {
+      console.log('[App] mounted, location:', location.href, 'pathname:', location.pathname)
+      console.log('[App] viewport:', window.innerWidth, 'x', window.innerHeight)
+      console.log('[App] html height:', getComputedStyle(document.documentElement).height)
+      console.log('[App] body height:', getComputedStyle(document.body).height)
+      console.log('[App] #app height:', getComputedStyle(document.getElementById('app')!).height)
       // 判断是否是桌面端，桌面端需要调整样式
       isDesktop.value && (await import('@/styles/desktop.scss'))
       // 判断localStorage中是否有设置主题

@@ -10,13 +10,30 @@
 
     <style>
       html,
-      body,
+      body {
+        height: 100%;
+        margin: 0;
+      }
       #app {
         min-height: 100%;
         margin: 0;
         background: #f6f8fb;
       }
+      .n-message-container {
+        top: calc(env(safe-area-inset-top, 44px) + 16px) !important;
+      }
     </style>
+    <script>
+      window.__BUILD_TIME__ = '2026-07-10T11:40:00';
+      window.addEventListener('load', function() {
+        console.log('[INDEX] load event fired');
+        console.log('[INDEX] html height:', getComputedStyle(document.documentElement).height);
+        console.log('[INDEX] body height:', getComputedStyle(document.body).height);
+        console.log('[INDEX] #app height:', getComputedStyle(document.getElementById('app')).height);
+        console.log('[INDEX] viewport:', window.innerWidth, 'x', window.innerHeight);
+        console.log('[INDEX] location:', location.href);
+      });
+    </script>
 
     <!--引入iconpark图标库-->
     <script defer src="/icon.js"></script>
