@@ -1,9 +1,11 @@
-import { defineComponent, ref, onMounted, computed, watch, h } from 'vue'
-import { NCard, NTag, NButton, NInput, NSpin, NEmpty, NIcon, useMessage } from 'naive-ui'
+import { defineComponent, ref, onActivated, computed, watch, h } from 'vue'
+import { MobileButton, MobileCard, MobileTag, MobileInput, MobileLoading, MobileEmpty } from '@/mobile/ui'
+import { mobileFeedback } from '@/mobile/services/mobileFeedback'
 import { PhEnvelope, PhGlobe, PhDeviceMobile, PhArrowsClockwise, PhCaretDown } from '@phosphor-icons/vue'
 import { fetchNotifications, resendNotification } from '@/api/alerts'
 import type { MetricsDatasetScope } from '@/api/metrics'
 import type { NotificationItem } from '@/types/monitor'
+import type { MobileTagType } from '@/mobile/ui/MobileTag'
 import { getPreferredMetricsDatasetScope } from '@/services/authSession'
 import {
   didResendNotificationSucceed,
@@ -49,7 +51,7 @@ const channelIconMap: Record<string, any> = {
   InApp: PhDeviceMobile
 }
 
-const channelTypeMap: Record<string, 'info' | 'warning' | 'success' | 'default'> = {
+const channelTypeMap: Record<string, MobileTagType> = {
   Email: 'info',
   email: 'info',
   Webhook: 'warning',
@@ -65,9 +67,9 @@ const channelLabelMap: Record<string, string> = {
   InApp: '站内通知'
 }
 
-const statusTypeMap: Record<string, 'success' | 'error' | 'warning' | 'default'> = {
+const statusTypeMap: Record<string, MobileTagType> = {
   success: 'success',
-  failed: 'error',
+  failed: 'danger',
   pending: 'warning'
 }
 
@@ -80,7 +82,7 @@ const statusLabelMap: Record<string, string> = {
 export default defineComponent({
   name: 'MobileNotificationCenter',
   setup() {
-    const message = useMessage()
+    const message = mobileFeedback
     const datasetScope = computed<MetricsDatasetScope>(() => getPreferredMetricsDatasetScope())
 
     // ── State ──────────────────────────────────
@@ -177,18 +179,18 @@ export default defineComponent({
           throw new Error('notification resend rejected')
         }
         await loadNotifications()
-        message.success('重发成功')
+        mobileFeedback.success('重发成功')
       } catch (e) {
         notification.status = previousStatus || 'failed'
         notification.retryCount = rollbackRetryCount(notification.retryCount, previousRetryCount)
-        message.error('重发失败')
+        mobileFeedback.error('重发失败')
       }
     }
 
     const handleBatchResend = async () => {
       const items = notificationData.value.filter((item) => item.status === 'failed')
       if (!items.length) {
-        message.info('当前没有可重发的失败通知')
+        mobileFeedback.info('当前没有可重发的失败通知')
         return
       }
       for (const item of items) {
@@ -202,8 +204,8 @@ export default defineComponent({
     }
 
     // ── Lifecycle ───────────────────────────────
-    onMounted(() => {
-      loadNotifications()
+    onActivated(() => {
+      void loadNotifications()
     })
 
     watch(
@@ -220,47 +222,43 @@ export default defineComponent({
         <header class="mobile-notification-center__header">
           <h2 class="mobile-notification-center__title">通知历史</h2>
           <div class="mobile-notification-center__header-actions">
-            <NButton
-              size="tiny"
-              quaternary
+            <MobileButton
+              size="small"
               onClick={loadNotifications}
               class="mobile-notification-center__refresh-btn"
-              loading={loading.value}>
-              {{
-                icon: () => (
-                  <NIcon size={16}>
-                    <PhArrowsClockwise />
-                  </NIcon>
-                )
-              }}
-            </NButton>
+              loading={loading.value}
+              icon={() => h(PhArrowsClockwise, { size: 16 })}
+            />
           </div>
         </header>
 
         {/* ── Summary grid ───────────────────── */}
         <div class="mobile-notification-center__summary-grid">
           {[
-            { label: '总计', value: notificationData.value.length, color: 'var(--color-text-1)' },
-            { label: '成功', value: successCount.value, color: 'var(--color-success-6)' },
-            { label: '失败', value: failedCount.value, color: 'var(--color-danger-6)' },
-            { label: '成功率', value: successRate.value, color: 'var(--color-primary-6)' }
+            { label: '总计', value: notificationData.value.length, tone: 'total' },
+            { label: '成功', value: successCount.value, tone: 'success' },
+            { label: '失败', value: failedCount.value, tone: 'danger' },
+            { label: '成功率', value: successRate.value, tone: 'primary' }
           ].map((item) => (
-            <NCard key={item.label} size="small" bordered={false} class="mobile-notification-center__summary-card">
-              <div class="mobile-notification-center__summary-value" style={{ color: item.color }}>
+            <MobileCard key={item.label} size="small" bordered={false} class="mobile-notification-center__summary-card">
+              <div
+                class={`mobile-notification-center__summary-value mobile-notification-center__summary-value--${item.tone}`}>
                 {item.value}
               </div>
               <div class="mobile-notification-center__summary-label">{item.label}</div>
-            </NCard>
+            </MobileCard>
           ))}
         </div>
 
         {/* ── Search bar ─────────────────────── */}
         <div class="mobile-notification-center__search">
-          <NInput
-            v-model:value={searchText.value}
+          <MobileInput
+            modelValue={searchText.value}
+            onUpdate:modelValue={(v) => {
+              searchText.value = v as string
+            }}
             placeholder="搜索通知内容"
             clearable
-            size="small"
             class="mobile-notification-center__search-input"
           />
         </div>
@@ -272,17 +270,15 @@ export default defineComponent({
             {channelOptions.map((chip) => {
               const active = selectedChannel.value === chip.value
               return (
-                <NButton
+                <MobileButton
                   key={chip.value}
-                  size="tiny"
-                  round
-                  type={active ? 'primary' : 'default'}
-                  ghost={!active}
+                  size="small"
+                  type={active ? 'primary' : 'ghost'}
                   onClick={() => {
                     selectedChannel.value = chip.value
                   }}>
                   {chip.label}
-                </NButton>
+                </MobileButton>
               )
             })}
           </div>
@@ -292,17 +288,15 @@ export default defineComponent({
             {statusOptions.map((chip) => {
               const active = selectedStatus.value === chip.value
               return (
-                <NButton
+                <MobileButton
                   key={chip.value}
-                  size="tiny"
-                  round
-                  type={active ? 'primary' : 'default'}
-                  ghost={!active}
+                  size="small"
+                  type={active ? 'primary' : 'ghost'}
                   onClick={() => {
                     selectedStatus.value = chip.value
                   }}>
                   {chip.label}
-                </NButton>
+                </MobileButton>
               )
             })}
           </div>
@@ -312,34 +306,35 @@ export default defineComponent({
         {failedCount.value > 0 && (
           <div class="mobile-notification-center__action-bar">
             <div class="mobile-notification-center__action-stats">
-              <NTag type="error" size="small" bordered={false}>
+              <MobileTag type="danger" size="small" plain={false}>
                 失败 {failedCount.value}
-              </NTag>
-              <NTag type="warning" size="small" bordered={false}>
+              </MobileTag>
+              <MobileTag type="warning" size="small" plain={false}>
                 等待中 {pendingCount.value}
-              </NTag>
+              </MobileTag>
             </div>
-            <NButton size="small" type="error" secondary onClick={handleBatchResend}>
+            <MobileButton size="small" type="danger" onClick={handleBatchResend}>
               批量重发
-            </NButton>
+            </MobileButton>
           </div>
         )}
 
         {/* ── Content ────────────────────────── */}
         {loading.value ? (
           <div class="mobile-notification-center__loading">
-            <NSpin size="large" />
+            <MobileLoading size="large" loading={true} />
           </div>
         ) : loadError.value ? (
           <div class="mobile-notification-center__error">
-            <NEmpty description={loadError.value} />
-            <NButton size="small" onClick={loadNotifications} class="mobile-notification-center__retry-btn">
-              重试
-            </NButton>
+            <MobileEmpty description={loadError.value}>
+              <MobileButton size="small" onClick={loadNotifications} class="mobile-notification-center__retry-btn">
+                重试
+              </MobileButton>
+            </MobileEmpty>
           </div>
         ) : notificationData.value.length === 0 ? (
           <div class="mobile-notification-center__empty">
-            <NEmpty description="暂无通知记录" />
+            <MobileEmpty description="暂无通知记录" />
             <p class="mobile-notification-center__empty-hint">
               {searchText.value || selectedChannel.value || selectedStatus.value
                 ? '调整筛选条件可能找到更多结果'
@@ -348,7 +343,7 @@ export default defineComponent({
           </div>
         ) : (
           <div class="mobile-notification-center__list-wrapper">
-            <NCard size="small" bordered={false} class="mobile-notification-center__list-card">
+            <MobileCard size="small" bordered={false} class="mobile-notification-center__list-card">
               {visibleNotifications.value.map((item) => {
                 const isExpanded = expandingId.value === item.key
                 const chType = channelTypeMap[item.channel] || 'default'
@@ -364,9 +359,21 @@ export default defineComponent({
                       isExpanded && 'mobile-notification-center__item--expanded'
                     ]}>
                     {/* Collapsed row */}
-                    <div class="mobile-notification-center__item-row" onClick={() => toggleExpand(item.key)}>
+                    <div
+                      class="mobile-notification-center__item-row"
+                      role="button"
+                      tabindex="0"
+                      aria-expanded={isExpanded}
+                      aria-label={`${isExpanded ? '收起' : '展开'}通知：${item.ruleName}`}
+                      onClick={() => toggleExpand(item.key)}
+                      onKeydown={(event: KeyboardEvent) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault()
+                          toggleExpand(item.key)
+                        }
+                      }}>
                       <div class="mobile-notification-center__item-icon">
-                        <NIcon size={18}>{h(channelIconMap[item.channel] || PhEnvelope)}</NIcon>
+                        {h(channelIconMap[item.channel] || PhEnvelope, { size: 18 })}
                       </div>
                       <div class="mobile-notification-center__item-body">
                         <div class="mobile-notification-center__item-top">
@@ -377,23 +384,22 @@ export default defineComponent({
                           <span class="mobile-notification-center__item-content">{item.content}</span>
                         </div>
                         <div class="mobile-notification-center__item-tags">
-                          <NTag size="tiny" type={chType as any} bordered={false}>
+                          <MobileTag size="small" type={chType} plain={false}>
                             {chLabel}
-                          </NTag>
-                          <NTag size="tiny" type={stType as any} bordered={false}>
+                          </MobileTag>
+                          <MobileTag size="small" type={stType} plain={false}>
                             {stLabel}
-                          </NTag>
+                          </MobileTag>
                           <span class="mobile-notification-center__item-service">{item.service}</span>
                         </div>
                       </div>
-                      <NIcon
-                        size={16}
-                        class={[
+                      {h(PhCaretDown, {
+                        size: 16,
+                        class: [
                           'mobile-notification-center__expand-icon',
                           isExpanded && 'mobile-notification-center__expand-icon--open'
-                        ]}>
-                        <PhCaretDown />
-                      </NIcon>
+                        ]
+                      })}
                     </div>
 
                     {/* Expanded detail panel */}
@@ -410,9 +416,9 @@ export default defineComponent({
                           </div>
                           <div class="mobile-notification-center__detail-item">
                             <span class="mobile-notification-center__detail-label">发送状态</span>
-                            <NTag size="tiny" type={stType as any} bordered={false}>
+                            <MobileTag size="small" type={stType} plain={false}>
                               {stLabel}
-                            </NTag>
+                            </MobileTag>
                           </div>
                           <div class="mobile-notification-center__detail-item">
                             <span class="mobile-notification-center__detail-label">重试次数</span>
@@ -443,9 +449,9 @@ export default defineComponent({
                         {/* Detail actions */}
                         {item.status === 'failed' && (
                           <div class="mobile-notification-center__detail-actions">
-                            <NButton size="small" type="warning" secondary onClick={() => handleResend(item)}>
+                            <MobileButton size="small" type="danger" onClick={() => handleResend(item)}>
                               重新发送
-                            </NButton>
+                            </MobileButton>
                           </div>
                         )}
                       </div>
@@ -453,14 +459,14 @@ export default defineComponent({
                   </div>
                 )
               })}
-            </NCard>
+            </MobileCard>
 
             {/* Load more */}
             {hasMore.value && (
               <div class="mobile-notification-center__load-more">
-                <NButton text type="primary" onClick={loadMore}>
+                <MobileButton type="ghost" onClick={loadMore}>
                   加载更多 ({notificationData.value.length - displayCount.value} 条)
-                </NButton>
+                </MobileButton>
               </div>
             )}
           </div>

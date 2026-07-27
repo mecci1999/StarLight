@@ -1,28 +1,23 @@
-import { PhTrash } from '@phosphor-icons/vue'
-import { defineComponent, ref, onMounted, computed } from 'vue'
+import { PhTrash, PhArrowsClockwise, PhPlusCircle, PhDownload, PhCloudArrowUp, PhGear } from '@phosphor-icons/vue'
+import { defineComponent, ref, onActivated, computed, h } from 'vue'
+import { Tab } from 'vant'
 import {
-  NCard,
-  NButton,
-  NEmpty,
-  NSpin,
-  NTag,
-  NResult,
-  NIcon,
-  NModal,
-  NForm,
-  NFormItem,
-  NInput,
-  NInputNumber,
-  NSelect,
-  NSwitch,
-  NTabPane,
-  NTabs,
-  NStatistic,
-  NGrid,
-  NGridItem,
-  useDialog
-} from 'naive-ui'
-import { PhArrowsClockwise, PhPlusCircle, PhDownload, PhCloudArrowUp, PhGear } from '@phosphor-icons/vue'
+  MobileButton,
+  MobileCard,
+  MobileEmpty,
+  MobileInput,
+  MobileLoading,
+  MobileSelect,
+  MobileSheet,
+  MobileSwitch,
+  MobileTag,
+  MobileTabs,
+  MobileStatistic,
+  MobileGrid,
+  MobileForm,
+  MobileFormItem
+} from '@/mobile/ui'
+import { mobileFeedback } from '@/mobile/services/mobileFeedback'
 import {
   fetchAlertRules,
   saveAlertRule,
@@ -67,7 +62,6 @@ const channelOptions = [
 export default defineComponent({
   name: 'MobileAlertRules',
   setup() {
-    const dialog = useDialog()
     const loading = ref(false)
     const error = ref(false)
     const rules = ref<AlertRuleItem[]>([])
@@ -110,7 +104,7 @@ export default defineComponent({
       }
     }
 
-    onMounted(loadRules)
+    onActivated(loadRules)
 
     // ── Rule type resolution ────────────────
     const resolveRuleType = (metric: string): 'metrics' | 'logs' | 'trace' => {
@@ -130,10 +124,10 @@ export default defineComponent({
     const criticalCount = computed(() => rules.value.filter((r) => r.level === 'critical').length)
 
     // ── Helpers ─────────────────────────────
-    const levelTagType = (level: AlertRuleItem['level']): 'error' | 'warning' | 'info' | 'default' => {
+    const levelTagType = (level: AlertRuleItem['level']): 'danger' | 'warning' | 'info' | 'default' => {
       switch (level) {
         case 'critical':
-          return 'error'
+          return 'danger'
         case 'warning':
           return 'warning'
         case 'info':
@@ -211,22 +205,22 @@ export default defineComponent({
       showEditModal.value = true
     }
 
-    const handleDelete = (rule: AlertRuleItem) => {
-      dialog.warning({
-        title: '确认删除',
-        content: `确定要删除规则「${rule.name || rule.id}」吗？此操作不可撤销。`,
-        positiveText: '删除',
-        negativeText: '取消',
-        onPositiveClick: async () => {
-          try {
-            await deleteAlertRule(rule.id)
-            const idx = rules.value.findIndex((r) => r.id === rule.id)
-            if (idx > -1) rules.value.splice(idx, 1)
-          } catch (err) {
-            console.error('Failed to delete alert rule:', err)
-          }
+    const handleDelete = async (rule: AlertRuleItem) => {
+      try {
+        await mobileFeedback.confirm({
+          title: '确认删除',
+          message: `确定要删除规则「${rule.name || rule.id}」吗？此操作不可撤销。`,
+          confirmButtonText: '删除',
+          cancelButtonText: '取消'
+        })
+        await deleteAlertRule(rule.id)
+        const idx = rules.value.findIndex((r) => r.id === rule.id)
+        if (idx > -1) rules.value.splice(idx, 1)
+      } catch (err) {
+        if (err !== 'cancel') {
+          console.error('Failed to delete alert rule:', err)
         }
-      })
+      }
     }
 
     const handleToggle = async (rule: AlertRuleItem) => {
@@ -321,41 +315,29 @@ export default defineComponent({
       if (loading.value) {
         return (
           <div class="mobile-alert-rules__loading">
-            <NSpin size="large" />
+            <MobileLoading loading={true} size="large" />
           </div>
         )
       }
 
       if (error.value) {
         return (
-          <NResult
-            status="500"
-            title="数据加载失败"
-            description="请检查网络连接后重试"
-            class="mobile-alert-rules__error">
-            {{
-              footer: () => (
-                <NButton type="primary" size="small" onClick={loadRules}>
-                  重新加载
-                </NButton>
-              )
-            }}
-          </NResult>
+          <MobileEmpty description="数据加载失败" class="mobile-alert-rules__error">
+            <MobileButton size="small" type="primary" onClick={loadRules}>
+              重新加载
+            </MobileButton>
+          </MobileEmpty>
         )
       }
 
       if (rules.value.length === 0) {
         return (
           <div class="mobile-alert-rules__empty-state">
-            <NEmpty description="暂无告警规则">
-              {{
-                action: () => (
-                  <NButton type="primary" size="small" onClick={handleAdd}>
-                    添加规则
-                  </NButton>
-                )
-              }}
-            </NEmpty>
+            <MobileEmpty description="暂无告警规则">
+              <MobileButton size="small" type="primary" onClick={handleAdd}>
+                添加规则
+              </MobileButton>
+            </MobileEmpty>
           </div>
         )
       }
@@ -363,22 +345,22 @@ export default defineComponent({
       const displayRules = filteredRules.value
 
       if (displayRules.length === 0) {
-        return <NEmpty description="当前分类暂无规则" class="mobile-alert-rules__empty-state" />
+        return <MobileEmpty description="当前分类暂无规则" class="mobile-alert-rules__empty-state" />
       }
 
       return (
         <div class="mobile-alert-rules__list">
           {displayRules.map((rule) => (
-            <NCard key={rule.id} size="small" bordered={false} class="mobile-alert-rules__list-card">
+            <MobileCard key={rule.id} size="small" bordered={false} class="mobile-alert-rules__list-card">
               <div class="mobile-alert-rules__card-header">
                 <span class="mobile-alert-rules__card-name">{rule.name || '-'}</span>
                 <div class="mobile-alert-rules__card-badges">
-                  <NTag size="tiny" bordered={false} type={levelTagType(rule.level)}>
+                  <MobileTag size="small" type={levelTagType(rule.level)}>
                     {levelLabel(rule.level)}
-                  </NTag>
-                  <NTag size="tiny" bordered={false} type={rule.enabled ? 'success' : 'default'}>
+                  </MobileTag>
+                  <MobileTag size="small" type={rule.enabled ? 'success' : 'default'}>
                     {rule.enabled ? '启用' : '禁用'}
-                  </NTag>
+                  </MobileTag>
                 </div>
               </div>
               <div class="mobile-alert-rules__card-meta">
@@ -401,20 +383,23 @@ export default defineComponent({
               <div class="mobile-alert-rules__card-actions">
                 <div class="mobile-alert-rules__card-toggle">
                   <span class="mobile-alert-rules__card-toggle-label">{rule.enabled ? '已启用' : '已禁用'}</span>
-                  <NSwitch size="small" value={rule.enabled} onUpdate:value={() => handleToggle(rule)} />
+                  <MobileSwitch modelValue={rule.enabled} onUpdate:modelValue={() => handleToggle(rule)} />
                 </div>
                 <div class="mobile-alert-rules__card-buttons">
-                  <NButton size="tiny" type="primary" secondary onClick={() => handleEdit(rule)}>
+                  <MobileButton size="small" type="ghost" onClick={() => handleEdit(rule)}>
                     编辑
-                  </NButton>
-                  <NButton size="tiny" type="error" secondary onClick={() => handleDelete(rule)}>
-                    <NIcon>
-                      <PhTrash />
-                    </NIcon>
-                  </NButton>
+                  </MobileButton>
+                  <MobileButton
+                    size="small"
+                    type="ghost"
+                    class="mobile-alert-rules__delete-button"
+                    aria-label={`删除规则 ${rule.name || rule.id}`}
+                    onClick={() => handleDelete(rule)}
+                    icon={() => h(PhTrash, { size: 16 })}
+                  />
                 </div>
               </div>
-            </NCard>
+            </MobileCard>
           ))}
         </div>
       )
@@ -431,90 +416,85 @@ export default defineComponent({
             </div>
           </div>
           <div class="mobile-alert-rules__header-actions">
-            <NButton size="small" secondary type="primary" onClick={() => (editMode.value = !editMode.value)}>
-              <NIcon>
-                <PhGear />
-              </NIcon>
-            </NButton>
-            <NButton size="small" secondary type="primary" onClick={loadRules}>
-              <NIcon>
-                <PhArrowsClockwise />
-              </NIcon>
-            </NButton>
+            <MobileButton
+              size="small"
+              type="ghost"
+              onClick={() => (editMode.value = !editMode.value)}
+              icon={() => h(PhGear, { size: 16 })}
+            />
+            <MobileButton
+              size="small"
+              type="ghost"
+              onClick={loadRules}
+              icon={() => h(PhArrowsClockwise, { size: 16 })}
+            />
           </div>
         </div>
 
         {/* ── Summary grid ──────────────────── */}
         {!loading.value && !error.value && rules.value.length > 0 && (
-          <NGrid cols={3} xGap={8} class="mobile-alert-rules__summary-grid">
-            <NGridItem>
-              <NCard bordered={false} size="small" class="mobile-alert-rules__summary-card">
-                <NStatistic label="总规则" value={rules.value.length} />
-              </NCard>
-            </NGridItem>
-            <NGridItem>
-              <NCard bordered={false} size="small" class="mobile-alert-rules__summary-card">
-                <NStatistic label="已启用" value={enabledCount.value} />
-              </NCard>
-            </NGridItem>
-            <NGridItem>
-              <NCard bordered={false} size="small" class="mobile-alert-rules__summary-card">
-                <NStatistic label="严重" value={criticalCount.value} />
-              </NCard>
-            </NGridItem>
-          </NGrid>
+          <MobileGrid cols={3} class="mobile-alert-rules__summary-grid">
+            <div>
+              <MobileCard bordered={false} size="small" class="mobile-alert-rules__summary-card">
+                <MobileStatistic label="总规则" value={rules.value.length} />
+              </MobileCard>
+            </div>
+            <div>
+              <MobileCard bordered={false} size="small" class="mobile-alert-rules__summary-card">
+                <MobileStatistic label="已启用" value={enabledCount.value} />
+              </MobileCard>
+            </div>
+            <div>
+              <MobileCard bordered={false} size="small" class="mobile-alert-rules__summary-card">
+                <MobileStatistic label="严重" value={criticalCount.value} />
+              </MobileCard>
+            </div>
+          </MobileGrid>
         )}
 
         {/* ── Rule type tabs ────────────────── */}
         {!loading.value && !error.value && rules.value.length > 0 && (
           <div class="mobile-alert-rules__tabs-wrapper">
-            <NTabs
-              v-model:value={selectedRuleType.value}
+            <MobileTabs
+              active={selectedRuleType.value}
+              onUpdate:active={(v) => (selectedRuleType.value = v as typeof selectedRuleType.value)}
               class="mobile-alert-rules__tabs"
-              type="segment"
-              size="small"
-              animated>
-              <NTabPane name="all" tab="全部" />
-              <NTabPane name="metrics" tab="指标" />
-              <NTabPane name="logs" tab="日志" />
-              <NTabPane name="trace" tab="链路" />
-            </NTabs>
+              type="line">
+              <Tab title="全部" name="all" />
+              <Tab title="指标" name="metrics" />
+              <Tab title="日志" name="logs" />
+              <Tab title="链路" name="trace" />
+            </MobileTabs>
           </div>
         )}
 
         {/* ── Action bar ────────────────────── */}
         {!loading.value && !error.value && (
           <div class="mobile-alert-rules__action-bar">
-            <NButton size="small" type="primary" onClick={handleAdd}>
-              <NIcon>
-                <PhPlusCircle />
-              </NIcon>
+            <MobileButton size="small" type="primary" onClick={handleAdd} icon={() => h(PhPlusCircle, { size: 16 })}>
               <span class="mobile-alert-rules__action-label">添加</span>
-            </NButton>
-            <NButton size="small" onClick={() => (showImportModal.value = true)}>
-              <NIcon>
-                <PhCloudArrowUp />
-              </NIcon>
+            </MobileButton>
+            <MobileButton
+              size="small"
+              onClick={() => (showImportModal.value = true)}
+              icon={() => h(PhCloudArrowUp, { size: 16 })}>
               <span class="mobile-alert-rules__action-label">导入</span>
-            </NButton>
-            <NButton size="small" onClick={handleExport}>
-              <NIcon>
-                <PhDownload />
-              </NIcon>
+            </MobileButton>
+            <MobileButton size="small" onClick={handleExport} icon={() => h(PhDownload, { size: 16 })}>
               <span class="mobile-alert-rules__action-label">导出</span>
-            </NButton>
+            </MobileButton>
           </div>
         )}
 
         {/* ── Bulk edit mode bar ────────────── */}
         {editMode.value && !loading.value && !error.value && rules.value.length > 0 && (
           <div class="mobile-alert-rules__bulk-bar">
-            <NButton size="small" type="success" secondary onClick={() => handleBulkToggle(true)}>
+            <MobileButton size="small" type="primary" onClick={() => handleBulkToggle(true)}>
               批量启用
-            </NButton>
-            <NButton size="small" type="warning" secondary onClick={() => handleBulkToggle(false)}>
+            </MobileButton>
+            <MobileButton size="small" type="ghost" onClick={() => handleBulkToggle(false)}>
               批量禁用
-            </NButton>
+            </MobileButton>
           </div>
         )}
 
@@ -522,136 +502,213 @@ export default defineComponent({
         {renderContent()}
 
         {/* ── Add/Edit Modal ────────────────── */}
-        <NModal v-model:show={showAddModal.value} title="添加告警规则" preset="card" class="mobile-alert-rules__modal">
-          <NForm model={formData.value} labelPlacement="top" class="mobile-alert-rules__form">
-            <NFormItem label="规则名称">
-              <NInput v-model:value={formData.value.name} placeholder="请输入规则名称" />
-            </NFormItem>
-            <NFormItem label="监控服务">
-              <NInput v-model:value={formData.value.service} placeholder="请输入服务标识" />
-            </NFormItem>
-            <NFormItem label="监控指标">
-              <NSelect v-model:value={formData.value.metric} options={metricOptions} placeholder="选择指标" />
-            </NFormItem>
-            <NFormItem label="触发条件">
+        <MobileSheet
+          show={showAddModal.value}
+          onUpdate:show={(v) => (showAddModal.value = v)}
+          position="bottom"
+          title="添加告警规则">
+          <MobileForm class="mobile-alert-rules__form">
+            <MobileFormItem
+              label="规则名称"
+              name="name"
+              modelValue={formData.value.name}
+              onUpdate:modelValue={(v) => (formData.value.name = v as string)}
+              placeholder="请输入规则名称"
+            />
+            <MobileFormItem
+              label="监控服务"
+              name="service"
+              modelValue={formData.value.service}
+              onUpdate:modelValue={(v) => (formData.value.service = v as string)}
+              placeholder="请输入服务标识"
+            />
+            <div class="mobile-alert-rules__form-group">
+              <div class="mobile-alert-rules__form-label">监控指标</div>
+              <MobileSelect
+                modelValue={formData.value.metric}
+                onUpdate:modelValue={(v) => (formData.value.metric = v as string)}
+                options={metricOptions}
+                placeholder="选择指标"
+              />
+            </div>
+            <div class="mobile-alert-rules__form-group">
+              <div class="mobile-alert-rules__form-label">触发条件</div>
               <div class="mobile-alert-rules__condition-row">
-                <NSelect
-                  v-model:value={formData.value.operator}
+                <MobileSelect
+                  modelValue={formData.value.operator}
+                  onUpdate:modelValue={(v) => (formData.value.operator = v as string)}
                   options={operatorOptions}
-                  class="mobile-alert-rules__operator-select"
+                  placeholder="运算符"
                 />
-                <NInputNumber v-model:value={formData.value.threshold} placeholder="阈值" />
+                <MobileInput
+                  type="digit"
+                  modelValue={formData.value.threshold}
+                  onUpdate:modelValue={(v) => (formData.value.threshold = Number(v))}
+                  placeholder="阈值"
+                />
               </div>
-            </NFormItem>
-            <NFormItem label="持续时间 (分钟)">
-              <NInputNumber v-model:value={formData.value.duration} placeholder="分钟" min={1} />
-            </NFormItem>
-            <NFormItem label="告警等级">
-              <NSelect v-model:value={formData.value.level} options={levelOptions} placeholder="选择等级" />
-            </NFormItem>
-            <NFormItem label="通知渠道">
-              <NSelect
-                v-model:value={formData.value.notificationChannels}
+            </div>
+            <div class="mobile-alert-rules__form-group">
+              <div class="mobile-alert-rules__form-label">持续时间 (分钟)</div>
+              <MobileInput
+                type="digit"
+                modelValue={formData.value.duration}
+                onUpdate:modelValue={(v) => (formData.value.duration = Number(v))}
+                placeholder="分钟"
+              />
+            </div>
+            <div class="mobile-alert-rules__form-group">
+              <div class="mobile-alert-rules__form-label">告警等级</div>
+              <MobileSelect
+                modelValue={formData.value.level}
+                onUpdate:modelValue={(v) => (formData.value.level = v as string)}
+                options={levelOptions}
+                placeholder="选择等级"
+              />
+            </div>
+            <div class="mobile-alert-rules__form-group">
+              <div class="mobile-alert-rules__form-label">通知渠道</div>
+              <MobileSelect
+                modelValue={formData.value.notificationChannels[0] || ''}
+                onUpdate:modelValue={(v) => {
+                  formData.value.notificationChannels = v ? [v as string] : []
+                }}
                 options={channelOptions}
-                multiple
                 placeholder="选择通知渠道"
               />
-            </NFormItem>
-            <NFormItem label="启用">
-              <NSwitch v-model:value={formData.value.enabled} />
-            </NFormItem>
-          </NForm>
-          {{
-            footer: () => (
-              <div class="mobile-alert-rules__modal-footer">
-                <NButton onClick={() => (showAddModal.value = false)}>取消</NButton>
-                <NButton type="primary" onClick={handleSave}>
-                  保存
-                </NButton>
-              </div>
-            )
-          }}
-        </NModal>
+            </div>
+            <div class="mobile-alert-rules__form-group mobile-alert-rules__form-group--switch">
+              <div class="mobile-alert-rules__form-label">启用</div>
+              <MobileSwitch
+                modelValue={formData.value.enabled}
+                onUpdate:modelValue={(v) => (formData.value.enabled = v)}
+              />
+            </div>
+          </MobileForm>
+          <div class="mobile-alert-rules__modal-footer">
+            <MobileButton onClick={() => (showAddModal.value = false)}>取消</MobileButton>
+            <MobileButton type="primary" onClick={handleSave}>
+              保存
+            </MobileButton>
+          </div>
+        </MobileSheet>
 
         {/* ── Edit Modal ────────────────────── */}
-        <NModal v-model:show={showEditModal.value} title="编辑告警规则" preset="card" class="mobile-alert-rules__modal">
-          <NForm model={formData.value} labelPlacement="top" class="mobile-alert-rules__form">
-            <NFormItem label="规则名称">
-              <NInput v-model:value={formData.value.name} placeholder="请输入规则名称" />
-            </NFormItem>
-            <NFormItem label="监控服务">
-              <NInput v-model:value={formData.value.service} placeholder="请输入服务标识" />
-            </NFormItem>
-            <NFormItem label="监控指标">
-              <NSelect v-model:value={formData.value.metric} options={metricOptions} placeholder="选择指标" />
-            </NFormItem>
-            <NFormItem label="触发条件">
+        <MobileSheet
+          show={showEditModal.value}
+          onUpdate:show={(v) => (showEditModal.value = v)}
+          position="bottom"
+          title="编辑告警规则">
+          <MobileForm class="mobile-alert-rules__form">
+            <MobileFormItem
+              label="规则名称"
+              name="name"
+              modelValue={formData.value.name}
+              onUpdate:modelValue={(v) => (formData.value.name = v as string)}
+              placeholder="请输入规则名称"
+            />
+            <MobileFormItem
+              label="监控服务"
+              name="service"
+              modelValue={formData.value.service}
+              onUpdate:modelValue={(v) => (formData.value.service = v as string)}
+              placeholder="请输入服务标识"
+            />
+            <div class="mobile-alert-rules__form-group">
+              <div class="mobile-alert-rules__form-label">监控指标</div>
+              <MobileSelect
+                modelValue={formData.value.metric}
+                onUpdate:modelValue={(v) => (formData.value.metric = v as string)}
+                options={metricOptions}
+                placeholder="选择指标"
+              />
+            </div>
+            <div class="mobile-alert-rules__form-group">
+              <div class="mobile-alert-rules__form-label">触发条件</div>
               <div class="mobile-alert-rules__condition-row">
-                <NSelect
-                  v-model:value={formData.value.operator}
+                <MobileSelect
+                  modelValue={formData.value.operator}
+                  onUpdate:modelValue={(v) => (formData.value.operator = v as string)}
                   options={operatorOptions}
-                  class="mobile-alert-rules__operator-select"
+                  placeholder="运算符"
                 />
-                <NInputNumber v-model:value={formData.value.threshold} placeholder="阈值" />
+                <MobileInput
+                  type="digit"
+                  modelValue={formData.value.threshold}
+                  onUpdate:modelValue={(v) => (formData.value.threshold = Number(v))}
+                  placeholder="阈值"
+                />
               </div>
-            </NFormItem>
-            <NFormItem label="持续时间 (分钟)">
-              <NInputNumber v-model:value={formData.value.duration} placeholder="分钟" min={1} />
-            </NFormItem>
-            <NFormItem label="告警等级">
-              <NSelect v-model:value={formData.value.level} options={levelOptions} placeholder="选择等级" />
-            </NFormItem>
-            <NFormItem label="通知渠道">
-              <NSelect
-                v-model:value={formData.value.notificationChannels}
+            </div>
+            <div class="mobile-alert-rules__form-group">
+              <div class="mobile-alert-rules__form-label">持续时间 (分钟)</div>
+              <MobileInput
+                type="digit"
+                modelValue={formData.value.duration}
+                onUpdate:modelValue={(v) => (formData.value.duration = Number(v))}
+                placeholder="分钟"
+              />
+            </div>
+            <div class="mobile-alert-rules__form-group">
+              <div class="mobile-alert-rules__form-label">告警等级</div>
+              <MobileSelect
+                modelValue={formData.value.level}
+                onUpdate:modelValue={(v) => (formData.value.level = v as string)}
+                options={levelOptions}
+                placeholder="选择等级"
+              />
+            </div>
+            <div class="mobile-alert-rules__form-group">
+              <div class="mobile-alert-rules__form-label">通知渠道</div>
+              <MobileSelect
+                modelValue={formData.value.notificationChannels[0] || ''}
+                onUpdate:modelValue={(v) => {
+                  formData.value.notificationChannels = v ? [v as string] : []
+                }}
                 options={channelOptions}
-                multiple
                 placeholder="选择通知渠道"
               />
-            </NFormItem>
-            <NFormItem label="启用">
-              <NSwitch v-model:value={formData.value.enabled} />
-            </NFormItem>
-          </NForm>
-          {{
-            footer: () => (
-              <div class="mobile-alert-rules__modal-footer">
-                <NButton onClick={() => (showEditModal.value = false)}>取消</NButton>
-                <NButton type="primary" onClick={handleSave}>
-                  保存
-                </NButton>
-              </div>
-            )
-          }}
-        </NModal>
+            </div>
+            <div class="mobile-alert-rules__form-group mobile-alert-rules__form-group--switch">
+              <div class="mobile-alert-rules__form-label">启用</div>
+              <MobileSwitch
+                modelValue={formData.value.enabled}
+                onUpdate:modelValue={(v) => (formData.value.enabled = v)}
+              />
+            </div>
+          </MobileForm>
+          <div class="mobile-alert-rules__modal-footer">
+            <MobileButton onClick={() => (showEditModal.value = false)}>取消</MobileButton>
+            <MobileButton type="primary" onClick={handleSave}>
+              保存
+            </MobileButton>
+          </div>
+        </MobileSheet>
 
         {/* ── Import Modal ──────────────────── */}
-        <NModal
-          v-model:show={showImportModal.value}
-          title="导入告警规则"
-          preset="card"
-          class="mobile-alert-rules__modal">
-          <NForm>
-            <NFormItem label="规则 JSON">
-              <NInput
-                v-model:value={importPayload.value}
-                type="textarea"
-                rows={10}
-                placeholder='[{"name":"CPU 告警","service":"my-service","metric":"cpu_usage","operator":">","threshold":80,"duration":5,"level":"warning","enabled":true,"channels":["Email"]}]'
-              />
-            </NFormItem>
-          </NForm>
-          {{
-            footer: () => (
-              <div class="mobile-alert-rules__modal-footer">
-                <NButton onClick={() => (showImportModal.value = false)}>取消</NButton>
-                <NButton type="primary" onClick={handleImport}>
-                  导入
-                </NButton>
-              </div>
-            )
-          }}
-        </NModal>
+        <MobileSheet
+          show={showImportModal.value}
+          onUpdate:show={(v) => (showImportModal.value = v)}
+          position="bottom"
+          title="导入告警规则">
+          <MobileForm class="mobile-alert-rules__form">
+            <MobileFormItem
+              label="规则 JSON"
+              name="payload"
+              modelValue={importPayload.value}
+              onUpdate:modelValue={(v) => (importPayload.value = v as string)}
+              type="textarea"
+              autosize
+              placeholder='[{"name":"CPU 告警","service":"my-service","metric":"cpu_usage","operator":">","threshold":80,"duration":5,"level":"warning","enabled":true,"channels":["Email"]}]'
+            />
+          </MobileForm>
+          <div class="mobile-alert-rules__modal-footer">
+            <MobileButton onClick={() => (showImportModal.value = false)}>取消</MobileButton>
+            <MobileButton type="primary" onClick={handleImport}>
+              导入
+            </MobileButton>
+          </div>
+        </MobileSheet>
       </div>
     )
   }

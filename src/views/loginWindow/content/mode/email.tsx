@@ -94,13 +94,7 @@ export default defineComponent({
 
     // 登录按钮的禁用状态
     watchEffect(() => {
-      state.loginDisabled = !(
-        state.info.email &&
-        state.info.password &&
-        state.validCode &&
-        props.protocol &&
-        isOnline.value
-      )
+      state.loginDisabled = !(state.info.email && state.info.password && state.validCode && isOnline.value)
     })
 
     // 监听网络连接状态
@@ -152,6 +146,10 @@ export default defineComponent({
     const normalLogin = throttle(async () => {
       // 如果按钮处于禁用状态或正在加载中，不执行登录操作
       if (state.loading) return
+      if (!props.protocol) {
+        window.$message.warning('请先阅读并同意《星光服务协议》和《星光隐私保护指引》')
+        return
+      }
 
       // 重置错误状态
       state.emailValid = false
@@ -332,6 +330,7 @@ export default defineComponent({
 
     // 自动登录
     const autoLogin = async () => {
+      if (!props.protocol) return
       if (isAutoLogin.value) {
         try {
           state.loading = true

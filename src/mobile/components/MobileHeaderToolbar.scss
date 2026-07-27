@@ -11,14 +11,26 @@
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
-    width: 36px;
-    height: 36px;
+    width: var(--size-large);
+    height: var(--size-large);
     padding: 0;
-    border: none;
+    border: 0;
     border-radius: 50%;
     background: transparent;
     cursor: pointer;
-    overflow: hidden;
+    -webkit-tap-highlight-color: transparent;
+    transition: background var(--duration-fast) var(--ease-default);
+
+    &:active {
+      background: var(--color-fill-1);
+    }
+
+    // Visible avatar ring lives on the inner element so the 44px hit area
+    // stays transparent and the visual avatar remains compact.
+    > .van-image {
+      border-radius: 50%;
+      box-shadow: 0 0 0 2px var(--color-bg-white), 0 1px 4px color-mix(in srgb, var(--color-text-1) 14%, transparent);
+    }
   }
 
   &__avatar-fallback {
@@ -32,19 +44,32 @@
     color: #fff;
     font-size: var(--font-size-body-3, 14px);
     font-weight: var(--font-weight-semibold);
+    box-shadow: 0 0 0 2px var(--color-bg-white), 0 1px 4px color-mix(in srgb, var(--color-text-1) 14%, transparent);
   }
 
   &__search {
     flex: 1;
     min-width: 0;
 
-    :deep(.n-input) {
-      border-radius: var(--radius-full);
-      background: var(--color-fill-1);
+    :deep(.van-search) {
+      padding: 0;
+      background: transparent;
+    }
 
-      .n-input__input-el {
-        font-size: var(--font-size-body-2, 13px);
-      }
+    :deep(.van-search__content) {
+      min-height: 36px;
+      padding-left: var(--spacing-3);
+      background: var(--color-fill-1);
+      border-radius: var(--radius-full);
+    }
+
+    :deep(.van-field__control) {
+      color: var(--color-text-1);
+      font-size: var(--font-size-body-2, 13px);
+    }
+
+    :deep(.van-field__left-icon) {
+      color: var(--color-text-3);
     }
   }
 
@@ -53,5 +78,25 @@
     align-items: center;
     gap: var(--spacing-1);
     flex-shrink: 0;
+  }
+
+  &__action {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--size-large);
+    height: var(--size-large);
+    padding: 0;
+    color: var(--color-text-2);
+    cursor: pointer;
+    background: transparent;
+    border: 0;
+    border-radius: 50%;
+    -webkit-tap-highlight-color: transparent;
+    transition: color var(--duration-fast) var(--ease-default), background var(--duration-fast) var(--ease-default);
+    &:active {
+      color: var(--color-primary-6);
+      background: var(--color-fill-1);
+    }
   }
 }

@@ -1,5 +1,5 @@
-import { defineComponent, ref, onMounted, computed } from 'vue'
-import { NCard, NButton, NEmpty, NSpin, NSelect, NResult, NIcon } from 'naive-ui'
+import { defineComponent, ref, onActivated, computed, h } from 'vue'
+import { MobileButton, MobileCard, MobileEmpty, MobileLoading, MobileSelect } from '@/mobile/ui'
 import { PhArrowsClockwise, PhClock } from '@phosphor-icons/vue'
 import { fetchMetricsExplorer, fetchCatalogServices } from '@/api'
 import LineChart from '@/components/charts/LineChart'
@@ -23,11 +23,35 @@ const TIME_RANGE_CHIPS: TimeRangeChip[] = [
   { key: '7d', label: '7天', value: '-7d' }
 ]
 
-const METRIC_OPTIONS: { key: MetricKey; label: string; color: string; unit: string }[] = [
-  { key: 'cpu', label: 'CPU', color: 'var(--color-primary-6)', unit: '%' },
-  { key: 'memory', label: '内存', color: 'var(--color-warning-6)', unit: '%' },
-  { key: 'qps', label: 'QPS', color: 'var(--color-success-6)', unit: '' },
-  { key: 'responseTime', label: '响应时间', color: 'var(--color-danger-6)', unit: 'ms' }
+const METRIC_OPTIONS: { key: MetricKey; label: string; color: string; dotClass: string; unit: string }[] = [
+  {
+    key: 'cpu',
+    label: 'CPU',
+    color: 'var(--color-primary-6)',
+    dotClass: 'mobile-metrics-explorer__chart-dot--cpu',
+    unit: '%'
+  },
+  {
+    key: 'memory',
+    label: '内存',
+    color: 'var(--color-warning-6)',
+    dotClass: 'mobile-metrics-explorer__chart-dot--memory',
+    unit: '%'
+  },
+  {
+    key: 'qps',
+    label: 'QPS',
+    color: 'var(--color-success-6)',
+    dotClass: 'mobile-metrics-explorer__chart-dot--qps',
+    unit: ''
+  },
+  {
+    key: 'responseTime',
+    label: '响应时间',
+    color: 'var(--color-danger-6)',
+    dotClass: 'mobile-metrics-explorer__chart-dot--response',
+    unit: 'ms'
+  }
 ]
 
 export default defineComponent({
@@ -76,7 +100,10 @@ export default defineComponent({
       }
     }
 
-    onMounted(loadServices)
+    onActivated(async () => {
+      await loadServices()
+      if (selectedServiceId.value) await loadMetrics()
+    })
 
     // ── KPI latest values ──
 
@@ -135,95 +162,90 @@ export default defineComponent({
           <div>
             <h2 class="mobile-metrics-explorer__title">指标分析</h2>
           </div>
-          <NButton size="small" secondary type="primary" onClick={loadMetrics}>
-            <NIcon>
-              <PhArrowsClockwise />
-            </NIcon>
-          </NButton>
+          <MobileButton
+            size="small"
+            type="primary"
+            class="mobile-metrics-explorer__refresh-action"
+            onClick={loadMetrics}
+            aria-label="刷新指标数据">
+            {h(PhArrowsClockwise, { size: 16 })}
+          </MobileButton>
         </div>
 
         <div class="mobile-metrics-explorer__service-select">
-          <NSelect
-            v-model:value={selectedServiceId.value}
+          <MobileSelect
+            modelValue={selectedServiceId.value ?? ''}
+            onUpdate:modelValue={(v) => {
+              selectedServiceId.value = v as string
+              loadMetrics()
+            }}
             options={services.value}
             placeholder="选择服务"
-            filterable
             clearable
-            size="small"
-            onUpdateValue={loadMetrics}
           />
         </div>
 
         <div class="mobile-metrics-explorer__time-chips">
           {TIME_RANGE_CHIPS.map((chip) => (
-            <NButton
+            <MobileButton
               key={chip.key}
-              size="tiny"
+              size="small"
               type={timeRange.value === chip.key ? 'primary' : 'default'}
-              secondary={timeRange.value !== chip.key}
               onClick={() => {
                 timeRange.value = chip.key
                 loadMetrics()
               }}>
               {chip.label}
-            </NButton>
+            </MobileButton>
           ))}
         </div>
 
         {loading.value ? (
           <div class="mobile-metrics-explorer__loading">
-            <NSpin size="large" />
+            <MobileLoading />
           </div>
         ) : error.value ? (
-          <NResult
-            status="500"
-            title="数据加载失败"
-            description="请检查网络连接后重试"
-            class="mobile-metrics-explorer__error">
-            {{
-              footer: () => (
-                <NButton type="primary" size="small" onClick={loadMetrics}>
-                  重新加载
-                </NButton>
-              )
-            }}
-          </NResult>
+          <MobileEmpty description="数据加载失败，请检查网络连接后重试" class="mobile-metrics-explorer__error">
+            <MobileButton type="primary" size="small" onClick={loadMetrics}>
+              重新加载
+            </MobileButton>
+          </MobileEmpty>
         ) : !selectedServiceId.value ? (
           <div class="mobile-metrics-explorer__empty-state">
-            <NEmpty description="请先选择服务" />
+            <MobileEmpty description="请先选择服务" />
           </div>
         ) : !data.value ? (
           <div class="mobile-metrics-explorer__empty-state">
-            <NEmpty description="暂无指标数据" />
+            <MobileEmpty description="暂无指标数据" />
           </div>
         ) : (
           <>
             <div class="mobile-metrics-explorer__metrics-grid">
-              <NCard size="small" bordered={false} class="mobile-metrics-explorer__metric-card">
+              <MobileCard size="small" bordered={false} class="mobile-metrics-explorer__metric-card">
                 <div class="mobile-metrics-explorer__metric-header">
                   <span class="mobile-metrics-explorer__metric-dot mobile-metrics-explorer__metric-dot--cpu" />
                   <span class="mobile-metrics-explorer__metric-name">CPU</span>
                 </div>
                 <div class="mobile-metrics-explorer__metric-value">{formatValue(latestValues.value.cpu, '%')}</div>
-              </NCard>
+              </MobileCard>
 
-              <NCard size="small" bordered={false} class="mobile-metrics-explorer__metric-card">
+              <MobileCard size="small" bordered={false} class="mobile-metrics-explorer__metric-card">
                 <div class="mobile-metrics-explorer__metric-header">
                   <span class="mobile-metrics-explorer__metric-dot mobile-metrics-explorer__metric-dot--memory" />
                   <span class="mobile-metrics-explorer__metric-name">内存</span>
                 </div>
                 <div class="mobile-metrics-explorer__metric-value">{formatValue(latestValues.value.memory, '%')}</div>
-              </NCard>
+              </MobileCard>
 
-              <NCard size="small" bordered={false} class="mobile-metrics-explorer__metric-card">
+              <MobileCard size="small" bordered={false} class="mobile-metrics-explorer__metric-card">
                 <div class="mobile-metrics-explorer__metric-header">
                   <span class="mobile-metrics-explorer__metric-dot mobile-metrics-explorer__metric-dot--qps" />
                   <span class="mobile-metrics-explorer__metric-name">QPS</span>
                 </div>
                 <div class="mobile-metrics-explorer__metric-value">{formatValue(latestValues.value.qps, '')}</div>
-              </NCard>
+              </MobileCard>
 
-              <NCard size="small" bordered={false} class="mobile-metrics-explorer__metric-card">
+              <MobileCard size="small" bordered={false} class="mobile-metrics-explorer__metric-card">
                 <div class="mobile-metrics-explorer__metric-header">
                   <span class="mobile-metrics-explorer__metric-dot mobile-metrics-explorer__metric-dot--response" />
                   <span class="mobile-metrics-explorer__metric-name">响应时间</span>
@@ -231,29 +253,26 @@ export default defineComponent({
                 <div class="mobile-metrics-explorer__metric-value">
                   {formatValue(latestValues.value.responseTime, 'ms')}
                 </div>
-              </NCard>
+              </MobileCard>
             </div>
 
             <div class="mobile-metrics-explorer__charts-section">
               <div class="mobile-metrics-explorer__section-header">
                 <div class="mobile-metrics-explorer__section-title">
-                  <NIcon>
-                    <PhClock />
-                  </NIcon>
+                  {h(PhClock, { size: 16 })}
                   <span>趋势图表</span>
                 </div>
               </div>
 
               <div class="mobile-metrics-explorer__metric-selector">
                 {METRIC_OPTIONS.map((opt) => (
-                  <NButton
+                  <MobileButton
                     key={opt.key}
-                    size="tiny"
+                    size="small"
                     type={isMetricSelected(opt.key) ? 'primary' : 'default'}
-                    secondary={!isMetricSelected(opt.key)}
                     onClick={() => toggleMetric(opt.key)}>
                     {opt.label}
-                  </NButton>
+                  </MobileButton>
                 ))}
               </div>
 
@@ -261,10 +280,10 @@ export default defineComponent({
                 {METRIC_OPTIONS.filter((opt) => isMetricSelected(opt.key)).map((opt) => {
                   const chartData = chartDataFor(opt.key)
                   return (
-                    <NCard key={opt.key} size="small" bordered={false} class="mobile-metrics-explorer__chart-card">
+                    <MobileCard key={opt.key} size="small" bordered={false} class="mobile-metrics-explorer__chart-card">
                       <div class="mobile-metrics-explorer__chart-header">
                         <div class="mobile-metrics-explorer__chart-title">
-                          <span class="mobile-metrics-explorer__chart-dot" style={{ background: opt.color }} />
+                          <span class={['mobile-metrics-explorer__chart-dot', opt.dotClass]} />
                           <span>{opt.label} 趋势</span>
                         </div>
                       </div>
@@ -279,10 +298,13 @@ export default defineComponent({
                             loading={loading.value}
                           />
                         ) : (
-                          <NEmpty description={`暂无${opt.label}数据`} class="mobile-metrics-explorer__empty-state" />
+                          <MobileEmpty
+                            description={`暂无${opt.label}数据`}
+                            class="mobile-metrics-explorer__empty-state"
+                          />
                         )}
                       </div>
-                    </NCard>
+                    </MobileCard>
                   )
                 })}
               </div>

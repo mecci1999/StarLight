@@ -1,6 +1,8 @@
 import { useSettingStore } from '@/store/setting'
 import { useNetwork } from '@vueuse/core'
-import { NCheckbox, NFlex } from 'naive-ui'
+import { NButton, NCheckbox, NFlex, NModal } from 'naive-ui'
+import LegalDocumentContent from '@/shared/legal/LegalDocumentContent'
+import type { LegalDocumentKind } from '@/shared/legal/agreements'
 import LoginWindowContentEmail from './mode/email'
 import LoginWindowContentQRCode from './mode/qrcode'
 import LoginWindowContentRegister from './mode/register'
@@ -18,7 +20,8 @@ export default defineComponent({
     const state = reactive({
       mode: 'login', // 页面模式 login 账号登录 scan 扫码登录 forget 忘记密码 register 注册账号
       loginDisabled: !isOnline.value, // 登录按钮禁用状态
-      protocol: true // 是否同意协议
+      protocol: false, // 是否同意协议
+      activeLegalDocument: null as LegalDocumentKind | null
     })
 
     const loginText = computed(() => {
@@ -49,6 +52,10 @@ export default defineComponent({
      */
     const handleSwitchMode = (mode: string) => {
       state.mode = mode
+    }
+
+    const showLegalDocument = (kind: LegalDocumentKind) => {
+      state.activeLegalDocument = kind
     }
 
     return () => (
@@ -115,12 +122,36 @@ export default defineComponent({
             />
             <div class="footer-agreement">
               <span>已阅读并同意</span>
-              <span class="footer-agreement__link">服务协议</span>
+              <button type="button" class="footer-agreement__link" onClick={() => showLegalDocument('service')}>
+                服务协议
+              </button>
               <span>和</span>
-              <span class="footer-agreement__link">星光隐私保护指引</span>
+              <button type="button" class="footer-agreement__link" onClick={() => showLegalDocument('privacy')}>
+                星光隐私保护指引
+              </button>
             </div>
           </NFlex>
         </div>
+        <NModal
+          show={state.activeLegalDocument !== null}
+          onUpdateShow={(show) => {
+            if (!show) state.activeLegalDocument = null
+          }}
+          preset="card"
+          title={state.activeLegalDocument === 'service' ? '星光服务协议' : '星光隐私保护指引'}
+          class="login-window-content__legal-modal"
+          style={{ width: 'min(680px, calc(100vw - 48px))' }}
+          closable
+          maskClosable={false}
+          v-slots={{
+            default: () => (
+              <div class="login-window-content__legal-scroll">
+                {state.activeLegalDocument && <LegalDocumentContent kind={state.activeLegalDocument} />}
+              </div>
+            ),
+            action: () => <NButton onClick={() => (state.activeLegalDocument = null)}>关闭</NButton>
+          }}
+        />
       </div>
     )
   }

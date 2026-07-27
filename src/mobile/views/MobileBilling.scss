@@ -11,6 +11,10 @@
     align-items: center;
     justify-content: space-between;
     margin-bottom: var(--spacing-3);
+
+    > div {
+      min-width: 0;
+    }
   }
 
   &__title {
@@ -38,6 +42,7 @@
   }
 
   &__tab {
+    min-height: 44px;
     display: flex;
     flex: 1;
     align-items: center;
@@ -57,6 +62,11 @@
       background: var(--color-bg-1);
       color: var(--color-primary-6);
       box-shadow: var(--shadow-sm);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--color-primary-6);
+      outline-offset: 2px;
     }
   }
 
@@ -96,6 +106,8 @@
   }
 
   &__plan-card {
+    padding: var(--spacing-4);
+    background: var(--color-bg-2);
     border-radius: var(--radius-lg);
     border: 1px solid var(--color-border-1);
     box-shadow: var(--shadow-sm);
@@ -130,6 +142,7 @@
     color: var(--color-text-1);
     font-size: var(--font-size-title-1);
     font-weight: var(--font-weight-semibold);
+    overflow-wrap: anywhere;
   }
 
   &__plan-price {
@@ -164,6 +177,8 @@
     gap: var(--spacing-2);
     color: var(--color-text-2);
     font-size: var(--font-size-body-2);
+    min-width: 0;
+    overflow-wrap: anywhere;
   }
 
   &__plan-feature-dot {
@@ -192,18 +207,25 @@
   }
 
   &__summary-card {
+    min-width: 0;
+    padding: var(--spacing-3);
+    background: var(--color-bg-2);
+    border: 1px solid var(--color-border-1);
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-sm);
+  }
 
-    :deep(.n-statistic__label) {
-      font-size: var(--font-size-caption);
-      color: var(--color-text-3);
-    }
+  &__summary-label {
+    color: var(--color-text-3);
+    font-size: var(--font-size-body-1);
+  }
 
-    :deep(.n-statistic-content) {
-      font-size: var(--font-size-title-3);
-      font-weight: var(--font-weight-semibold);
-    }
+  &__summary-value {
+    margin-top: var(--spacing-1);
+    color: var(--color-text-1);
+    font-size: var(--font-size-title-1);
+    font-weight: var(--font-weight-semibold);
+    overflow-wrap: anywhere;
   }
 
   // ── Payment - history list ──────────────
@@ -221,6 +243,8 @@
   }
 
   &__payment-card {
+    padding: var(--spacing-4);
+    background: var(--color-bg-2);
     border-radius: var(--radius-lg);
     border: 1px solid var(--color-border-1);
     box-shadow: var(--shadow-sm);
@@ -247,6 +271,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: var(--spacing-2);
   }
 
   &__payment-card-amount {
@@ -254,11 +279,22 @@
     font-size: var(--font-size-title-2);
     font-weight: var(--font-weight-semibold);
     letter-spacing: -0.02em;
+    overflow-wrap: anywhere;
   }
 
   &__payment-card-date {
     color: var(--color-text-3);
     font-size: var(--font-size-body-1);
+    flex-shrink: 0;
+  }
+
+  &__receipt-link {
+    display: inline-flex;
+    align-items: center;
+    min-height: 36px;
+    margin-top: var(--spacing-2);
+    color: var(--color-primary-6);
+    font-size: var(--font-size-body-2);
   }
 
   // ── Usage - quotas ──────────────────────
@@ -291,6 +327,8 @@
   }
 
   &__usage-quota-card {
+    padding: var(--spacing-4);
+    background: var(--color-bg-2);
     border-radius: var(--radius-lg);
     border: 1px solid var(--color-border-1);
     box-shadow: var(--shadow-sm);

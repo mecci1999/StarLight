@@ -1,5 +1,13 @@
-import { defineComponent, ref, h } from 'vue'
-import { NButton, NCard, NIcon, NList, NListItem, NModal, NRadioButton, NRadioGroup, NSwitch } from 'naive-ui'
+import { defineComponent, ref, h, computed } from 'vue'
+import {
+  MobileButton,
+  MobileCard,
+  MobileList,
+  MobileListItem,
+  MobileSheet,
+  MobileRadio,
+  MobileSwitch
+} from '@/mobile/ui'
 import { PhSignIn, PhMoon, PhArrowsClockwise } from '@phosphor-icons/vue'
 import { useSettingStore } from '@/store/setting'
 import { ShowModeEnum, ThemeEnum } from '@/types/enums'
@@ -24,6 +32,12 @@ export default defineComponent({
   setup() {
     const settingStore = useSettingStore()
     const showResetConfirm = ref(false)
+    const activeThemeLabel = computed(() => {
+      if (settingStore.themes.pattern === ThemeEnum.OS) {
+        return settingStore.themes.content === ThemeEnum.DARK ? '深色' : '浅色'
+      }
+      return settingStore.themes.content === ThemeEnum.DARK ? '深色' : '浅色'
+    })
 
     const toggleShadow = (v: boolean) => {
       settingStore.page.shadow = v
@@ -78,218 +92,192 @@ export default defineComponent({
           <p class="mobile-settings__subtitle">管理应用外观、偏好和登录选项</p>
         </div>
 
-        <NCard size="small" bordered={false} class="mobile-settings__nav-card">
+        <MobileCard size="small" bordered={false} class="mobile-settings__nav-card">
           <div class="mobile-settings__anchors">
             {sections.map((section) => (
-              <div key={section.key} class="mobile-settings__anchor" onClick={() => scrollToSection(section.key)}>
-                <NIcon size={18}>{h(section.icon)}</NIcon>
+              <button
+                type="button"
+                key={section.key}
+                class="mobile-settings__anchor"
+                onClick={() => scrollToSection(section.key)}>
+                {h(section.icon, { size: 18 })}
                 <span>{section.title}</span>
-              </div>
+              </button>
             ))}
           </div>
-        </NCard>
+        </MobileCard>
 
         <div id="mobile-settings-appearance">
-          <NCard size="small" bordered={false} class="mobile-settings__section-card">
+          <MobileCard size="small" bordered={false} class="mobile-settings__section-card">
             <div class="mobile-settings__section-header">
-              <NIcon size={20}>
-                <PhMoon />
-              </NIcon>
+              {h(PhMoon, { size: 20 })}
               <span>外观</span>
             </div>
-            <NList class="mobile-settings__list">
-              <NListItem class="mobile-settings__list-item">
-                {{
-                  default: () => (
-                    <div class="mobile-settings__field">
-                      <div class="mobile-settings__field-label">主题模式</div>
-                      <NRadioGroup
-                        size="small"
-                        value={settingStore.themes.pattern}
-                        onUpdateValue={(value: ThemeEnum) => settingStore.setTheme(value)}>
-                        <NRadioButton value={ThemeEnum.LIGHT}>浅色</NRadioButton>
-                        <NRadioButton value={ThemeEnum.DARK}>深色</NRadioButton>
-                        <NRadioButton value={ThemeEnum.OS}>跟随系统</NRadioButton>
-                      </NRadioGroup>
-                    </div>
-                  )
-                }}
-              </NListItem>
-              <NListItem class="mobile-settings__list-item">
-                {{
-                  default: () => (
-                    <div class="mobile-settings__field">
-                      <div class="mobile-settings__field-label">菜单展示</div>
-                      <NRadioGroup
-                        size="small"
-                        value={settingStore.showMode}
-                        onUpdateValue={(value: ShowModeEnum) => setShowMode(value)}>
-                        <NRadioButton value={ShowModeEnum.ICON}>图标</NRadioButton>
-                        <NRadioButton value={ShowModeEnum.TEXT}>文字</NRadioButton>
-                      </NRadioGroup>
-                    </div>
-                  )
-                }}
-              </NListItem>
-              <NListItem class="mobile-settings__list-item">
-                {{
-                  default: () => (
-                    <div class="mobile-settings__field">
-                      <div class="mobile-settings__field-label">字体方案</div>
-                      <NRadioGroup
-                        size="small"
-                        value={settingStore.page.fonts}
-                        onUpdateValue={(value: string) => setFontScheme(value)}>
-                        <NRadioButton value="PingFang">苹方</NRadioButton>
-                        <NRadioButton value="System">系统</NRadioButton>
-                      </NRadioGroup>
-                    </div>
-                  )
-                }}
-              </NListItem>
-              <NListItem class="mobile-settings__list-item">
-                {{
-                  default: () => (
-                    <div class="mobile-settings__toggle-row">
-                      <div class="mobile-settings__toggle-text">
-                        <strong>卡片阴影</strong>
-                        <span>提升层级识别</span>
-                      </div>
-                      <NSwitch value={settingStore.page.shadow} onUpdateValue={toggleShadow} />
-                    </div>
-                  )
-                }}
-              </NListItem>
-              <NListItem class="mobile-settings__list-item">
-                {{
-                  default: () => (
-                    <div class="mobile-settings__toggle-row">
-                      <div class="mobile-settings__toggle-text">
-                        <strong>背景模糊</strong>
-                        <span>浮窗质感更接近桌面客户端</span>
-                      </div>
-                      <NSwitch value={settingStore.page.blur} onUpdateValue={toggleBlur} />
-                    </div>
-                  )
-                }}
-              </NListItem>
-            </NList>
-          </NCard>
+            <MobileList class="mobile-settings__list">
+              <MobileListItem class="mobile-settings__list-item">
+                <div class="mobile-settings__field">
+                  <div class="mobile-settings__field-label">
+                    <span>主题模式</span>
+                    {settingStore.themes.pattern === ThemeEnum.OS && (
+                      <small>跟随系统 · 当前{activeThemeLabel.value}</small>
+                    )}
+                  </div>
+                  <MobileRadio
+                    modelValue={settingStore.themes.pattern}
+                    onUpdate:modelValue={(value: ThemeEnum) => settingStore.setTheme(value)}
+                    direction="horizontal"
+                    options={[
+                      { label: '浅色', value: ThemeEnum.LIGHT },
+                      { label: '深色', value: ThemeEnum.DARK },
+                      { label: '跟随系统', value: ThemeEnum.OS }
+                    ]}
+                  />
+                </div>
+              </MobileListItem>
+              <MobileListItem class="mobile-settings__list-item">
+                <div class="mobile-settings__field">
+                  <div class="mobile-settings__field-label">菜单展示</div>
+                  <MobileRadio
+                    modelValue={settingStore.showMode}
+                    onUpdate:modelValue={(value: ShowModeEnum) => setShowMode(value)}
+                    direction="horizontal"
+                    options={[
+                      { label: '图标', value: ShowModeEnum.ICON },
+                      { label: '文字', value: ShowModeEnum.TEXT }
+                    ]}
+                  />
+                </div>
+              </MobileListItem>
+              <MobileListItem class="mobile-settings__list-item">
+                <div class="mobile-settings__field">
+                  <div class="mobile-settings__field-label">字体方案</div>
+                  <MobileRadio
+                    modelValue={settingStore.page.fonts}
+                    onUpdate:modelValue={(value: string) => setFontScheme(value)}
+                    direction="horizontal"
+                    options={[
+                      { label: '苹方', value: 'PingFang' },
+                      { label: '系统', value: 'System' }
+                    ]}
+                  />
+                </div>
+              </MobileListItem>
+              <MobileListItem class="mobile-settings__list-item">
+                <div class="mobile-settings__toggle-row">
+                  <div class="mobile-settings__toggle-text">
+                    <strong>卡片阴影</strong>
+                    <span>提升层级识别</span>
+                  </div>
+                  <MobileSwitch modelValue={settingStore.page.shadow} onUpdate:modelValue={toggleShadow} />
+                </div>
+              </MobileListItem>
+              <MobileListItem class="mobile-settings__list-item">
+                <div class="mobile-settings__toggle-row">
+                  <div class="mobile-settings__toggle-text">
+                    <strong>背景模糊</strong>
+                    <span>浮窗质感更接近桌面客户端</span>
+                  </div>
+                  <MobileSwitch modelValue={settingStore.page.blur} onUpdate:modelValue={toggleBlur} />
+                </div>
+              </MobileListItem>
+            </MobileList>
+          </MobileCard>
         </div>
 
         <div id="mobile-settings-preferences">
-          <NCard size="small" bordered={false} class="mobile-settings__section-card">
+          <MobileCard size="small" bordered={false} class="mobile-settings__section-card">
             <div class="mobile-settings__section-header">
-              <NIcon size={20}>
-                <PhSignIn />
-              </NIcon>
+              {h(PhSignIn, { size: 20 })}
               <span>偏好</span>
             </div>
-            <NList class="mobile-settings__list">
-              <NListItem class="mobile-settings__list-item">
-                {{
-                  default: () => (
-                    <div class="mobile-settings__placeholder-row">
-                      <strong>语言</strong>
-                      <span>开发中</span>
-                    </div>
-                  )
-                }}
-              </NListItem>
-              <NListItem class="mobile-settings__list-item">
-                {{
-                  default: () => (
-                    <div class="mobile-settings__placeholder-row">
-                      <strong>时区</strong>
-                      <span>开发中</span>
-                    </div>
-                  )
-                }}
-              </NListItem>
-            </NList>
-          </NCard>
+            <MobileList class="mobile-settings__list">
+              <MobileListItem class="mobile-settings__list-item">
+                <div class="mobile-settings__placeholder-row">
+                  <strong>语言</strong>
+                  <span>开发中</span>
+                </div>
+              </MobileListItem>
+              <MobileListItem class="mobile-settings__list-item">
+                <div class="mobile-settings__placeholder-row">
+                  <strong>时区</strong>
+                  <span>开发中</span>
+                </div>
+              </MobileListItem>
+            </MobileList>
+          </MobileCard>
         </div>
 
         <div id="mobile-settings-login">
-          <NCard size="small" bordered={false} class="mobile-settings__section-card">
+          <MobileCard size="small" bordered={false} class="mobile-settings__section-card">
             <div class="mobile-settings__section-header">
-              <NIcon size={20}>
-                <PhSignIn />
-              </NIcon>
+              {h(PhSignIn, { size: 20 })}
               <span>登录</span>
             </div>
-            <NList class="mobile-settings__list">
-              <NListItem class="mobile-settings__list-item">
-                {{
-                  default: () => (
-                    <div class="mobile-settings__toggle-row">
-                      <div class="mobile-settings__toggle-text">
-                        <strong>自动登录</strong>
-                        <span>启动后复用本地登录状态</span>
-                      </div>
-                      <NSwitch value={settingStore.login.autoLogin} onUpdateValue={toggleAutoLogin} />
-                    </div>
-                  )
-                }}
-              </NListItem>
-            </NList>
-          </NCard>
+            <MobileList class="mobile-settings__list">
+              <MobileListItem class="mobile-settings__list-item">
+                <div class="mobile-settings__toggle-row">
+                  <div class="mobile-settings__toggle-text">
+                    <strong>自动登录</strong>
+                    <span>启动后复用本地登录状态</span>
+                  </div>
+                  <MobileSwitch modelValue={settingStore.login.autoLogin} onUpdate:modelValue={toggleAutoLogin} />
+                </div>
+              </MobileListItem>
+            </MobileList>
+          </MobileCard>
         </div>
 
         <div id="mobile-settings-about">
-          <NCard size="small" bordered={false} class="mobile-settings__section-card">
+          <MobileCard size="small" bordered={false} class="mobile-settings__section-card">
             <div class="mobile-settings__section-header">
-              <NIcon size={20}>
-                <PhSignIn />
-              </NIcon>
+              {h(PhSignIn, { size: 20 })}
               <span>关于</span>
             </div>
-            <NList class="mobile-settings__list">
-              <NListItem class="mobile-settings__list-item">
-                {{
-                  default: () => (
-                    <div class="mobile-settings__placeholder-row">
-                      <strong>应用版本</strong>
-                      <span>星光 Odyssey v0.1.0</span>
-                    </div>
-                  )
-                }}
-              </NListItem>
-            </NList>
-          </NCard>
+            <MobileList class="mobile-settings__list">
+              <MobileListItem class="mobile-settings__list-item">
+                <div class="mobile-settings__placeholder-row">
+                  <strong>应用版本</strong>
+                  <span>星光 Odyssey v0.1.0</span>
+                </div>
+              </MobileListItem>
+            </MobileList>
+          </MobileCard>
         </div>
 
         <div id="mobile-settings-reset">
-          <NCard size="small" bordered={false} class="mobile-settings__section-card">
+          <MobileCard size="small" bordered={false} class="mobile-settings__section-card">
             <div class="mobile-settings__section-header">
-              <NIcon size={20}>
-                <PhArrowsClockwise />
-              </NIcon>
+              {h(PhArrowsClockwise, { size: 20 })}
               <span>重置</span>
             </div>
             <div class="mobile-settings__reset-area">
               <p class="mobile-settings__reset-desc">将所有设置恢复为默认值</p>
-              <NButton type="warning" block onClick={openResetConfirm}>
+              <MobileButton type="danger" block onClick={openResetConfirm}>
                 恢复默认设置
-              </NButton>
+              </MobileButton>
             </div>
-          </NCard>
+          </MobileCard>
         </div>
 
-        <NModal
-          v-model:show={showResetConfirm.value}
-          preset="dialog"
-          title="确认重置"
-          positive-text="确认重置"
-          negative-text="取消"
-          type="warning"
-          onPositiveClick={handleResetDefaults}
-          onNegativeClick={closeResetConfirm}
-          onUpdateShow={(v: boolean) => {
+        <MobileSheet
+          show={showResetConfirm.value}
+          onUpdate:show={(v: boolean) => {
             showResetConfirm.value = v
-          }}>
-          此操作将把所有设置恢复为默认值，包括主题、字体、菜单展示等。确定要继续吗？
-        </NModal>
+          }}
+          position="bottom">
+          <div class="mobile-settings__reset-sheet">
+            <h3>确认重置</h3>
+            <p>此操作将把所有设置恢复为默认值，包括主题、字体、菜单展示等。确定要继续吗？</p>
+            <div class="mobile-settings__reset-actions">
+              <MobileButton type="danger" block onClick={handleResetDefaults}>
+                确认重置
+              </MobileButton>
+              <MobileButton type="ghost" block onClick={closeResetConfirm}>
+                取消
+              </MobileButton>
+            </div>
+          </div>
+        </MobileSheet>
       </div>
     )
   }

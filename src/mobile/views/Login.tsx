@@ -1,4 +1,5 @@
-import { NAvatar, NButton, NCheckbox, NFlex, NIcon, NInput, NScrollbar } from 'naive-ui'
+import { h } from 'vue'
+import { MobileAvatar, MobileButton, MobileCheckbox, MobileInput, MobileSheet } from '@/mobile/ui'
 import { PhCaretDown, PhCaretUp } from '@phosphor-icons/vue'
 import { encryptPassword } from '@/utils/Crypto'
 import { fetch as tauriFetch } from '@tauri-apps/plugin-http'
@@ -14,8 +15,60 @@ import {
 import { useLoginHistoriesStore } from '@/store/loginHistory'
 import { useSettingStore } from '@/store/setting'
 import { useKeyboardAvoid } from '@/mobile/hooks/useKeyboardAvoid'
+import MobileVantProvider from '@/mobile/providers/MobileVantProvider'
+import LegalDocumentContent from '@/shared/legal/LegalDocumentContent'
+import type { LegalDocumentKind } from '@/shared/legal/agreements'
 import type { UserInfoType } from '@/types/userInfo'
 import './Login.scss'
+
+type LoginResponse = {
+  userId?: string
+  token?: string
+  accessToken?: string
+  access_token?: string
+  refreshToken?: string
+  refresh_token?: string
+  userInfo?: unknown
+}
+
+const getErrorMessage = (error: unknown, fallback: string) => (error instanceof Error ? error.message : fallback)
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value)
+
+const getString = (record: Record<string, unknown>, key: string) =>
+  typeof record[key] === 'string' ? record[key] : undefined
+
+const toLoginResponse = (value: unknown): LoginResponse => {
+  if (!isRecord(value)) return {}
+  return {
+    userId: getString(value, 'userId'),
+    token: getString(value, 'token'),
+    accessToken: getString(value, 'accessToken'),
+    access_token: getString(value, 'access_token'),
+    refreshToken: getString(value, 'refreshToken'),
+    refresh_token: getString(value, 'refresh_token'),
+    userInfo: value.userInfo
+  }
+}
+
+const toPartialUserInfo = (value: unknown): Partial<UserInfoType> | undefined => {
+  if (!isRecord(value)) return undefined
+  const isAdmin = typeof value.isAdmin === 'boolean' ? value.isAdmin : undefined
+  const isOnboardingCompleted =
+    typeof value.isOnboardingCompleted === 'boolean' ? value.isOnboardingCompleted : undefined
+  return {
+    userId: getString(value, 'userId'),
+    email: getString(value, 'email'),
+    avatar: getString(value, 'avatar'),
+    nickName: getString(value, 'nickName') || getString(value, 'nickname'),
+    client: getString(value, 'client'),
+    isAdmin,
+    status: getString(value, 'status'),
+    lastActiveAt: getString(value, 'lastActiveAt'),
+    isOnboardingCompleted
+  }
+}
 
 export default defineComponent({
   name: 'MobileLogin',
@@ -43,7 +96,6 @@ export default defineComponent({
 
     onMounted(() => {
       checkNetwork()
-      document.addEventListener('keydown', handleKeyDown)
     })
 
     const { loginHistories, addLoginHistory, removeLoginHistory } = useLoginHistoriesStore()
@@ -57,7 +109,7 @@ export default defineComponent({
       nickname: '',
       userId: '',
       remember: true,
-      protocol: true,
+      protocol: false,
       loading: false,
       mode: 'login' as 'login' | 'register' | 'forget',
       countdown: 0,
@@ -80,7 +132,7 @@ export default defineComponent({
     const isForgetMode = computed(() => state.mode === 'forget')
 
     const submitDisabled = computed(() => {
-      if (state.loading || !state.protocol || !isOnline.value) return true
+      if (state.loading || !isOnline.value) return true
       if (!state.email || !state.validCode) return true
       if (isRegisterMode.value || isForgetMode.value) {
         if (!state.password || !state.confirmPassword) return true
@@ -121,6 +173,17 @@ export default defineComponent({
     const validCodeText = computed(() => {
       return state.countdown > 0 ? `${state.countdown}秒后可重新发送` : '获取验证码'
     })
+    const activeLegalDocument = ref<LegalDocumentKind | null>(null)
+
+    const showLegalDocument = (kind: LegalDocumentKind) => {
+      activeLegalDocument.value = kind
+    }
+
+    const ensureProtocolAccepted = () => {
+      if (state.protocol) return true
+      window.$message.warning('请先阅读并同意《星光服务协议》和《星光隐私保护指引》')
+      return false
+    }
 
     // ── 历史账号 ──────────────────────────────────────────
     const giveAccount = (item: UserInfoType) => {
@@ -236,26 +299,27 @@ export default defineComponent({
     // ── 登录 ──────────────────────────────────────────────
     const handleLogin = async () => {
       if (state.loading) return
+      if (!ensureProtocolAccepted()) return
       if (!validateCommon()) return
       try {
         state.loading = true
         const hash = encryptPassword(state.password, import.meta.env.VITE_PASSWORD_SECRET_KEY)
         const response = await api.login({ email: state.email, hash, code: state.validCode })
-        const res = response as Record<string, unknown>
+        const res = toLoginResponse(response)
         const token = res.token || res.accessToken || res.access_token
         const refreshTokenVal = res.refreshToken || res.refresh_token
         persistAuthTokens({
-          accessToken: (token as string) || getStoredAuthTokens().accessToken,
-          refreshToken: (refreshTokenVal as string) || getStoredAuthTokens().refreshToken
+          accessToken: token || getStoredAuthTokens().accessToken,
+          refreshToken: refreshTokenVal || getStoredAuthTokens().refreshToken
         })
         syncAuthTokensToTauri().catch(() => {})
-        const loginUserId = (res.userId as string) || ''
+        const loginUserId = res.userId || ''
         const cached = getStoredUserInfo()
         let resolved: Partial<UserInfoType> | undefined =
-          (res.userInfo as Partial<UserInfoType> | undefined) || (cached?.userId === loginUserId ? cached : undefined)
+          toPartialUserInfo(res.userInfo) || (cached?.userId === loginUserId ? cached : undefined)
         if (!resolved?.userId && loginUserId) {
           try {
-            resolved = (await api.getUserInfo(loginUserId)) as Partial<UserInfoType>
+            resolved = await api.getUserInfo(loginUserId)
           } catch {}
         }
         const userInfo: UserInfoType = {
@@ -263,7 +327,7 @@ export default defineComponent({
           email: state.email,
           hash: state.remember ? state.password : undefined,
           avatar: resolved?.avatar || state.avatar || 'star_1',
-          nickName: resolved?.nickName || (resolved as any)?.nickname || state.nickname || state.email,
+          nickName: resolved?.nickName || state.nickname || state.email,
           client: resolved?.client || 'mobile',
           isAdmin: resolved?.isAdmin || false,
           status: resolved?.status || 'active',
@@ -277,7 +341,7 @@ export default defineComponent({
       } catch (error: unknown) {
         console.error('登录失败:', error)
         state.validCode = ''
-        window.$message.error((error as any)?.message || '登录失败，请检查邮箱和密码')
+        window.$message.error(getErrorMessage(error, '登录失败，请检查邮箱和密码'))
       } finally {
         state.loading = false
       }
@@ -286,6 +350,7 @@ export default defineComponent({
     // ── 注册 ──────────────────────────────────────────────
     const handleRegister = async () => {
       if (state.loading) return
+      if (!ensureProtocolAccepted()) return
       if (!validateCommon()) return
       try {
         state.loading = true
@@ -296,7 +361,7 @@ export default defineComponent({
       } catch (error: unknown) {
         console.error('注册失败:', error)
         state.validCode = ''
-        window.$message.error((error as any)?.message || '注册失败，请稍后重试')
+        window.$message.error(getErrorMessage(error, '注册失败，请稍后重试'))
       } finally {
         state.loading = false
       }
@@ -305,6 +370,7 @@ export default defineComponent({
     // ── 忘记密码 ──────────────────────────────────────────
     const handleResetPassword = async () => {
       if (state.loading) return
+      if (!ensureProtocolAccepted()) return
       if (!validateCommon()) return
       try {
         state.loading = true
@@ -315,7 +381,7 @@ export default defineComponent({
       } catch (error: unknown) {
         console.error('重置密码失败:', error)
         state.validCode = ''
-        window.$message.error((error as any)?.message || '重置密码失败，请稍后重试')
+        window.$message.error(getErrorMessage(error, '重置密码失败，请稍后重试'))
       } finally {
         state.loading = false
       }
@@ -328,12 +394,7 @@ export default defineComponent({
       else handleLogin()
     }
 
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Enter') handleSubmit()
-    }
-
     onUnmounted(() => {
-      document.removeEventListener('keydown', handleKeyDown)
       if (state.countdownTimer) {
         clearInterval(state.countdownTimer)
         state.countdownTimer = null
@@ -343,189 +404,224 @@ export default defineComponent({
     useKeyboardAvoid()
 
     return () => (
-      <div class="mobile-login" data-login-v2="true">
-        <div class="mobile-login__content">
-          <div class="mobile-login__header">
-            <div class="mobile-login__title">{loginTitle.value}</div>
-            <div class="mobile-login__subtitle">还有永不落幕的星光✨，给你宇宙级别的浪漫～</div>
-          </div>
-
-          <div class="mobile-login__form">
-            {/* 邮箱 */}
-            <div class="mobile-login__input-wrap">
-              <NInput
-                size="large"
-                maxlength={32}
-                value={state.email}
-                onUpdateValue={(v: string) => {
-                  state.email = v
-                  state.emailValid = false
-                }}
-                type="text"
-                placeholder="请输入邮箱"
-                clearable
-                inputProps={{ inputmode: 'email' }}>
-                {{
-                  suffix: () =>
-                    loginHistories.length > 0 ? (
-                      <div
-                        class="mobile-login__history-toggle"
-                        onClick={(e: Event) => {
-                          e.preventDefault()
-                          e.stopPropagation()
-                          state.arrowStatus = !state.arrowStatus
-                        }}>
-                        <NIcon size={14}>{state.arrowStatus ? <PhCaretUp /> : <PhCaretDown />}</NIcon>
-                      </div>
-                    ) : null
-                }}
-              </NInput>
-              {loginHistories.length > 0 && state.arrowStatus ? (
-                <div class="mobile-login__history-box">
-                  <NScrollbar class="mobile-login__history-scroll" trigger="hover">
-                    {loginHistories.map((item) => (
-                      <div key={item.email} class="mobile-login__history-item" onClick={() => giveAccount(item)}>
-                        <NAvatar class="mobile-login__history-avatar" src={item.avatar} />
-                        <div class="mobile-login__history-info">
-                          <div class="mobile-login__history-name">{item.nickName || item.email}</div>
-                          <div class="mobile-login__history-email">{item.email}</div>
-                        </div>
-                        <div class="mobile-login__history-delete" onClick={(e: Event) => deleteAccount(item, e)}>
-                          ✕
-                        </div>
-                      </div>
-                    ))}
-                  </NScrollbar>
-                </div>
-              ) : null}
+      <MobileVantProvider>
+        <div class="mobile-login" data-login-v2="true">
+          <div class="mobile-login__content">
+            <div class="mobile-login__header">
+              <div class="mobile-login__title">{loginTitle.value}</div>
+              <div class="mobile-login__subtitle">还有永不落幕的星光✨，给你宇宙级别的浪漫～</div>
             </div>
-            {state.emailValid && <div class="mobile-login__error">请输入有效的邮箱账号</div>}
 
-            {/* 密码 */}
-            <div class="mobile-login__input-wrap">
-              <NInput
-                size="large"
-                maxlength={32}
-                value={state.password}
-                onUpdateValue={(v: string) => {
-                  state.password = v
-                  state.passwordValid = false
-                }}
-                type="password"
-                showPasswordOn="click"
-                placeholder={passwordPlaceholder.value}
-                clearable
-              />
-            </div>
-            {state.passwordValid && <div class="mobile-login__error">{state.passwordErrorMsg}</div>}
+            <form
+              class="mobile-login__form"
+              onSubmit={(event: Event) => {
+                event.preventDefault()
+                handleSubmit()
+              }}>
+              {/* 邮箱 */}
+              <div class="mobile-login__input-wrap">
+                <MobileInput
+                  modelValue={state.email}
+                  onUpdate:modelValue={(v: string) => {
+                    state.email = v
+                    state.emailValid = false
+                  }}
+                  type="email"
+                  placeholder="请输入邮箱"
+                  maxlength={32}
+                  clearable
+                  rightIcon={
+                    loginHistories.length > 0
+                      ? () => (
+                          <button
+                            type="button"
+                            class="mobile-login__history-toggle"
+                            aria-label={state.arrowStatus ? '收起历史账号' : '展开历史账号'}
+                            aria-expanded={state.arrowStatus}
+                            onClick={(e: Event) => {
+                              e.preventDefault()
+                              e.stopPropagation()
+                              state.arrowStatus = !state.arrowStatus
+                            }}>
+                            {h(state.arrowStatus ? PhCaretUp : PhCaretDown, { size: 16 })}
+                          </button>
+                        )
+                      : undefined
+                  }
+                />
+                {loginHistories.length > 0 && state.arrowStatus ? (
+                  <div class="mobile-login__history-box">
+                    <div class="mobile-login__history-scroll">
+                      {loginHistories.map((item) => (
+                        <div key={item.email} class="mobile-login__history-item">
+                          <button type="button" class="mobile-login__history-select" onClick={() => giveAccount(item)}>
+                            <MobileAvatar class="mobile-login__history-avatar" src={item.avatar} size={44} />
+                            <div class="mobile-login__history-info">
+                              <div class="mobile-login__history-name">{item.nickName || item.email}</div>
+                              <div class="mobile-login__history-email">{item.email}</div>
+                            </div>
+                          </button>
+                          <button
+                            type="button"
+                            class="mobile-login__history-delete"
+                            aria-label={`删除历史账号 ${item.email}`}
+                            onClick={(e: Event) => deleteAccount(item, e)}>
+                            ✕
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+              {state.emailValid && <div class="mobile-login__error">请输入有效的邮箱账号</div>}
 
-            {/* 确认密码 — 注册和忘记密码时显示 */}
-            {(isRegisterMode.value || isForgetMode.value) && (
-              <>
-                <div class="mobile-login__input-wrap">
-                  <NInput
-                    size="large"
-                    maxlength={32}
-                    value={state.confirmPassword}
-                    onUpdateValue={(v: string) => {
-                      state.confirmPassword = v
-                      state.confirmPasswordValid = false
-                    }}
-                    type="password"
-                    showPasswordOn="click"
-                    placeholder={confirmPasswordPlaceholder.value}
-                    clearable
-                  />
-                </div>
-                {state.confirmPasswordValid && <div class="mobile-login__error">{state.confirmPasswordErrorMsg}</div>}
-              </>
-            )}
+              {/* 密码 */}
+              <div class="mobile-login__input-wrap">
+                <MobileInput
+                  modelValue={state.password}
+                  onUpdate:modelValue={(v: string) => {
+                    state.password = v
+                    state.passwordValid = false
+                  }}
+                  type="password"
+                  placeholder={passwordPlaceholder.value}
+                  maxlength={32}
+                  clearable
+                />
+              </div>
+              {state.passwordValid && <div class="mobile-login__error">{state.passwordErrorMsg}</div>}
 
-            {/* 验证码 */}
-            <div class="mobile-login__input-wrap">
-              <NInput
-                size="large"
-                maxlength={6}
-                value={state.validCode}
-                onUpdateValue={(v: string) => {
-                  state.validCode = v
-                  state.validCodeValid = false
-                }}
-                type="text"
-                placeholder="请输入验证码"
-                clearable>
-                {{
-                  suffix: () => (
-                    <span
-                      class={['mobile-login__code-action', state.countdown > 0 ? 'is-waiting' : 'is-ready']}
+              {/* 确认密码 — 注册和忘记密码时显示 */}
+              {(isRegisterMode.value || isForgetMode.value) && (
+                <>
+                  <div class="mobile-login__input-wrap">
+                    <MobileInput
+                      maxlength={32}
+                      modelValue={state.confirmPassword}
+                      onUpdate:modelValue={(v: string) => {
+                        state.confirmPassword = v
+                        state.confirmPasswordValid = false
+                      }}
+                      type="password"
+                      placeholder={confirmPasswordPlaceholder.value}
+                      clearable
+                    />
+                  </div>
+                  {state.confirmPasswordValid && <div class="mobile-login__error">{state.confirmPasswordErrorMsg}</div>}
+                </>
+              )}
+
+              {/* 验证码 */}
+              <div class="mobile-login__input-wrap">
+                <MobileInput
+                  modelValue={state.validCode}
+                  onUpdate:modelValue={(v: string) => {
+                    state.validCode = v
+                    state.validCodeValid = false
+                  }}
+                  type="text"
+                  placeholder="请输入验证码"
+                  maxlength={6}
+                  clearable
+                  rightIcon={() => (
+                    <button
+                      type="button"
+                      class={['mobile-login__code-text', state.countdown > 0 ? 'is-waiting' : 'is-ready']}
+                      disabled={state.countdown > 0}
                       onClick={handleValidCode}>
                       {validCodeText.value}
-                    </span>
-                  )
-                }}
-              </NInput>
+                    </button>
+                  )}
+                />
+              </div>
+              {state.validCodeValid && <div class="mobile-login__error">{state.validCodeErrorMsg}</div>}
+
+              {/* 记住密码 / 忘记密码 — 仅登录模式显示 */}
+              {isLoginMode.value && (
+                <div class="mobile-login__form-actions">
+                  <div class="mobile-login__remember">
+                    <MobileCheckbox
+                      modelValue={state.remember}
+                      onUpdate:modelValue={(v: boolean) => {
+                        state.remember = v
+                      }}
+                    />
+                    <span class="mobile-login__remember-text">记住密码</span>
+                  </div>
+                  <button type="button" class="mobile-login__forget-link" onClick={() => switchMode('forget')}>
+                    忘记密码
+                  </button>
+                </div>
+              )}
+
+              <MobileButton
+                class="mobile-login__submit"
+                type="primary"
+                loading={state.loading}
+                disabled={submitDisabled.value}
+                onClick={handleSubmit}
+                block>
+                {submitText.value}
+              </MobileButton>
+            </form>
+
+            <div class="mobile-login__footer">
+              <div class="mobile-login__footer-switches">
+                <button
+                  type="button"
+                  class="mobile-login__footer-link"
+                  onClick={() => switchMode(state.mode === 'register' ? 'login' : 'register')}>
+                  {state.mode === 'register' ? '返回登录' : '注册账号'}
+                </button>
+                <div class="mobile-login__footer-divider" />
+                <button
+                  type="button"
+                  class="mobile-login__footer-link"
+                  onClick={() => switchMode(state.mode === 'forget' ? 'login' : 'forget')}>
+                  {state.mode === 'forget' ? '账号登录' : '忘记密码'}
+                </button>
+              </div>
+              <div class="mobile-login__agreement-row">
+                <MobileCheckbox
+                  modelValue={state.protocol}
+                  onUpdate:modelValue={(v: boolean) => {
+                    state.protocol = v
+                  }}
+                />
+                <div class="mobile-login__footer-agreement">
+                  <span>已阅读并同意</span>
+                  <button
+                    type="button"
+                    class="mobile-login__footer-agreement-link"
+                    onClick={() => showLegalDocument('service')}>
+                    服务协议
+                  </button>
+                  <span>和</span>
+                  <button
+                    type="button"
+                    class="mobile-login__footer-agreement-link"
+                    onClick={() => showLegalDocument('privacy')}>
+                    星光隐私保护指引
+                  </button>
+                </div>
+              </div>
             </div>
-            {state.validCodeValid && <div class="mobile-login__error">{state.validCodeErrorMsg}</div>}
-
-            {/* 记住密码 / 忘记密码 — 仅登录模式显示 */}
-            {isLoginMode.value && (
-              <NFlex justify="space-between" class="mobile-login__form-actions">
-                <NFlex size={6}>
-                  <NCheckbox
-                    checked={state.remember}
-                    onUpdateChecked={(v: boolean) => {
-                      state.remember = v
-                    }}
-                  />
-                  <span class="mobile-login__remember-text">记住密码</span>
-                </NFlex>
-                <span class="mobile-login__forget-link" onClick={() => switchMode('forget')}>
-                  忘记密码
-                </span>
-              </NFlex>
-            )}
-
-            <NButton
-              class="mobile-login__submit"
-              type="primary"
-              loading={state.loading}
-              disabled={submitDisabled.value}
-              onClick={handleSubmit}>
-              {submitText.value}
-            </NButton>
-          </div>
-
-          <div class="mobile-login__footer">
-            <NFlex justify="center" class="mobile-login__footer-switches" size={10}>
-              <div
-                class="mobile-login__footer-link"
-                onClick={() => switchMode(state.mode === 'register' ? 'login' : 'register')}>
-                {state.mode === 'register' ? '返回登录' : '注册账号'}
-              </div>
-              <div class="mobile-login__footer-divider" />
-              <div
-                class="mobile-login__footer-link"
-                onClick={() => switchMode(state.mode === 'forget' ? 'login' : 'forget')}>
-                {state.mode === 'forget' ? '账号登录' : '忘记密码'}
-              </div>
-            </NFlex>
-            <NFlex justify="center" size={6}>
-              <NCheckbox
-                checked={state.protocol}
-                onUpdateChecked={(v: boolean) => {
-                  state.protocol = v
-                }}
-              />
-              <div class="mobile-login__footer-agreement">
-                <span>已阅读并同意</span>
-                <span class="mobile-login__footer-agreement-link">服务协议</span>
-                <span>和</span>
-                <span class="mobile-login__footer-agreement-link">星光隐私保护指引</span>
-              </div>
-            </NFlex>
           </div>
         </div>
-      </div>
+        <MobileSheet
+          show={activeLegalDocument.value !== null}
+          onUpdate:show={(show) => {
+            if (!show) activeLegalDocument.value = null
+          }}
+          position="bottom"
+          title={activeLegalDocument.value === 'service' ? '星光服务协议' : '星光隐私保护指引'}
+          closeOnClickOverlay>
+          <div class="mobile-login__legal-reader">
+            {activeLegalDocument.value && <LegalDocumentContent kind={activeLegalDocument.value} />}
+          </div>
+        </MobileSheet>
+      </MobileVantProvider>
     )
   }
 })

@@ -1,6 +1,6 @@
-import { defineComponent, ref, onMounted, onUnmounted, computed, watch, h } from 'vue'
+import { defineComponent, ref, onActivated, onDeactivated, onUnmounted, computed, watch, h } from 'vue'
 import { useRouter } from 'vue-router'
-import { NTag, NButton, NSpin, NEmpty, NResult, NIcon, NStatistic, NInput, NCard, NGrid, NGridItem } from 'naive-ui'
+import { MobileButton, MobileCard, MobileEmpty, MobileInput, MobileLoading, MobileTag, MobileGrid } from '@/mobile/ui'
 import {
   PhComputerTower,
   PhActivity,
@@ -52,7 +52,7 @@ import type {
   DarwinInfraTrendConfig,
   OverviewTrendMetricKey
 } from '@/domains/overview/panelModel'
-import { normalizeWidgetTags, buildOverviewWidgetEditorState } from '@/domains/overview/panelModel'
+import { normalizeWidgetTags } from '@/domains/overview/panelModel'
 import { buildOverviewCardsQueryRequest, mapQueryResultsByWidgetId } from '@/domains/overview/overviewRuntimeQueryModel'
 import { normalizeQueryAlertRules, type CardData } from '@/domains/metrics/queryModel'
 import { formatQueryNumberDisplay } from '@/domains/overview/queryNumberDisplay'
@@ -109,6 +109,20 @@ const capabilityFilterTags: Record<OverviewCapabilityKey, string> = {
   serviceCatalog: '服务',
   ingestion: '接入'
 }
+
+const widgetKindLabels: Record<OverviewWidgetKind, string> = {
+  'query-card': '自定义指标',
+  'metric-summary': '指标摘要',
+  'risk-service': '风险服务',
+  incident: '活跃事件',
+  'ingest-status': '接入状态',
+  trend: '趋势',
+  'quick-pivot': '快捷入口',
+  'darwin-infra-summary': '资源摘要',
+  'darwin-infra-trend': '资源趋势',
+  'darwin-instance-table': '实例资源'
+}
+
 const resolveWidgetScenarioMetricKeys = (widget: OverviewPanelWidget): OverviewWidgetDisplayMetricKey[] => {
   const editorMetrics = widget.editor?.displayedMetrics
   if (editorMetrics && editorMetrics.length) return editorMetrics as OverviewWidgetDisplayMetricKey[]
@@ -143,6 +157,7 @@ const TIME_RANGE_LABELS: Record<TimeRangeKey, string> = {
 
 type TrendPoint = { timestamp: number; value: number }
 type TrendSnapshot = { requests: TrendPoint[]; errors: TrendPoint[]; latency: TrendPoint[] }
+type RefreshReason = 'initial' | 'manual' | 'pull' | 'filter' | 'time-range' | 'interval'
 
 export default defineComponent({
   name: 'MobileOverviewV2',
@@ -185,6 +200,11 @@ export default defineComponent({
     const autoRefreshSetting = ref<OverviewAutoRefreshKey>('off')
     const autoRefreshTimer = ref<ReturnType<typeof setInterval> | null>(null)
     const autoRefreshFailureCount = ref(0)
+    let refreshGeneration = 0
+    let activeLoadPromise: Promise<void> | null = null
+    let panelsRestorePromise: Promise<void> | null = null
+    let suppressNextTimeRangeLoad = false
+    let nextTimeRangeRefreshReason: RefreshReason | null = null
 
     const formatLargeNumber = (v: number): string => {
       if (v >= 100000000) return `${(v / 100000000).toFixed(1)}亿`
@@ -209,6 +229,29 @@ export default defineComponent({
 
     const currentPanel = computed(() => panels.value.find((p) => p.id === activePanelId.value) || panels.value[0])
     const currentWidgets = computed(() => currentPanel.value?.widgets || [])
+
+    const orderedWidgets = computed(() => {
+      const priority: Record<OverviewWidgetKind, number> = {
+        'metric-summary': 30,
+        'risk-service': 10,
+        incident: 10,
+        trend: 40,
+        'ingest-status': 50,
+        'darwin-infra-summary': 50,
+        'darwin-infra-trend': 40,
+        'darwin-instance-table': 50,
+        'query-card': 60,
+        'quick-pivot': 70
+      }
+      return [...filteredWidgets.value].sort((a, b) => (priority[a.kind] || 60) - (priority[b.kind] || 60))
+    })
+
+    const statusWidgets = computed(() =>
+      orderedWidgets.value.filter((widget) => widget.kind === 'risk-service' || widget.kind === 'incident')
+    )
+    const remainingWidgets = computed(() =>
+      orderedWidgets.value.filter((widget) => widget.kind !== 'risk-service' && widget.kind !== 'incident')
+    )
 
     const widgetTagOptions = computed(() => {
       const tagCounts = new Map<string, number>()
@@ -253,87 +296,163 @@ export default defineComponent({
       return snapshot[metric] || []
     }
 
-    const loadData = async () => {
-      loading.value = true
+    const toOverviewTimeRange = (range: TimeRangeKey) => (range === 'custom' ? undefined : `-${range}`)
+
+    const hasUsableData = () =>
+      services.value.length > 0 ||
+      Object.values(summary.value).some((value) => value !== null) ||
+      Object.values(trendsByGroup.value).some((snapshot) =>
+        Object.values(snapshot).some((points) => points.length > 0)
+      ) ||
+      riskServices.value.highRiskServices.length > 0 ||
+      riskServices.value.recentDegradedServices.length > 0 ||
+      ingestStatus.value !== null ||
+      incidents.value.length > 0 ||
+      Object.values(queryWidgetResults.value).some((result) => result !== null)
+
+    const loadData = async (reason: RefreshReason = 'manual') => {
+      const generation = ++refreshGeneration
+      const timeRange = toOverviewTimeRange(timeStore.timeRange)
+      loading.value = !hasUsableData()
       error.value = false
+
+      const loadPromise = (async () => {
+        try {
+          if (!panelsRestorePromise) panelsRestorePromise = restorePanels()
+          await panelsRestorePromise
+          if (generation !== refreshGeneration) return
+
+          const visibleWidgets = filteredWidgets.value
+          const needTrendOverall = visibleWidgets.some((w) => w.kind === 'trend' || w.kind === 'metric-summary')
+          const needRisk = visibleWidgets.some((w) => w.kind === 'risk-service')
+          const needIngest = visibleWidgets.some((w) => w.kind === 'ingest-status')
+          const needIncidents = visibleWidgets.some((w) => w.kind === 'incident')
+          const overviewResults = await Promise.allSettled([
+            fetchCatalogServices({ page: 1, pageSize: 100, scope: datasetScope.value }),
+            fetchOverviewSummary({ timeRange, scope: datasetScope.value }),
+            needTrendOverall
+              ? fetchOverviewTrends({ timeRange, groupBy: 'overall', scope: datasetScope.value })
+              : Promise.resolve(null),
+            needRisk ? fetchOverviewRiskServices({ scope: datasetScope.value }) : Promise.resolve(null),
+            needIngest ? fetchOverviewIngestStatus({ scope: datasetScope.value }) : Promise.resolve(null),
+            needIncidents ? fetchOverviewIncidents({ timeRange, scope: datasetScope.value }) : Promise.resolve([])
+          ])
+          if (generation !== refreshGeneration) return
+
+          const requestedOverviewResults = overviewResults.filter(
+            (_result, index) => index < 2 || [needTrendOverall, needRisk, needIngest, needIncidents][index - 2]
+          )
+          let hasFulfilledDataSource = requestedOverviewResults.some((result) => result.status === 'fulfilled')
+          const [catalogResult, summaryResult, trendsResult, riskResult, ingestResult, incidentsResult] =
+            overviewResults
+          const catalogRes = catalogResult.status === 'fulfilled' ? catalogResult.value : null
+          const summaryRes = summaryResult.status === 'fulfilled' ? summaryResult.value : null
+          const trendsRes = trendsResult.status === 'fulfilled' ? trendsResult.value : null
+          const riskRes = riskResult.status === 'fulfilled' ? riskResult.value : null
+          const ingestRes = ingestResult.status === 'fulfilled' ? ingestResult.value : null
+          const incidentsRes = incidentsResult.status === 'fulfilled' ? incidentsResult.value : []
+
+          if (catalogResult.status === 'fulfilled') {
+            services.value = (catalogRes?.items || []).map((item: any) => ({
+              id: item.identity?.id,
+              name: item.identity?.name,
+              owner: item.identity?.owner,
+              region: item.identity?.region,
+              tags: item.identity?.tags || [],
+              health: item.identity?.healthStatus,
+              qps: item.qps,
+              latency: item.p95Latency,
+              errorRate: item.errorRate,
+              instances: item.instanceCount
+            }))
+          }
+
+          if (summaryResult.status === 'fulfilled') {
+            const totals = summaryRes?.totals || {}
+            summary.value = {
+              serviceCount: totals.serviceCount ?? null,
+              healthyServices: totals.healthyServices ?? null,
+              activeAlerts: totals.activeIncidents ?? null,
+              totalRequests: totals.totalRequests ?? null,
+              errorRate: totals.errorRate ?? null,
+              p95Latency: totals.p95Latency ?? null,
+              darwinCpu: totals.darwinCpu ?? null,
+              darwinMemory: totals.darwinMemory ?? null
+            }
+          }
+
+          if (trendsResult.status === 'fulfilled' && trendsRes) {
+            trendsByGroup.value = { overall: normalizeTrendSnapshot(trendsRes) }
+          }
+          if (riskResult.status === 'fulfilled' && riskRes) {
+            riskServices.value = {
+              highRiskServices: Array.isArray(riskRes.highRiskServices) ? riskRes.highRiskServices : [],
+              recentDegradedServices: Array.isArray(riskRes.recentDegradedServices)
+                ? riskRes.recentDegradedServices
+                : []
+            }
+          }
+          if (ingestResult.status === 'fulfilled') ingestStatus.value = ingestRes
+          if (incidentsResult.status === 'fulfilled') {
+            incidents.value = Array.isArray(incidentsRes) ? incidentsRes : incidentsRes?.items || []
+          }
+
+          const { requests, cards } = buildOverviewCardsQueryRequest({
+            widgets: visibleWidgets,
+            scope: datasetScope.value,
+            scopedServiceName: activeServiceFilter.value || null,
+            services: services.value,
+            refreshGenerationId: `${generation}`,
+            autoRefresh: reason === 'interval'
+          })
+          if (generation !== refreshGeneration) return
+          queryWidgetResults.value = Object.fromEntries(cards.map((card) => [card.cardId, null]))
+          if (cards.length) {
+            const queryResults = await Promise.allSettled(requests.map((req) => queryMetricCards(req)))
+            if (generation !== refreshGeneration) return
+            const successfulResponses = queryResults
+              .filter(
+                (result): result is PromiseFulfilledResult<Awaited<ReturnType<typeof queryMetricCards>>> =>
+                  result.status === 'fulfilled'
+              )
+              .flatMap((result) => result.value?.items || [])
+            hasFulfilledDataSource ||= queryResults.some((result) => result.status === 'fulfilled')
+            if (successfulResponses.length) {
+              queryWidgetResults.value = {
+                ...queryWidgetResults.value,
+                ...mapQueryResultsByWidgetId(successfulResponses)
+              }
+            }
+          }
+
+          if (generation !== refreshGeneration) return
+          if (!hasFulfilledDataSource) {
+            autoRefreshFailureCount.value += 1
+            if (autoRefreshFailureCount.value >= 3) stopAutoRefresh()
+            error.value = !hasUsableData()
+            return
+          }
+          lastRefreshAt = Date.now()
+          timeAgo.value = formatTimeAgo()
+          autoRefreshFailureCount.value = 0
+          error.value = !hasUsableData()
+        } catch {
+          if (generation !== refreshGeneration) return
+          autoRefreshFailureCount.value += 1
+          if (autoRefreshFailureCount.value >= 3) stopAutoRefresh()
+          error.value = !hasUsableData()
+        } finally {
+          if (generation !== refreshGeneration) return
+          loading.value = false
+          refreshing.value = false
+        }
+      })()
+
+      activeLoadPromise = loadPromise
       try {
-        await restorePanels()
-        const visibleWidgets = filteredWidgets.value
-
-        const needTrendOverall = visibleWidgets.some((w) => w.kind === 'trend' || w.kind === 'metric-summary')
-        const needRisk = visibleWidgets.some((w) => w.kind === 'risk-service')
-        const needIngest = visibleWidgets.some((w) => w.kind === 'ingest-status')
-        const needIncidents = visibleWidgets.some((w) => w.kind === 'incident')
-
-        const [catalogRes, summaryRes, trendsRes, riskRes, ingestRes, incidentsRes] = await Promise.all([
-          fetchCatalogServices({ page: 1, pageSize: 100, scope: datasetScope.value }),
-          fetchOverviewSummary({ scope: datasetScope.value }),
-          needTrendOverall
-            ? fetchOverviewTrends({ groupBy: 'overall', scope: datasetScope.value })
-            : Promise.resolve(null),
-          needRisk ? fetchOverviewRiskServices({ scope: datasetScope.value }) : Promise.resolve(null),
-          needIngest ? fetchOverviewIngestStatus({ scope: datasetScope.value }) : Promise.resolve(null),
-          needIncidents ? fetchOverviewIncidents({ scope: datasetScope.value }) : Promise.resolve([])
-        ])
-
-        services.value = (catalogRes?.items || []).map((item: any) => ({
-          id: item.identity?.id,
-          name: item.identity?.name,
-          owner: item.identity?.owner,
-          region: item.identity?.region,
-          tags: item.identity?.tags || [],
-          health: item.identity?.healthStatus,
-          qps: item.qps,
-          latency: item.p95Latency,
-          errorRate: item.errorRate,
-          instances: item.instanceCount
-        }))
-
-        const totals = summaryRes?.totals || {}
-        summary.value = {
-          serviceCount: totals.serviceCount ?? null,
-          healthyServices: totals.healthyServices ?? null,
-          activeAlerts: totals.activeIncidents ?? null,
-          totalRequests: totals.totalRequests ?? null,
-          errorRate: totals.errorRate ?? null,
-          p95Latency: totals.p95Latency ?? null,
-          darwinCpu: totals.darwinCpu ?? null,
-          darwinMemory: totals.darwinMemory ?? null
-        }
-
-        if (trendsRes) {
-          trendsByGroup.value = { overall: normalizeTrendSnapshot(trendsRes) }
-        }
-
-        riskServices.value = {
-          highRiskServices: Array.isArray(riskRes?.highRiskServices) ? riskRes.highRiskServices : [],
-          recentDegradedServices: Array.isArray(riskRes?.recentDegradedServices) ? riskRes.recentDegradedServices : []
-        }
-        ingestStatus.value = ingestRes || null
-        incidents.value = Array.isArray(incidentsRes) ? incidentsRes : incidentsRes?.items || []
-
-        // Query card widgets
-        const { requests, cards } = buildOverviewCardsQueryRequest({
-          widgets: visibleWidgets,
-          scope: datasetScope.value,
-          scopedServiceName: activeServiceFilter.value || null,
-          services: services.value,
-          refreshGenerationId: `${Date.now()}`
-        })
-        if (cards.length) {
-          const responses = await Promise.all(requests.map((req) => queryMetricCards(req)))
-          queryWidgetResults.value = mapQueryResultsByWidgetId(responses.flatMap((r) => r?.items || []))
-        }
-
-        lastRefreshAt = Date.now()
-        timeAgo.value = formatTimeAgo()
-        autoRefreshFailureCount.value = 0
-      } catch {
-        error.value = true
-        autoRefreshFailureCount.value += 1
+        await loadPromise
       } finally {
-        loading.value = false
-        refreshing.value = false
+        if (activeLoadPromise === loadPromise) activeLoadPromise = null
       }
     }
 
@@ -378,12 +497,14 @@ export default defineComponent({
 
     const startAutoRefresh = () => {
       stopAutoRefresh()
+      if (!liveMode.value) return
       const interval = resolveAutoRefreshInterval()
       if (!interval) return
 
       autoRefreshTimer.value = setInterval(() => {
+        if (!liveMode.value || activeLoadPromise) return
+        nextTimeRangeRefreshReason = 'interval'
         timeStore.refreshTime()
-        loadData()
       }, interval)
     }
 
@@ -409,21 +530,36 @@ export default defineComponent({
       autoRefreshSetting.value = value
       autoRefreshFailureCount.value = 0
       persistAutoRefreshSetting()
-      if (value !== 'off') {
-        loadData()
+      if (value !== 'off' && liveMode.value) {
+        loadData('manual')
       }
       startAutoRefresh()
     }
     const onTimeRangeChange = (range: TimeRangeKey) => {
+      const previousLiveMode = liveMode.value
       activeTimeRange.value = range
+      suppressNextTimeRangeLoad = true
+      nextTimeRangeRefreshReason = null
       timeStore.setTimeRange(range)
+      timeStore.isLive = previousLiveMode
+      liveMode.value = previousLiveMode
       refreshing.value = true
-      loadData()
+      loadData('time-range')
+      if (previousLiveMode) {
+        startAutoRefresh()
+      } else {
+        stopAutoRefresh()
+      }
     }
 
     const onToggleLive = () => {
       liveMode.value = !liveMode.value
       timeStore.isLive = liveMode.value
+      if (liveMode.value) {
+        startAutoRefresh()
+      } else {
+        stopAutoRefresh()
+      }
     }
 
     // ── Control panel handlers ──
@@ -445,13 +581,23 @@ export default defineComponent({
       activeTagFilter.value = tag
     }
 
-    onMounted(() => {
+    const onNavigateByKeyboard = (event: KeyboardEvent, path: string) => {
+      if (event.key !== 'Enter' && event.key !== ' ') return
+      event.preventDefault()
+      router.push(path)
+    }
+
+    onActivated(() => {
       restoreAutoRefreshSetting()
       loadData()
       refreshTimer = setInterval(() => {
         timeAgo.value = formatTimeAgo()
       }, 30000)
       startAutoRefresh()
+    })
+
+    onDeactivated(() => {
+      stopAutoRefresh()
     })
 
     onUnmounted(() => {
@@ -463,12 +609,19 @@ export default defineComponent({
     })
 
     watch(
-      () => timeStore.startTime,
+      () => [timeStore.startTime, timeStore.endTime],
       () => {
-        if (liveMode.value && !loading.value) {
-          refreshing.value = true
-          loadData()
+        activeTimeRange.value = timeStore.timeRange
+        liveMode.value = timeStore.isLive
+        if (suppressNextTimeRangeLoad) {
+          suppressNextTimeRangeLoad = false
+          return
         }
+        if (activeLoadPromise) return
+        refreshing.value = true
+        const reason = nextTimeRangeRefreshReason || 'time-range'
+        nextTimeRangeRefreshReason = null
+        loadData(reason)
       }
     )
 
@@ -493,7 +646,7 @@ export default defineComponent({
         pullRefreshing.value = true
         pullDistance.value = 60
         refreshing.value = true
-        await loadData()
+        await loadData('pull')
         pullRefreshing.value = false
       }
       pullDistance.value = 0
@@ -532,9 +685,18 @@ export default defineComponent({
       return matched.sort((a: any, b: any) => alertLevelPriority[b.level] - alertLevelPriority[a.level])[0].level
     }
 
+    const getComparePercent = (compare: unknown): number => {
+      if (!compare || typeof compare !== 'object' || Array.isArray(compare)) return 0
+      const percent = (compare as { percent?: unknown }).percent
+      return typeof percent === 'number' ? percent : 0
+    }
+
+    const isQueryCardWidget = (widget: OverviewPanelWidget): widget is OverviewPanelWidget<'query-card'> =>
+      widget.kind === 'query-card'
+
     const renderWidgetAlertSummary = (widget: OverviewPanelWidget) => {
-      if (widget.kind !== 'query-card') return null
-      const query = (widget as any).config?.query
+      if (!isQueryCardWidget(widget)) return null
+      const query = widget.config.query
       const rules = normalizeQueryAlertRules(query?.alert)
       if (!rules.length) return null
       return (
@@ -544,9 +706,9 @@ export default defineComponent({
             const channels = rule.channels?.length ? rule.channels.join('、') : 'Email'
             return (
               <span class="mobile-overview-v2__alert-rule" key={`${rule.level}-${rule.threshold}`}>
-                <NTag size="small" bordered={false} type={meta?.tagType || 'warning'}>
+                <MobileTag size="small" type={meta?.tagType === 'error' ? 'danger' : meta?.tagType || 'warning'}>
                   {meta?.label || rule.level}
-                </NTag>
+                </MobileTag>
                 <span>
                   {rule.operator} {rule.threshold}
                   {rule.unit || query?.display?.value?.unit || query?.display?.yAxis?.unit || ''}，持续{' '}
@@ -579,13 +741,13 @@ export default defineComponent({
         case 'darwin-instance-table':
           return renderQueryDrivenWidget(widget)
         default:
-          return <NEmpty description="暂不支持的卡片类型" class="mobile-overview-v2__empty-state" />
+          return <MobileEmpty description="暂不支持的卡片类型" class="mobile-overview-v2__empty-state" />
       }
     }
 
     const renderQueryDrivenWidget = (widget: OverviewPanelWidget) => {
       const data = queryWidgetResults.value[widget.id]
-      const query = widget.kind === 'query-card' ? (widget as any).config?.query : null
+      const query = isQueryCardWidget(widget) ? widget.config.query : null
       const thresholdLines = resolveQueryThresholdLines(query)
 
       const withAlertSummary = (content: any) => (
@@ -596,7 +758,7 @@ export default defineComponent({
       )
 
       if (!data) {
-        return withAlertSummary(<NEmpty description="暂无查询结果" class="mobile-overview-v2__empty-state" />)
+        return withAlertSummary(<MobileEmpty description="暂无查询结果" class="mobile-overview-v2__empty-state" />)
       }
 
       if (data.kind === 'number') {
@@ -655,12 +817,12 @@ export default defineComponent({
                     <svg class="mobile-overview-v2__number-trend-icon" viewBox="0 0 12 12" aria-hidden="true">
                       <path d={data.compare.direction === 'up' ? 'M2 8L6 4L10 8' : 'M2 4L6 8L10 4'} />
                     </svg>
-                    <span>{Math.abs((data.compare as any).percent ?? 0).toFixed(1)}%</span>
+                    <span>{Math.abs(getComparePercent(data.compare)).toFixed(1)}%</span>
                   </div>
                 ) : null}
               </div>
               <div class="mobile-overview-v2__number-meta">
-                <span>{widget.kind.replace('-', ' ')}</span>
+                <span>{widgetKindLabels[widget.kind] || '自定义组件'}</span>
               </div>
             </div>
           )
@@ -677,7 +839,6 @@ export default defineComponent({
               }))}
               height="200px"
               variant="monitor"
-              {...(thresholdLines?.length ? ({ thresholdLines } as any) : {})}
               loading={loading.value}
             />
           ) : (
@@ -726,7 +887,7 @@ export default defineComponent({
           </div>
         )
       }
-      return withAlertSummary(<NEmpty description="暂不支持的数据类型" class="mobile-overview-v2__empty-state" />)
+      return withAlertSummary(<MobileEmpty description="暂不支持的数据类型" class="mobile-overview-v2__empty-state" />)
     }
 
     const renderMetricSummary = (widget: OverviewPanelWidget<'metric-summary'>) => {
@@ -770,9 +931,7 @@ export default defineComponent({
           class="mobile-overview-v2__metric-item"
           style={{ '--metric-accent': colorMap[key] || 'var(--color-text-3)' }}>
           <div class="mobile-overview-v2__metric-label">
-            <NIcon color={colorMap[key] || 'var(--color-text-3)'} size={14}>
-              {h(iconMap[key] || PhActivity)}
-            </NIcon>
+            {h(iconMap[key] || PhActivity, { color: colorMap[key] || 'var(--color-text-3)', size: 14 })}
             <span>{labelMap[key] || widget.title}</span>
           </div>
           <div class="mobile-overview-v2__metric-value">{displayMetric(value, unitMap[key] || '')}</div>
@@ -788,9 +947,22 @@ export default defineComponent({
         <div class="mobile-overview-v2__stack-list">
           {items.map((s: any, idx: number) => (
             <div
-              class="mobile-overview-v2__risk-card"
+              class={[
+                'mobile-overview-v2__risk-card',
+                s.healthStatus === 'critical'
+                  ? 'mobile-overview-v2__risk-card--critical'
+                  : s.healthStatus === 'warning'
+                    ? 'mobile-overview-v2__risk-card--warning'
+                    : ''
+              ]}
               key={idx}
-              onClick={() => router.push(`/mobile/service-detail-v2/${s.serviceId || s.id}`)}>
+              onClick={() => router.push(`/mobile/service-detail-v2/${s.serviceId || s.id}`)}
+              onKeydown={(event: KeyboardEvent) =>
+                onNavigateByKeyboard(event, `/mobile/service-detail-v2/${s.serviceId || s.id}`)
+              }
+              role="button"
+              tabindex="0"
+              aria-label={`查看风险服务 ${s.service || s.name || '未知服务'}`}>
               <div>
                 <div class="mobile-overview-v2__risk-title">{s.service || s.name}</div>
                 <div class="mobile-overview-v2__risk-meta">
@@ -809,7 +981,7 @@ export default defineComponent({
           ))}
         </div>
       ) : (
-        <NEmpty description="暂无风险服务" class="mobile-overview-v2__empty-state" />
+        <MobileEmpty description="暂无风险服务" class="mobile-overview-v2__empty-state" />
       )
     }
 
@@ -819,9 +991,20 @@ export default defineComponent({
         <div class="mobile-overview-v2__stack-list">
           {items.map((inc: any, idx: number) => (
             <div
-              class="mobile-overview-v2__incident-card"
+              class={[
+                'mobile-overview-v2__incident-card',
+                inc.level === 'critical' || inc.severity === 'critical'
+                  ? 'mobile-overview-v2__incident-card--critical'
+                  : 'mobile-overview-v2__incident-card--warning'
+              ]}
               key={inc.id || idx}
-              onClick={() => router.push(`/mobile/alerts-inbox/${inc.id}`)}>
+              onClick={() => router.push({ path: '/mobile/alerts-inbox', query: { incidentId: String(inc.id) } })}
+              onKeydown={(event: KeyboardEvent) =>
+                onNavigateByKeyboard(event, `/mobile/alerts-inbox?incidentId=${encodeURIComponent(String(inc.id))}`)
+              }
+              role="button"
+              tabindex="0"
+              aria-label={`查看事件 ${inc.service || inc.title || '未知服务'}`}>
               <div class="mobile-overview-v2__incident-header">
                 <div>
                   <div class="mobile-overview-v2__risk-title">{inc.service || inc.title}</div>
@@ -836,12 +1019,12 @@ export default defineComponent({
           ))}
         </div>
       ) : (
-        <NEmpty description="暂无活跃事件" class="mobile-overview-v2__empty-state" />
+        <MobileEmpty description="暂无活跃事件" class="mobile-overview-v2__empty-state" />
       )
     }
 
     const renderIngestStatus = (_widget: OverviewPanelWidget<'ingest-status'>) => {
-      if (!ingestStatus.value) return <NEmpty description="暂无采集状态" class="mobile-overview-v2__empty-state" />
+      if (!ingestStatus.value) return <MobileEmpty description="暂无采集状态" class="mobile-overview-v2__empty-state" />
       const statusColor = (h: string) =>
         h === 'healthy' ? 'var(--color-success-6)' : h === 'warning' ? 'var(--color-warning-6)' : 'var(--color-text-3)'
       const channels = [
@@ -856,11 +1039,7 @@ export default defineComponent({
             const color = statusColor(String(val || ''))
             return (
               <div class="mobile-overview-v2__ingest-card" key={ch.key}>
-                <div class="mobile-overview-v2__ingest-icon">
-                  <NIcon color={color} size={18}>
-                    {h(ch.icon)}
-                  </NIcon>
-                </div>
+                <div class="mobile-overview-v2__ingest-icon">{h(ch.icon, { color, size: 18 })}</div>
                 <div class="mobile-overview-v2__ingest-value" style={{ color }}>
                   {val || '--'}
                 </div>
@@ -875,17 +1054,19 @@ export default defineComponent({
     const renderTrendWidget = (widget: OverviewPanelWidget<'trend'>) => {
       const cfg = widget.config as TrendConfig
       const metric = cfg.metric
-      const groupBy = (cfg as any).groupBy || 'overall'
+      const groupBy = cfg.groupBy || 'overall'
       const values = getTrendValues(metric)
       const data = values.map((p: TrendPoint) => ({ timestamp: p.timestamp, value: p.value }))
       const color =
-        metric === 'errors' ? 'var(--color-danger-6)' : metric === 'latency' ? '#722ed1' : 'var(--color-primary-6)'
+        metric === 'errors'
+          ? 'var(--color-danger-6)'
+          : metric === 'latency'
+            ? 'var(--color-warning-6)'
+            : 'var(--color-primary-6)'
       return data.length ? (
         <div>
           <div class="mobile-overview-v2__trend-tags">
-            <NTag size="small" bordered={false}>
-              {groupBy}
-            </NTag>
+            <MobileTag size="small">{groupBy}</MobileTag>
           </div>
           <LineChart
             title={widget.title}
@@ -898,7 +1079,7 @@ export default defineComponent({
           />
         </div>
       ) : (
-        <NEmpty description="暂无趋势数据" class="mobile-overview-v2__empty-state" />
+        <MobileEmpty description="暂无趋势数据" class="mobile-overview-v2__empty-state" />
       )
     }
 
@@ -916,7 +1097,7 @@ export default defineComponent({
         alerts: '/mobile/alerts-inbox',
         traces: '/mobile/trace-explorer',
         logs: '/mobile/log-center',
-        topology: '/mobile/services-v2',
+        topology: '/mobile/topology',
         'admin-ingestion': '/mobile/instance-monitor'
       }
       const labelMap: Record<string, string> = {
@@ -940,18 +1121,17 @@ export default defineComponent({
           {links
             .filter((l: any) => l.visible !== false)
             .map((entry: any) => (
-              <NButton
+              <MobileButton
                 key={entry.key}
                 block
-                secondary
                 size="small"
                 onClick={() => {
                   const path = routeMap[entry.key]
                   if (path) router.push(path)
                 }}>
-                <NIcon>{h(iconMap[entry.key] || PhStack)}</NIcon>
+                {h(iconMap[entry.key] || PhStack, { size: 16 })}
                 <span class="mobile-overview-v2__pivot-label">{labelMap[entry.key] || entry.key}</span>
-              </NButton>
+              </MobileButton>
             ))}
         </div>
       )
@@ -972,7 +1152,7 @@ export default defineComponent({
             height: `${pullDistance.value}px`,
             opacity: pullDistance.value / 60
           }}>
-          <NSpin size={pullRefreshing.value ? 18 : 14} show={pullRefreshing.value || pullDistance.value > 10} />
+          <MobileLoading loading={pullRefreshing.value || pullDistance.value > 10} />
           <span class="mobile-overview-v2__pull-text">
             {pullRefreshing.value ? '刷新中…' : pullDistance.value >= 60 ? '松开刷新' : '下拉刷新'}
           </span>
@@ -981,35 +1161,29 @@ export default defineComponent({
           <h2 class="mobile-overview-v2__title">看板</h2>
           <div class="mobile-overview-v2__header-right">
             <span class="mobile-overview-v2__time">{timeAgo.value}</span>
-            <NButton
-              size="tiny"
-              secondary
+            <MobileButton
+              size="small"
               type="primary"
+              aria-label="刷新看板"
               loading={refreshing.value}
               onClick={() => {
                 refreshing.value = true
-                loadData()
+                loadData('manual')
               }}>
-              <NIcon size={16}>
-                <PhArrowsClockwise />
-              </NIcon>
-            </NButton>
+              {h(PhArrowsClockwise, { size: 16 })}
+            </MobileButton>
           </div>
         </div>
 
         {loading.value && !refreshing.value ? (
           <div class="mobile-overview-v2__loading">
-            <NSpin size="large" />
+            <MobileLoading loading={loading.value} />
           </div>
         ) : error.value ? (
-          <NResult
-            status="500"
-            title="数据加载失败"
-            description="请检查网络连接后重试"
-            class="mobile-overview-v2__error">
+          <MobileEmpty description="数据加载失败，请检查网络连接后重试" class="mobile-overview-v2__error">
             {{
-              footer: () => (
-                <NButton
+              default: () => (
+                <MobileButton
                   type="primary"
                   size="small"
                   onClick={() => {
@@ -1017,50 +1191,76 @@ export default defineComponent({
                     loadData()
                   }}>
                   重新加载
-                </NButton>
+                </MobileButton>
               )
             }}
-          </NResult>
+          </MobileEmpty>
         ) : (
           <>
+            <div class="mobile-overview-v2__status-summary" aria-label="系统状态摘要">
+              <div class="mobile-overview-v2__status-summary-heading">
+                <div>
+                  <span class="mobile-overview-v2__eyebrow">SYSTEM STATUS</span>
+                  <strong>当前系统状态</strong>
+                </div>
+                <MobileTag size="small" type={summary.value.activeAlerts ? 'warning' : 'success'}>
+                  {summary.value.activeAlerts ? '需要关注' : '运行良好'}
+                </MobileTag>
+              </div>
+              <div class="mobile-overview-v2__status-summary-grid">
+                <div>
+                  <span>服务健康度</span>
+                  <strong>
+                    {displayMetric(summary.value.healthyServices)} / {displayMetric(summary.value.serviceCount)}
+                  </strong>
+                </div>
+                <div>
+                  <span>活跃告警</span>
+                  <strong>{displayMetric(summary.value.activeAlerts)}</strong>
+                </div>
+                <div>
+                  <span>错误率</span>
+                  <strong>{displayMetric(summary.value.errorRate, '%')}</strong>
+                </div>
+                <div>
+                  <span>P95 延迟</span>
+                  <strong>{displayMetric(summary.value.p95Latency, 'ms')}</strong>
+                </div>
+              </div>
+            </div>
+
             {/* ── Control Panel ── */}
             <div class="mobile-overview-v2__control-panel">
-              <div
-                class="mobile-overview-v2__control-toggle"
+              <button
+                type="button"
+                class={['mobile-overview-v2__control-toggle', showControlPanel.value && 'is-active']}
+                aria-expanded={showControlPanel.value}
+                aria-controls="overview-filter-controls"
                 onClick={() => (showControlPanel.value = !showControlPanel.value)}>
-                <NIcon size={16}>
-                  <PhClock />
-                </NIcon>
+                {h(PhClock, { size: 16 })}
                 <span>筛选控制</span>
                 <span class={['mobile-overview-v2__control-arrow', showControlPanel.value && 'is-open']}>▾</span>
-              </div>
+              </button>
 
               {showControlPanel.value && (
-                <div class="mobile-overview-v2__control-body">
+                <div id="overview-filter-controls" class="mobile-overview-v2__control-body">
                   {/* Time Range Selector */}
                   <div class="mobile-overview-v2__control-section">
                     <div class="mobile-overview-v2__control-label">时间范围</div>
                     <div class="mobile-overview-v2__time-range-row">
                       {(['15m', '1h', '4h', '1d', '2d', '7d'] as TimeRangeKey[]).map((range) => (
-                        <NButton
+                        <MobileButton
                           key={range}
-                          size="tiny"
-                          round
-                          type={activeTimeRange.value === range ? 'primary' : 'default'}
-                          ghost={activeTimeRange.value !== range}
+                          size="small"
+                          type={activeTimeRange.value === range ? 'primary' : 'ghost'}
                           onClick={() => onTimeRangeChange(range)}>
                           {TIME_RANGE_LABELS[range]}
-                        </NButton>
+                        </MobileButton>
                       ))}
-                      <NButton
-                        size="tiny"
-                        round
-                        type={liveMode.value ? 'success' : 'default'}
-                        ghost={!liveMode.value}
-                        onClick={onToggleLive}>
-                        <NIcon size={14}>{liveMode.value ? <PhPauseCircle /> : <PhPlayCircle />}</NIcon>
-                        <span style={{ marginLeft: '4px' }}>Live</span>
-                      </NButton>
+                      <MobileButton size="small" type={liveMode.value ? 'primary' : 'default'} onClick={onToggleLive}>
+                        {liveMode.value ? h(PhPauseCircle, { size: 14 }) : h(PhPlayCircle, { size: 14 })}
+                        <span class="mobile-overview-v2__control-button-label">Live</span>
+                      </MobileButton>
                     </div>
                   </div>
 
@@ -1069,21 +1269,17 @@ export default defineComponent({
                     <div class="mobile-overview-v2__control-label">自动刷新</div>
                     <div class="mobile-overview-v2__time-range-row">
                       {overviewAutoRefreshOptions.map((opt) => (
-                        <NButton
+                        <MobileButton
                           key={opt.value}
-                          size="tiny"
-                          round
-                          type={autoRefreshSetting.value === opt.value ? 'primary' : 'default'}
-                          ghost={autoRefreshSetting.value !== opt.value}
+                          size="small"
+                          type={autoRefreshSetting.value === opt.value ? 'primary' : 'ghost'}
                           onClick={() => onAutoRefreshChange(opt.value)}>
                           {opt.label}
-                        </NButton>
+                        </MobileButton>
                       ))}
                     </div>
                     {autoRefreshFailureCount.value >= 3 && (
-                      <div style="color: var(--color-warning-6); font-size: 12px; margin-top: 4px;">
-                        连续刷新失败，已暂停自动刷新
-                      </div>
+                      <div class="mobile-overview-v2__auto-refresh-warning">连续刷新失败，已暂停自动刷新</div>
                     )}
                   </div>
 
@@ -1091,38 +1287,27 @@ export default defineComponent({
                   <div class="mobile-overview-v2__control-section">
                     <div class="mobile-overview-v2__control-label">服务筛选</div>
                     <div class="mobile-overview-v2__service-search-row">
-                      <NInput
-                        value={serviceSearch.value}
+                      <MobileInput
+                        modelValue={serviceSearch.value}
                         placeholder="输入服务名称搜索…"
-                        size="small"
                         clearable
-                        onUpdate:value={(v: string) => (serviceSearch.value = v)}
-                        onKeydown={(e: KeyboardEvent) => {
-                          if (e.key === 'Enter') onServiceSearch()
-                        }}>
-                        {{
-                          prefix: () => (
-                            <NIcon size={14}>
-                              <PhMagnifyingGlass />
-                            </NIcon>
-                          )
-                        }}
-                      </NInput>
-                      <NButton size="small" type="primary" secondary onClick={onServiceSearch}>
+                        onUpdate:modelValue={(v: string) => (serviceSearch.value = v)}
+                        onEnter={onServiceSearch}
+                        leftIcon={() => h(PhMagnifyingGlass, { size: 14 })}
+                      />
+                      <MobileButton size="small" type="primary" onClick={onServiceSearch}>
                         搜索
-                      </NButton>
+                      </MobileButton>
                     </div>
                     {activeServiceFilter.value && (
                       <div class="mobile-overview-v2__service-indicator">
                         <span>
                           当前服务: <strong>{activeServiceFilter.value}</strong>
                         </span>
-                        <NButton size="tiny" quaternary type="error" onClick={onClearServiceFilter}>
-                          <NIcon size={12}>
-                            <PhXCircle />
-                          </NIcon>
-                          <span style={{ marginLeft: '2px' }}>清除</span>
-                        </NButton>
+                        <MobileButton size="small" type="ghost" onClick={onClearServiceFilter}>
+                          {h(PhXCircle, { size: 12 })}
+                          <span class="mobile-overview-v2__clear-filter-label">清除</span>
+                        </MobileButton>
                       </div>
                     )}
                   </div>
@@ -1132,29 +1317,25 @@ export default defineComponent({
                     <div class="mobile-overview-v2__control-section">
                       <div class="mobile-overview-v2__control-label">
                         卡片分类
-                        <NTag size="tiny" bordered={false} type="info" style={{ marginLeft: '6px' }}>
+                        <MobileTag size="small" type="info" class="mobile-overview-v2__filter-count">
                           {filteredWidgets.value.length}
-                        </NTag>
+                        </MobileTag>
                       </div>
                       <div class="mobile-overview-v2__tag-chip-scroll">
-                        <NButton
-                          size="tiny"
-                          round
-                          type={!activeTagFilter.value ? 'primary' : 'default'}
-                          ghost={!!activeTagFilter.value}
+                        <MobileButton
+                          size="small"
+                          type={!activeTagFilter.value ? 'primary' : 'ghost'}
                           onClick={() => onTagFilterSelect('')}>
                           全部
-                        </NButton>
+                        </MobileButton>
                         {widgetTagOptions.value.map(({ tag, count }) => (
-                          <NButton
+                          <MobileButton
                             key={tag}
-                            size="tiny"
-                            round
-                            type={activeTagFilter.value === tag ? 'primary' : 'default'}
-                            ghost={activeTagFilter.value !== tag}
+                            size="small"
+                            type={activeTagFilter.value === tag ? 'primary' : 'ghost'}
                             onClick={() => onTagFilterSelect(tag)}>
                             {tag} ({count})
-                          </NButton>
+                          </MobileButton>
                         ))}
                       </div>
                     </div>
@@ -1163,9 +1344,28 @@ export default defineComponent({
               )}
             </div>
 
+            {statusWidgets.value.length > 0 && (
+              <div class="mobile-overview-v2__section mobile-overview-v2__section--priority">
+                <div class="mobile-overview-v2__section-title">风险与事件</div>
+                <div class="mobile-overview-v2__widget-list mobile-overview-v2__widget-list--priority">
+                  {statusWidgets.value.map((widget) => (
+                    <div class="mobile-overview-v2__widget-card" key={widget.id}>
+                      <div class="mobile-overview-v2__widget-card-header">
+                        <span class="mobile-overview-v2__widget-card-title">{widget.title}</span>
+                        <MobileTag size="small" type="warning">
+                          {widgetKindLabels[widget.kind] || '状态'}
+                        </MobileTag>
+                      </div>
+                      <div class="mobile-overview-v2__widget-card-body">{renderWidgetBody(widget)}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* KPI 指标摘要 */}
-            <NCard bordered={false} size="small" class="mobile-overview-v2__summary-card">
-              <NGrid cols={2} xGap={12} yGap={14}>
+            <MobileCard bordered={false} size="small" class="mobile-overview-v2__summary-card">
+              <MobileGrid cols={2}>
                 {[
                   {
                     key: 'serviceCount',
@@ -1213,23 +1413,21 @@ export default defineComponent({
                     color: 'var(--color-primary-6)'
                   }
                 ].map((item) => (
-                  <NGridItem key={item.key}>
+                  <div key={item.key}>
                     <div class="mobile-overview-v2__metric-card">
                       <div class="mobile-overview-v2__metric-label">
-                        <NIcon color={item.color} size={14}>
-                          {h(item.icon)}
-                        </NIcon>
+                        {h(item.icon, { color: item.color, size: 14 })}
                         <span>{item.label}</span>
                       </div>
                       <div class="mobile-overview-v2__metric-value">
-                        {displayMetric(summary.value[item.key], (item as any).unit || '')}
+                        {displayMetric(summary.value[item.key], item.unit || '')}
                       </div>
                       {item.extra && <div class="mobile-overview-v2__metric-subtitle">{item.extra}</div>}
                     </div>
-                  </NGridItem>
+                  </div>
                 ))}
-              </NGrid>
-            </NCard>
+              </MobileGrid>
+            </MobileCard>
 
             {/* Darwin 资源仪表盘 */}
             {(summary.value.darwinCpu !== null || summary.value.darwinMemory !== null) && (
@@ -1239,9 +1437,7 @@ export default defineComponent({
                   {summary.value.darwinCpu !== null && (
                     <div class="mobile-overview-v2__darwin-card">
                       <div class="mobile-overview-v2__darwin-label">
-                        <NIcon color="var(--color-primary-6)" size={14}>
-                          <PhCpu />
-                        </NIcon>
+                        {h(PhCpu, { color: 'var(--color-primary-6)', size: 14 })}
                         <span>CPU</span>
                       </div>
                       <GaugeChart
@@ -1258,9 +1454,7 @@ export default defineComponent({
                   {summary.value.darwinMemory !== null && (
                     <div class="mobile-overview-v2__darwin-card">
                       <div class="mobile-overview-v2__darwin-label">
-                        <NIcon color="var(--color-warning-6)" size={14}>
-                          <PhCloud />
-                        </NIcon>
+                        {h(PhCloud, { color: 'var(--color-warning-6)', size: 14 })}
                         <span>内存</span>
                       </div>
                       <GaugeChart
@@ -1284,19 +1478,19 @@ export default defineComponent({
                 <div class="mobile-overview-v2__section">
                   <div class="mobile-overview-v2__section-title">
                     {currentPanel.value?.name || 'Widgets'}
-                    <NTag size="tiny" bordered={false} type="info" style={{ marginLeft: '8px' }}>
+                    <MobileTag size="small" type="info" class="mobile-overview-v2__filter-count">
                       {filteredWidgets.value.length} 个
-                    </NTag>
+                    </MobileTag>
                   </div>
                 </div>
                 <div class="mobile-overview-v2__widget-list">
-                  {filteredWidgets.value.map((widget) => (
+                  {remainingWidgets.value.map((widget) => (
                     <div class="mobile-overview-v2__widget-card" key={widget.id}>
                       <div class="mobile-overview-v2__widget-card-header">
                         <span class="mobile-overview-v2__widget-card-title">{widget.title}</span>
-                        <NTag size="tiny" bordered={false} type="default">
-                          {widget.kind}
-                        </NTag>
+                        <MobileTag size="small" type="default">
+                          {widgetKindLabels[widget.kind] || '自定义组件'}
+                        </MobileTag>
                       </div>
                       <div class="mobile-overview-v2__widget-card-body">{renderWidgetBody(widget)}</div>
                     </div>
@@ -1305,7 +1499,7 @@ export default defineComponent({
               </>
             ) : (
               <div class="mobile-overview-v2__section">
-                <NEmpty
+                <MobileEmpty
                   description="当前面板暂无卡片，请在桌面端添加卡片后查看。"
                   class="mobile-overview-v2__empty-state"
                 />
@@ -1313,7 +1507,7 @@ export default defineComponent({
             )}
 
             {/* 快捷入口 */}
-            <NCard bordered={false} size="small" class="mobile-overview-v2__summary-card">
+            <MobileCard bordered={false} size="small" class="mobile-overview-v2__summary-card">
               <div class="mobile-overview-v2__pivot-grid">
                 {[
                   { key: 'services', icon: PhStack, label: '服务目录', path: '/mobile/services-v2' },
@@ -1323,13 +1517,16 @@ export default defineComponent({
                   { key: 'instance', icon: PhComputerTower, label: '实例', path: '/mobile/instance-monitor' },
                   { key: 'rules', icon: PhWarningCircle, label: '规则', path: '/mobile/alert-rules' }
                 ].map((item) => (
-                  <NButton class="mobile-overview-v2__pivot-btn" size="large" onClick={() => router.push(item.path)}>
-                    <NIcon size={20}>{h(item.icon)}</NIcon>
+                  <MobileButton
+                    class="mobile-overview-v2__pivot-btn"
+                    size="large"
+                    onClick={() => router.push(item.path)}>
+                    {h(item.icon, { size: 20 })}
                     <span class="mobile-overview-v2__pivot-label">{item.label}</span>
-                  </NButton>
+                  </MobileButton>
                 ))}
               </div>
-            </NCard>
+            </MobileCard>
           </>
         )}
       </div>

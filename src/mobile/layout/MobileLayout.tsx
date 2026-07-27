@@ -1,12 +1,16 @@
 import { RouterView } from 'vue-router'
-import { NDrawer, NDrawerContent, NAvatar, NDivider, NBadge } from 'naive-ui'
+import { Badge, Image, Popup } from 'vant'
 import { PhSquaresFour, PhChartBar, PhStack, PhBell, PhUser, PhGear, PhSignOut } from '@phosphor-icons/vue'
-import { getStoredUserInfo } from '@/services/authSession'
-import { fetchOverviewSummary } from '@/api'
-import { provide, type InjectionKey, type Ref } from 'vue'
+import { getPreferredMetricsDatasetScope, getStoredUserInfo } from '@/services/authSession'
+import { fetchAlerts } from '@/api/alerts'
+import { useTimeStore } from '@/store/useTimeStore'
+import type { MetricsDatasetScope } from '@/api/metrics'
+import { KeepAlive, provide, inject, type InjectionKey, type Ref } from 'vue'
+import MobileVantProvider from '@/mobile/providers/MobileVantProvider'
 import './MobileLayout.scss'
 
 export const DRAWER_OPEN_KEY: InjectionKey<Ref<boolean>> = Symbol('drawerOpen')
+export const MOBILE_ALERT_BADGE_REFRESH_KEY: InjectionKey<() => Promise<void>> = Symbol('mobileAlertBadgeRefresh')
 
 export function useDrawerToggle() {
   const drawerOpen = inject(DRAWER_OPEN_KEY)
@@ -27,18 +31,35 @@ export default defineComponent({
     const route = useRoute()
     const drawerOpen = ref(false)
     const userInfo = ref(getStoredUserInfo() || {})
+    const timeStore = useTimeStore()
 
     provide(DRAWER_OPEN_KEY, drawerOpen)
     const displayName = computed(() => userInfo.value.nickName || userInfo.value.email || '星光用户')
     const activeAlertCount = ref(0)
+    const datasetScope = computed<MetricsDatasetScope>(() => getPreferredMetricsDatasetScope())
+    let badgeRequestId = 0
 
-    onMounted(() => {
-      fetchOverviewSummary({ scope: 'system' })
-        .then((res: any) => {
-          activeAlertCount.value = res?.totals?.activeIncidents || 0
+    const refreshActiveAlertCount = async () => {
+      const requestId = ++badgeRequestId
+      try {
+        const alerts = await fetchAlerts({
+          scope: datasetScope.value,
+          startTime: timeStore.startTime,
+          endTime: timeStore.endTime
         })
-        .catch(() => {})
-    })
+        if (requestId === badgeRequestId) {
+          activeAlertCount.value = alerts.filter((alert) => alert.status === 'active').length
+        }
+      } catch (error) {
+        console.error('Failed to refresh mobile alert badge:', error)
+      }
+    }
+
+    provide(MOBILE_ALERT_BADGE_REFRESH_KEY, refreshActiveAlertCount)
+
+    onMounted(refreshActiveAlertCount)
+
+    watch(() => [timeStore.startTime, timeStore.endTime], refreshActiveAlertCount)
 
     const tabs = [
       { label: '看板', icon: PhSquaresFour, path: '/mobile/overview-v2' },
@@ -67,10 +88,6 @@ export default defineComponent({
       return route.path === path || route.path.startsWith(path + '/')
     }
 
-    const toggleDrawer = () => {
-      drawerOpen.value = !drawerOpen.value
-    }
-
     const navigateTo = (path: string) => {
       router.push(path)
       drawerOpen.value = false
@@ -82,64 +99,112 @@ export default defineComponent({
     }
 
     return () => (
-      <div class="mobile-layout">
-        <main class="mobile-layout__content">
-          <RouterView />
-        </main>
+      <MobileVantProvider>
+        <div class="mobile-layout">
+          <main class="mobile-layout__content">
+            <RouterView>
+              {{
+                default: ({ Component, route }: { Component: unknown; route: { name?: string | symbol } }) => (
+                  <KeepAlive>
+                    <component is={Component} key={route.name?.toString()} />
+                  </KeepAlive>
+                )
+              }}
+            </RouterView>
+          </main>
 
-        {/* Bottom tab bar — 4 tabs + avatar */}
-        <nav class="mobile-layout__tabs">
-          {tabs.map((tab) => (
-            <button
-              key={tab.path}
-              class={['mobile-layout__tab', isActive(tab.path) && 'mobile-layout__tab--active']}
-              onClick={() => router.push(tab.path)}>
-              {tab.path === '/mobile/alerts-inbox' ? (
-                <NBadge value={activeAlertCount.value || undefined} max={99}>
+          {/* Bottom tab bar — 4 tabs + avatar */}
+          <nav class="mobile-layout__tabs">
+            {tabs.map((tab) => (
+              <button
+                key={tab.path}
+                class={['mobile-layout__tab', isActive(tab.path) && 'mobile-layout__tab--active']}
+                aria-label={tab.label}
+                aria-current={isActive(tab.path) ? 'page' : undefined}
+                onClick={() => router.push(tab.path)}>
+                {tab.path === '/mobile/alerts-inbox' ? (
+                  <Badge content={activeAlertCount.value || undefined} max={99} class="mobile-layout__tab-badge">
+                    <tab.icon size={24} />
+                  </Badge>
+                ) : (
                   <tab.icon size={24} />
-                </NBadge>
-              ) : (
-                <tab.icon size={24} />
-              )}
-              <span class="mobile-layout__tab-label">{tab.label}</span>
-            </button>
-          ))}
-        </nav>
-
-        <NDrawer
-          show={drawerOpen.value}
-          onUpdate:show={(v: boolean) => (drawerOpen.value = v)}
-          width={280}
-          placement="left">
-          <NDrawerContent title="个人中心" class="mobile-drawer">
-            <div class="mobile-drawer__user" onClick={() => navigateTo('/mobile/profile')}>
-              <NAvatar size={44} round src={userInfo.value.avatar || undefined}>
-                {{ fallback: () => <span class="mobile-drawer__avatar-fallback">{displayName.value.charAt(0)}</span> }}
-              </NAvatar>
-              <div class="mobile-drawer__user-info">
-                <div class="mobile-drawer__user-name">{displayName.value}</div>
-                <div class="mobile-drawer__user-email">{userInfo.value.email || '未绑定'}</div>
-              </div>
-            </div>
-            <NDivider />
-            <div class="mobile-drawer__menu">
-              {profileItems.map((item) => (
-                <button
-                  key={item.path}
-                  class={['mobile-drawer__menu-item', route.path === item.path && 'mobile-drawer__menu-item--active']}
-                  onClick={() => navigateTo(item.path)}>
-                  <item.icon size={20} />
-                  <span>{item.label}</span>
-                </button>
-              ))}
-              <button class="mobile-drawer__menu-item mobile-drawer__menu-item--danger" onClick={handleLogout}>
-                <PhSignOut size={20} />
-                <span>退出登录</span>
+                )}
+                <span class="mobile-layout__tab-label">{tab.label}</span>
               </button>
-            </div>
-          </NDrawerContent>
-        </NDrawer>
-      </div>
+            ))}
+          </nav>
+
+          <Popup
+            show={drawerOpen.value}
+            onUpdate:show={(show: boolean) => (drawerOpen.value = show)}
+            position="left"
+            class="mobile-drawer-popup"
+            closeable
+            closeIcon="cross"
+            aria-label="个人中心">
+            {{
+              default: () => (
+                <aside class="mobile-drawer" aria-label="个人中心导航">
+                  <header class="mobile-drawer__header">
+                    <h2 class="mobile-drawer__title">个人中心</h2>
+                  </header>
+                  <div class="mobile-drawer__content">
+                    <button
+                      type="button"
+                      class="mobile-drawer__user"
+                      onClick={() => navigateTo('/mobile/profile')}
+                      aria-label={`打开${displayName.value}的个人资料`}>
+                      {userInfo.value.avatar ? (
+                        <Image
+                          width="44"
+                          height="44"
+                          fit="cover"
+                          src={userInfo.value.avatar}
+                          class="mobile-drawer__avatar"
+                          round
+                          alt="用户头像"
+                        />
+                      ) : (
+                        <span class="mobile-drawer__avatar-fallback" aria-hidden="true">
+                          {displayName.value.charAt(0)}
+                        </span>
+                      )}
+                      <span class="mobile-drawer__user-info">
+                        <span class="mobile-drawer__user-name">{displayName.value}</span>
+                        <span class="mobile-drawer__user-email">{userInfo.value.email || '未绑定'}</span>
+                      </span>
+                    </button>
+                    <div class="mobile-drawer__divider" role="separator" />
+                    <div class="mobile-drawer__menu">
+                      {profileItems.map((item) => (
+                        <button
+                          type="button"
+                          key={item.path}
+                          class={[
+                            'mobile-drawer__menu-item',
+                            route.path === item.path && 'mobile-drawer__menu-item--active'
+                          ]}
+                          onClick={() => navigateTo(item.path)}
+                          aria-current={route.path === item.path ? 'page' : undefined}>
+                          <item.icon size={20} aria-hidden="true" />
+                          <span>{item.label}</span>
+                        </button>
+                      ))}
+                      <button
+                        type="button"
+                        class="mobile-drawer__menu-item mobile-drawer__menu-item--danger"
+                        onClick={handleLogout}>
+                        <PhSignOut size={20} aria-hidden="true" />
+                        <span>退出登录</span>
+                      </button>
+                    </div>
+                  </div>
+                </aside>
+              )
+            }}
+          </Popup>
+        </div>
+      </MobileVantProvider>
     )
   }
 })

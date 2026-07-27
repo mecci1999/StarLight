@@ -1,19 +1,15 @@
-import { defineComponent, ref, onMounted, computed } from 'vue'
+import { defineComponent, ref, onActivated, computed, h } from 'vue'
 import {
-  NCard,
-  NButton,
-  NEmpty,
-  NSpin,
-  NTag,
-  NSelect,
-  NResult,
-  NGrid,
-  NGridItem,
-  NProgress,
-  NIcon,
-  NButtonGroup,
-  NDataTable
-} from 'naive-ui'
+  MobileButton,
+  MobileCard,
+  MobileTag,
+  MobileEmpty,
+  MobileLoading,
+  MobileSelect,
+  MobileGrid,
+  MobileProgress,
+  MobileDataTable
+} from '@/mobile/ui'
 import {
   PhArrowsClockwise,
   PhHardDrive,
@@ -127,14 +123,17 @@ export default defineComponent({
       return { total, running, error: errorCount, avgCpu }
     })
 
-    onMounted(loadServices)
+    onActivated(async () => {
+      await loadServices()
+      if (selectedServiceId.value) await loadInstances()
+    })
 
-    const statusTagType = (status: string): 'success' | 'error' | 'warning' | 'default' => {
+    const statusTagType = (status: string): 'success' | 'danger' | 'warning' | 'default' => {
       switch (status) {
         case 'running':
           return 'success'
         case 'error':
-          return 'error'
+          return 'danger'
         default:
           return 'default'
       }
@@ -153,57 +152,49 @@ export default defineComponent({
 
     const tableColumns = [
       {
-        title: '实例ID',
+        label: '实例ID',
         key: 'id',
-        width: 140,
-        ellipsis: { tooltip: true },
-        render(row: ServiceInstance) {
-          return <span class="mobile-instance-monitor__table-mono">{row.id}</span>
+        render(_value: unknown, row: Record<string, unknown>) {
+          return <span class="mobile-instance-monitor__table-mono">{String(row.id ?? '-')}</span>
         }
       },
       {
-        title: '状态',
+        label: '状态',
         key: 'status',
-        width: 72,
-        render(row: ServiceInstance) {
+        render(_value: unknown, row: Record<string, unknown>) {
+          const status = String(row.status ?? '')
           return (
-            <NTag size="small" bordered={false} type={statusTagType(row.status)}>
-              {statusLabel(row.status)}
-            </NTag>
+            <MobileTag size="small" type={statusTagType(status)}>
+              {statusLabel(status)}
+            </MobileTag>
           )
         }
       },
       {
-        title: '节点',
-        key: 'node',
-        width: 100,
-        ellipsis: { tooltip: true }
+        label: '节点',
+        key: 'node'
       },
       {
-        title: 'CPU',
+        label: 'CPU',
         key: 'cpu',
-        width: 80,
-        render(row: ServiceInstance) {
-          const val = typeof row.cpu === 'number' ? row.cpu : 0
+        render(value: unknown) {
+          const val = typeof value === 'number' ? value : 0
           return <span class="mobile-instance-monitor__table-metric">{val}%</span>
         }
       },
       {
-        title: '内存',
+        label: '内存',
         key: 'memory',
-        width: 80,
-        render(row: ServiceInstance) {
-          const val = typeof row.memory === 'number' ? row.memory : 0
+        render(value: unknown) {
+          const val = typeof value === 'number' ? value : 0
           return <span class="mobile-instance-monitor__table-metric">{val}%</span>
         }
       },
       {
-        title: '启动时间',
+        label: '启动时间',
         key: 'startTime',
-        width: 130,
-        ellipsis: { tooltip: true },
-        render(row: ServiceInstance) {
-          return <span class="mobile-instance-monitor__table-time">{row.startTime || '-'}</span>
+        render(value: unknown) {
+          return <span class="mobile-instance-monitor__table-time">{String(value || '-')}</span>
         }
       }
     ]
@@ -215,165 +206,150 @@ export default defineComponent({
             <h2 class="mobile-instance-monitor__title">实例监控</h2>
           </div>
           <div class="mobile-instance-monitor__header-actions">
-            <NButton size="small" secondary type="primary" onClick={loadInstances}>
-              <NIcon>
-                <PhArrowsClockwise />
-              </NIcon>
-            </NButton>
+            <MobileButton
+              size="small"
+              type="primary"
+              class="mobile-instance-monitor__refresh-action"
+              onClick={loadInstances}
+              aria-label="刷新实例数据">
+              {h(PhArrowsClockwise, { size: 16 })}
+            </MobileButton>
           </div>
         </div>
 
         <div class="mobile-instance-monitor__service-select">
-          <NSelect
-            v-model:value={selectedServiceId.value}
+          <MobileSelect
+            modelValue={selectedServiceId.value ?? ''}
+            onUpdate:modelValue={(value) => {
+              selectedServiceId.value = value ? String(value) : null
+              loadInstances()
+            }}
             options={services.value}
             placeholder="选择服务"
-            filterable
             clearable
-            size="small"
-            onUpdateValue={loadInstances}
           />
         </div>
 
         <div class="mobile-instance-monitor__time-range">
           {TIME_RANGE_OPTIONS.map((opt) => (
-            <NButton
+            <MobileButton
               key={opt.key}
-              size="tiny"
+              size="small"
               type={timeRange.value === opt.key ? 'primary' : 'default'}
-              secondary={timeRange.value !== opt.key}
               onClick={() => {
                 timeRange.value = opt.key
               }}>
               {opt.label}
-            </NButton>
+            </MobileButton>
           ))}
         </div>
 
         {loading.value ? (
           <div class="mobile-instance-monitor__loading">
-            <NSpin size="large" />
+            <MobileLoading loading={true} size="large" />
           </div>
         ) : error.value ? (
-          <NResult
-            status="500"
-            title="数据加载失败"
-            description="请检查网络连接后重试"
-            class="mobile-instance-monitor__error">
+          <MobileEmpty description="数据加载失败" class="mobile-instance-monitor__error">
             {{
-              footer: () => (
-                <NButton type="primary" size="small" onClick={loadInstances}>
+              action: () => (
+                <MobileButton type="primary" size="small" onClick={loadInstances}>
                   重新加载
-                </NButton>
+                </MobileButton>
               )
             }}
-          </NResult>
+          </MobileEmpty>
         ) : !selectedServiceId.value ? (
           <div class="mobile-instance-monitor__empty-state">
-            <NEmpty description="请先选择服务" />
+            <MobileEmpty description="请先选择服务" />
           </div>
         ) : instances.value.length === 0 ? (
           <div class="mobile-instance-monitor__empty-state">
-            <NEmpty description="该服务暂无实例数据" />
+            <MobileEmpty description="该服务暂无实例数据" />
           </div>
         ) : (
           <>
             <div class="mobile-instance-monitor__stats">
-              <NGrid cols={2} xGap={8} yGap={8}>
-                <NGridItem>
+              <MobileGrid cols={2} gap="var(--spacing-2)">
+                <div>
                   <div class="mobile-instance-monitor__stat-card">
                     <div class="mobile-instance-monitor__stat-icon mobile-instance-monitor__stat-icon--total">
-                      <NIcon>
-                        <PhHardDrive size={18} />
-                      </NIcon>
+                      {h(PhHardDrive, { size: 18 })}
                     </div>
                     <div class="mobile-instance-monitor__stat-value">{stats.value.total}</div>
                     <div class="mobile-instance-monitor__stat-label">总实例</div>
                   </div>
-                </NGridItem>
-                <NGridItem>
+                </div>
+                <div>
                   <div class="mobile-instance-monitor__stat-card">
                     <div class="mobile-instance-monitor__stat-icon mobile-instance-monitor__stat-icon--running">
-                      <NIcon>
-                        <PhActivity size={18} />
-                      </NIcon>
+                      {h(PhActivity, { size: 18 })}
                     </div>
                     <div class="mobile-instance-monitor__stat-value">{stats.value.running}</div>
                     <div class="mobile-instance-monitor__stat-label">运行中</div>
                   </div>
-                </NGridItem>
-                <NGridItem>
+                </div>
+                <div>
                   <div class="mobile-instance-monitor__stat-card">
                     <div class="mobile-instance-monitor__stat-icon mobile-instance-monitor__stat-icon--error">
-                      <NIcon>
-                        <PhWarningCircle size={18} />
-                      </NIcon>
+                      {h(PhWarningCircle, { size: 18 })}
                     </div>
                     <div class="mobile-instance-monitor__stat-value">{stats.value.error}</div>
                     <div class="mobile-instance-monitor__stat-label">异常</div>
                   </div>
-                </NGridItem>
-                <NGridItem>
+                </div>
+                <div>
                   <div class="mobile-instance-monitor__stat-card">
                     <div class="mobile-instance-monitor__stat-icon mobile-instance-monitor__stat-icon--cpu">
-                      <NIcon>
-                        <PhGauge size={18} />
-                      </NIcon>
+                      {h(PhGauge, { size: 18 })}
                     </div>
                     <div class="mobile-instance-monitor__stat-value">{stats.value.avgCpu}%</div>
                     <div class="mobile-instance-monitor__stat-label">平均 CPU</div>
                   </div>
-                </NGridItem>
-              </NGrid>
+                </div>
+              </MobileGrid>
             </div>
 
             <div class="mobile-instance-monitor__view-toggle">
-              <NButtonGroup size="small">
-                <NButton
+              <div class="mobile-instance-monitor__view-toggle-actions">
+                <MobileButton
                   type={viewMode.value === 'card' ? 'primary' : 'default'}
+                  aria-label="卡片视图"
                   onClick={() => {
                     viewMode.value = 'card'
                   }}>
-                  <NIcon>
-                    <PhSquaresFour />
-                  </NIcon>
-                </NButton>
-                <NButton
+                  {h(PhSquaresFour, { size: 16 })}
+                </MobileButton>
+                <MobileButton
                   type={viewMode.value === 'table' ? 'primary' : 'default'}
+                  aria-label="表格视图"
                   onClick={() => {
                     viewMode.value = 'table'
                   }}>
-                  <NIcon>
-                    <PhList />
-                  </NIcon>
-                </NButton>
-              </NButtonGroup>
+                  {h(PhList, { size: 16 })}
+                </MobileButton>
+              </div>
             </div>
 
             {viewMode.value === 'card' ? (
               <div class="mobile-instance-monitor__list">
                 {sortedInstances.value.map((inst) => (
-                  <NCard key={inst.id} size="small" bordered={false} class="mobile-instance-monitor__list-card">
+                  <MobileCard key={inst.id} size="small" bordered={false} class="mobile-instance-monitor__list-card">
                     <div class="mobile-instance-monitor__card-header">
                       <span class="mobile-instance-monitor__card-id">{inst.id}</span>
-                      <NTag size="small" bordered={false} type={statusTagType(inst.status)}>
+                      <MobileTag size="small" type={statusTagType(inst.status)}>
                         {statusLabel(inst.status)}
-                      </NTag>
+                      </MobileTag>
                     </div>
                     <div class="mobile-instance-monitor__card-metrics">
                       <div class="mobile-instance-monitor__metric-row">
                         <span class="mobile-instance-monitor__metric-label">CPU</span>
                         <div class="mobile-instance-monitor__metric-bar">
-                          <NProgress
-                            type="line"
+                          <MobileProgress
                             percentage={inst.cpu ?? 0}
-                            height={10}
-                            border-radius="5px"
-                            fill-border-radius="5px"
-                            rail-color="var(--color-fill-2)"
+                            strokeWidth={10}
+                            trackColor="var(--color-fill-2)"
                             color="var(--color-primary-6)"
-                            indicator-placement="inside"
-                            processing
+                            showPivot={false}
                           />
                         </div>
                         <span class="mobile-instance-monitor__metric-value">{inst.cpu ?? 0}%</span>
@@ -381,16 +357,12 @@ export default defineComponent({
                       <div class="mobile-instance-monitor__metric-row">
                         <span class="mobile-instance-monitor__metric-label">内存</span>
                         <div class="mobile-instance-monitor__metric-bar">
-                          <NProgress
-                            type="line"
+                          <MobileProgress
                             percentage={inst.memory ?? 0}
-                            height={10}
-                            border-radius="5px"
-                            fill-border-radius="5px"
-                            rail-color="var(--color-fill-2)"
+                            strokeWidth={10}
+                            trackColor="var(--color-fill-2)"
                             color="var(--color-warning-6)"
-                            indicator-placement="inside"
-                            processing
+                            showPivot={false}
                           />
                         </div>
                         <span class="mobile-instance-monitor__metric-value">{inst.memory ?? 0}%</span>
@@ -401,7 +373,7 @@ export default defineComponent({
                         节点: {inst.node || '-'} · 启动: {inst.startTime || '-'}
                       </span>
                     </div>
-                  </NCard>
+                  </MobileCard>
                 ))}
               </div>
             ) : (
@@ -411,25 +383,18 @@ export default defineComponent({
                     <div
                       key={col.key}
                       class="mobile-instance-monitor__table-th"
-                      style={{ width: col.width ? `${col.width}px` : undefined }}
                       onClick={() => toggleSort(col.key as SortKey)}>
                       <span>
-                        {col.title}
+                        {col.label}
                         {sortIndicator(col.key as SortKey)}
                       </span>
                     </div>
                   ))}
                 </div>
-                <NDataTable
+                <MobileDataTable
                   class="mobile-instance-monitor__table"
                   columns={tableColumns}
-                  data={sortedInstances.value}
-                  rowKey={(row: ServiceInstance) => row.id}
-                  size="small"
-                  bordered={false}
-                  singleLine={false}
-                  pagination={{ pageSize: 10 }}
-                  scrollX={600}
+                  data={sortedInstances.value.map((instance) => ({ ...instance }))}
                 />
               </div>
             )}

@@ -1,5 +1,5 @@
-import { NAvatar, NBadge, NButton, NIcon, NInput, NPopover } from 'naive-ui'
-import { PhMagnifyingGlass, PhBell, PhScan, PhUser, PhGear, PhSignOut } from '@phosphor-icons/vue'
+import { Badge, Field, Image } from 'vant'
+import { PhMagnifyingGlass, PhBell, PhScan } from '@phosphor-icons/vue'
 import { useRouter } from 'vue-router'
 import { getStoredUserInfo } from '@/services/authSession'
 import { clientNotificationUnreadCount } from '@/services/clientNotifications'
@@ -44,67 +44,59 @@ export default defineComponent({
       router.push('/mobile/scan-login')
     }
 
-    const handleOpenProfile = () => {
-      router.push('/mobile/profile')
-    }
-
     const handleOpenNotifications = () => {
       router.push('/mobile/notifications')
     }
 
-    const handleOpenSettings = () => {
-      router.push('/mobile/settings')
-    }
-
-    const handleLogout = () => {
-      router.replace('/mobile/login')
-    }
-
     return () => (
       <div class="mobile-header-toolbar">
-        <button type="button" class="mobile-header-toolbar__avatar-btn" onClick={toggleDrawer}>
+        <button
+          type="button"
+          class="mobile-header-toolbar__avatar-btn"
+          onClick={toggleDrawer}
+          aria-label="打开个人中心">
           {avatarSrc.value ? (
-            <NAvatar size={32} round src={avatarSrc.value} />
+            <Image width="32" height="32" fit="cover" src={avatarSrc.value} round alt="用户头像" />
           ) : (
-            <span class="mobile-header-toolbar__avatar-fallback">{avatarFallback.value}</span>
+            <span class="mobile-header-toolbar__avatar-fallback" aria-hidden="true">
+              {avatarFallback.value}
+            </span>
           )}
         </button>
 
         <div class="mobile-header-toolbar__search">
-          <NInput
-            size="small"
-            value={searchValue.value}
+          <Field
+            modelValue={searchValue.value}
             placeholder="搜索服务、日志…"
-            onUpdate:value={(v: string) => (searchValue.value = v)}
-            onKeydown={handleSearchKey}
-            clearable>
-            {{
-              prefix: () => (
-                <NIcon size={16}>
-                  <PhMagnifyingGlass />
-                </NIcon>
-              )
-            }}
-          </NInput>
+            clearable
+            onUpdate:modelValue={(value: string | number) => (searchValue.value = String(value))}
+            onKeypress={handleSearchKey}
+            aria-label="搜索服务、日志">
+            {{ leftIcon: () => <PhMagnifyingGlass size={16} aria-hidden="true" /> }}
+          </Field>
         </div>
 
         <div class="mobile-header-toolbar__actions">
-          <NButton quaternary circle size="small" onClick={handleOpenNotifications} aria-label="消息通知">
-            <NBadge
-              value={clientNotificationUnreadCount.value || undefined}
+          <button
+            type="button"
+            class="mobile-header-toolbar__action"
+            onClick={handleOpenNotifications}
+            aria-label={
+              clientNotificationUnreadCount.value > 0
+                ? `消息通知，有${clientNotificationUnreadCount.value}条未读`
+                : '消息通知'
+            }>
+            <Badge
+              content={clientNotificationUnreadCount.value || undefined}
               max={99}
               dot={clientNotificationUnreadCount.value > 0}>
-              <NIcon size={20}>
-                <PhBell />
-              </NIcon>
-            </NBadge>
-          </NButton>
+              <PhBell size={20} aria-hidden="true" />
+            </Badge>
+          </button>
 
-          <NButton quaternary circle size="small" onClick={handleOpenScan} aria-label="扫一扫">
-            <NIcon size={20}>
-              <PhScan />
-            </NIcon>
-          </NButton>
+          <button type="button" class="mobile-header-toolbar__action" onClick={handleOpenScan} aria-label="扫一扫">
+            <PhScan size={20} aria-hidden="true" />
+          </button>
         </div>
       </div>
     )

@@ -263,20 +263,18 @@ export default defineComponent({
     /** 跟随系统主题模式切换主题 */
     const followOS = () => {
       globalTheme.name = prefers.matches ? darkTheme : lightTheme
-      document.documentElement.dataset.theme = prefers.matches ? ThemeEnum.DARK : ThemeEnum.LIGHT
-      themes.value.content = prefers.matches ? ThemeEnum.DARK : ThemeEnum.LIGHT
+      settingStore.applySystemTheme()
     }
 
-    watchEffect(() => {
+    watchEffect((onCleanup) => {
       if (themes.value.pattern === ThemeEnum.OS) {
         followOS()
-        themes.value.pattern = ThemeEnum.OS
         prefers.addEventListener('change', followOS)
+        onCleanup(() => prefers.removeEventListener('change', followOS))
       } else {
         // 判断content是否是深色还是浅色
         document.documentElement.dataset.theme = themes.value.content || ThemeEnum.LIGHT
         globalTheme.name = themes.value.content === ThemeEnum.DARK ? darkTheme : lightTheme
-        prefers.removeEventListener('change', followOS)
       }
     })
 

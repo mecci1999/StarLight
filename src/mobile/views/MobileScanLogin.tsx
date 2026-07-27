@@ -1,5 +1,6 @@
-import { NButton, NResult, NSpin, NIcon, NFlex } from 'naive-ui'
-import { PhWarningCircle, PhCheckCircle, PhXCircle, PhArrowsClockwise } from '@phosphor-icons/vue'
+import { MobileButton, MobileLoading } from '@/mobile/ui'
+import { h } from 'vue'
+import { PhWarningCircle, PhCheckCircle, PhXCircle } from '@phosphor-icons/vue'
 import * as api from '@/api'
 import { QrCodeStatus } from '@/types/enums'
 import { useRouter } from 'vue-router'
@@ -12,7 +13,28 @@ import {
   resolveAuthLandingRoute
 } from '@/services/authSession'
 import type { UserInfoType } from '@/types/userInfo'
+import MobileVantProvider from '@/mobile/providers/MobileVantProvider'
 import './MobileScanLogin.scss'
+
+type QrLoginResponse = Partial<UserInfoType> & {
+  id?: string
+  status?: QrCodeStatus
+  token?: string
+  accessToken?: string
+  access_token?: string
+  refreshToken?: string
+  refresh_token?: string
+  userInfo?: Partial<UserInfoType> & { nickname?: string }
+  nickname?: string
+}
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value)
+
+const toQrLoginResponse = (value: unknown): QrLoginResponse => {
+  if (!isRecord(value)) return {}
+  return value
+}
 
 export default defineComponent({
   name: 'MobileScanLogin',
@@ -23,11 +45,18 @@ export default defineComponent({
     const status = ref<'waiting' | 'scanned' | 'confirmed' | 'expired' | 'error'>('waiting')
     const statusText = ref('请将二维码置于框内扫描')
     const loading = ref(false)
-    let pollTimer: ReturnType<typeof setInterval> | null = null
+    let pollTimer: ReturnType<typeof setTimeout> | null = null
+    let expiryTimer: ReturnType<typeof setTimeout> | null = null
+    let redirectTimer: ReturnType<typeof setTimeout> | null = null
 
     const isValidQRKey = (code: string) => code && code.length > 0
 
     const handleDecode = (code: string) => {
+      if (!isValidQRKey(code)) {
+        status.value = 'error'
+        statusText.value = '无效的二维码'
+        return
+      }
       stopPolling()
       qrKey.value = code
       startScan()
@@ -36,14 +65,14 @@ export default defineComponent({
     const startScan = async () => {
       loading.value = true
       try {
-        const res = (await api.scanQRcode({ key: qrKey.value })) as any
+        const res = toQrLoginResponse(await api.scanQRcode({ key: qrKey.value }))
         qrCodeId.value = res?.id || ''
         status.value = 'scanned'
         statusText.value = '已扫描，请在桌面端确认登录'
 
-        pollTimer = setInterval(async () => {
+        const pollStatus = async () => {
           try {
-            const pollRes = (await api.getQRCodeStatus({ key: qrKey.value })) as any
+            const pollRes = toQrLoginResponse(await api.getQRCodeStatus({ key: qrKey.value }))
             switch (pollRes?.status) {
               case QrCodeStatus.CONFIRMED:
                 status.value = 'confirmed'
@@ -62,6 +91,7 @@ export default defineComponent({
                 stopPolling()
                 break
               default:
+                pollTimer = setTimeout(pollStatus, 2000)
                 break
             }
           } catch {
@@ -69,20 +99,10 @@ export default defineComponent({
             status.value = 'error'
             statusText.value = '状态查询失败'
           }
-        }, 2000)
+        }
+        pollTimer = setTimeout(pollStatus, 2000)
 
-        setTimeout(
-          () => {
-            if (status.value === 'scanned') {
-              status.value = 'expired'
-              statusText.value = '确认超时，二维码已过期'
-              stopPolling()
-            }
-          },
-          2 * 60 * 1000
-        )
-
-        const timeoutTimer = setTimeout(
+        expiryTimer = setTimeout(
           () => {
             if (status.value === 'scanned') {
               status.value = 'expired'
@@ -102,12 +122,16 @@ export default defineComponent({
 
     const stopPolling = () => {
       if (pollTimer) {
-        clearInterval(pollTimer)
+        clearTimeout(pollTimer)
         pollTimer = null
+      }
+      if (expiryTimer) {
+        clearTimeout(expiryTimer)
+        expiryTimer = null
       }
     }
 
-    const handleLoginSuccess = async (response: any) => {
+    const handleLoginSuccess = async (response: QrLoginResponse) => {
       const accessToken =
         response.token || response.accessToken || response.access_token || getStoredAuthTokens().accessToken
       const refreshToken = response.refreshToken || response.refresh_token || getStoredAuthTokens().refreshToken
@@ -116,11 +140,10 @@ export default defineComponent({
 
       const userId = response.userInfo?.userId || response.userId || ''
       const cached = getStoredUserInfo()
-      let resolved =
-        (response.userInfo as Partial<UserInfoType> | undefined) || (cached?.userId === userId ? cached : undefined)
+      let resolved = response.userInfo || (cached?.userId === userId ? cached : undefined)
       if (!resolved?.userId && userId) {
         try {
-          resolved = (await api.getUserInfo(userId)) as Partial<UserInfoType>
+          resolved = await api.getUserInfo(userId)
         } catch {}
       }
 
@@ -128,7 +151,7 @@ export default defineComponent({
         userId: resolved?.userId || userId,
         email: resolved?.email || '',
         avatar: resolved?.avatar || 'star_1',
-        nickName: resolved?.nickName || (resolved as any)?.nickname || resolved?.email || '',
+        nickName: resolved?.nickName || response.nickname || resolved?.email || '',
         client: 'mobile',
         isAdmin: resolved?.isAdmin || false,
         status: resolved?.status || 'active',
@@ -136,8 +159,8 @@ export default defineComponent({
       }
       persistStoredUserInfo(userInfo)
 
-      setTimeout(() => {
-        router.push({ name: 'mobile-overview-v2' })
+      redirectTimer = setTimeout(() => {
+        router.push({ name: resolveAuthLandingRoute(false, userInfo) })
       }, 1500)
     }
 
@@ -147,6 +170,7 @@ export default defineComponent({
     }
 
     const handleRetry = () => {
+      stopPolling()
       status.value = 'waiting'
       statusText.value = '请将二维码置于框内扫描'
       qrKey.value = ''
@@ -155,81 +179,73 @@ export default defineComponent({
 
     onUnmounted(() => {
       stopPolling()
+      if (redirectTimer) clearTimeout(redirectTimer)
     })
 
     return () => (
-      <div class="mobile-scan-login">
-        <div class="mobile-scan-login__header">
-          <NButton quaternary onClick={handleBack} aria-label="返回">
-            ← 返回
-          </NButton>
-          <span class="mobile-scan-login__title">扫一扫登录</span>
-          <div style="width: 48px" />
-        </div>
+      <MobileVantProvider>
+        <div class="mobile-scan-login">
+          <div class="mobile-scan-login__header">
+            <MobileButton onClick={handleBack} aria-label="返回">
+              ← 返回
+            </MobileButton>
+            <span class="mobile-scan-login__title">扫一扫登录</span>
+            <div class="mobile-scan-login__header-spacer" />
+          </div>
 
-        {loading.value ? (
-          <div class="mobile-scan-login__loading">
-            <NSpin size="large" />
-            <span>正在扫描...</span>
-          </div>
-        ) : status.value === 'waiting' ? (
-          <div class="mobile-scan-login__scanner">
-            <div class="mobile-scan-login__scan-frame">
-              <div class="mobile-scan-login__scan-line" />
+          {loading.value ? (
+            <div class="mobile-scan-login__loading">
+              <MobileLoading size="large" loading={loading.value} text="正在扫描..." />
             </div>
-            <div class="mobile-scan-login__hint">
-              <NIcon size={18}>
-                <PhCheckCircle />
-              </NIcon>
-              <span>将桌面端二维码放入框内，自动识别</span>
+          ) : status.value === 'waiting' ? (
+            <div class="mobile-scan-login__scanner">
+              <div class="mobile-scan-login__scan-frame">
+                <div class="mobile-scan-login__scan-line" />
+              </div>
+              <div class="mobile-scan-login__hint">
+                {h(PhCheckCircle, { size: 18 })}
+                <span>将桌面端二维码放入框内，自动识别</span>
+              </div>
             </div>
-          </div>
-        ) : status.value === 'scanned' ? (
-          <NFlex vertical align="center" size={16} class="mobile-scan-login__result">
-            <div class="mobile-scan-login__status-icon is-scanned">
-              <NIcon size={48} color="var(--color-primary-6)">
-                <PhCheckCircle />
-              </NIcon>
+          ) : status.value === 'scanned' ? (
+            <div class="mobile-scan-login__result">
+              <div class="mobile-scan-login__status-icon is-scanned">
+                {h(PhCheckCircle, { size: 48, color: 'var(--color-primary-6)' })}
+              </div>
+              <div class="mobile-scan-login__status-text">{statusText.value}</div>
+              <span class="mobile-scan-login__status-sub">请在桌面端确认登录</span>
             </div>
-            <div class="mobile-scan-login__status-text">{statusText.value}</div>
-            <span class="mobile-scan-login__status-sub">请在桌面端确认登录</span>
-          </NFlex>
-        ) : status.value === 'confirmed' ? (
-          <NFlex vertical align="center" size={16} class="mobile-scan-login__result">
-            <div class="mobile-scan-login__status-icon is-success">
-              <NIcon size={48} color="var(--color-success-6)">
-                <PhCheckCircle />
-              </NIcon>
+          ) : status.value === 'confirmed' ? (
+            <div class="mobile-scan-login__result">
+              <div class="mobile-scan-login__status-icon is-success">
+                {h(PhCheckCircle, { size: 48, color: 'var(--color-success-6)' })}
+              </div>
+              <div class="mobile-scan-login__status-text">登录成功</div>
+              <span class="mobile-scan-login__status-sub">正在跳转...</span>
             </div>
-            <div class="mobile-scan-login__status-text">登录成功</div>
-            <span class="mobile-scan-login__status-sub">正在跳转...</span>
-          </NFlex>
-        ) : status.value === 'expired' ? (
-          <NFlex vertical align="center" size={16} class="mobile-scan-login__result">
-            <div class="mobile-scan-login__status-icon is-expired">
-              <NIcon size={48} color="var(--color-warning-6)">
-                <PhWarningCircle />
-              </NIcon>
+          ) : status.value === 'expired' ? (
+            <div class="mobile-scan-login__result">
+              <div class="mobile-scan-login__status-icon is-expired">
+                {h(PhWarningCircle, { size: 48, color: 'var(--color-warning-6)' })}
+              </div>
+              <div class="mobile-scan-login__status-text">{statusText.value}</div>
+              <MobileButton type="primary" onClick={handleRetry}>
+                重新扫码
+              </MobileButton>
             </div>
-            <div class="mobile-scan-login__status-text">{statusText.value}</div>
-            <NButton type="primary" onClick={handleRetry}>
-              重新扫码
-            </NButton>
-          </NFlex>
-        ) : (
-          <NFlex vertical align="center" size={16} class="mobile-scan-login__result">
-            <div class="mobile-scan-login__status-icon is-error">
-              <NIcon size={48} color="var(--color-danger-6)">
-                <PhXCircle />
-              </NIcon>
+          ) : (
+            <div class="mobile-scan-login__result">
+              <div class="mobile-scan-login__status-icon is-error">
+                {h(PhXCircle, { size: 48, color: 'var(--color-danger-6)' })}
+              </div>
+              <div class="mobile-scan-login__status-text">{statusText.value}</div>
+              <MobileButton type="primary" onClick={handleRetry}>
+                重试
+              </MobileButton>
             </div>
-            <div class="mobile-scan-login__status-text">{statusText.value}</div>
-            <NButton type="primary" onClick={handleRetry}>
-              重试
-            </NButton>
-          </NFlex>
-        )}
-      </div>
+          )}
+        </div>
+      </MobileVantProvider>
     )
   }
 })

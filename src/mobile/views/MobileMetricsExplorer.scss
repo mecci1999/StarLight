@@ -20,6 +20,13 @@
     font-weight: var(--font-weight-medium);
   }
 
+  &__refresh-action {
+    width: var(--size-large);
+    min-width: var(--size-large);
+    height: var(--size-large);
+    padding: 0;
+  }
+
   // ── Service Select ──────────────────────
 
   &__service-select {
@@ -30,18 +37,26 @@
 
   &__loading {
     display: flex;
+    align-items: center;
     justify-content: center;
-    padding: var(--spacing-10) 0;
+    min-height: 200px;
+    padding: var(--spacing-6) 0;
   }
 
   &__error {
-    margin-top: var(--spacing-8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 200px;
+    padding: var(--spacing-6) 0;
   }
 
   &__empty-state {
     display: flex;
+    align-items: center;
     justify-content: center;
-    padding: var(--spacing-10) 0;
+    min-height: 200px;
+    padding: var(--spacing-6) 0;
   }
 
   // ── Metrics Grid ────────────────────────
@@ -56,6 +71,11 @@
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-sm);
     text-align: center;
+    transition: transform var(--duration-fast) var(--ease-default);
+
+    &:active {
+      transform: scale(0.99);
+    }
   }
 
   &__metric-header {
@@ -108,6 +128,10 @@
     gap: var(--spacing-2);
     margin-bottom: var(--spacing-4);
     flex-wrap: wrap;
+
+    :deep(.mobile-button) {
+      min-height: var(--size-large);
+    }
   }
 
   // ── Charts Section ──────────────────────
@@ -139,6 +163,10 @@
     gap: var(--spacing-2);
     margin-bottom: var(--spacing-4);
     flex-wrap: wrap;
+
+    :deep(.mobile-button) {
+      min-height: var(--size-large);
+    }
   }
 
   // ── Chart Cards ─────────────────────────
@@ -152,6 +180,7 @@
   &__chart-card {
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-sm);
+    overflow: hidden;
   }
 
   &__chart-header {
@@ -173,6 +202,22 @@
     height: 8px;
     border-radius: var(--radius-full);
     flex-shrink: 0;
+
+    &--cpu {
+      background: var(--color-primary-6);
+    }
+
+    &--memory {
+      background: var(--color-warning-6);
+    }
+
+    &--qps {
+      background: var(--color-success-6);
+    }
+
+    &--response {
+      background: var(--color-danger-6);
+    }
   }
 
   &__chart-body {

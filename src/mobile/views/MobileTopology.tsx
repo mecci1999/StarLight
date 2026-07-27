@@ -1,6 +1,15 @@
-import { defineComponent, ref, onMounted, computed } from 'vue'
+import { defineComponent, ref, onActivated, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { NCard, NButton, NEmpty, NSpin, NInput, NTag, NSelect, NStatistic, NIcon } from 'naive-ui'
+import {
+  MobileCard,
+  MobileButton,
+  MobileEmpty,
+  MobileLoading,
+  MobileInput,
+  MobileTag,
+  MobileSelect,
+  MobileStatistic
+} from '@/mobile/ui'
 import { fetchTopology } from '@/api'
 import ServiceHealthBadge from '@/shared/components/ServiceHealthBadge'
 import { PhArrowsClockwise } from '@phosphor-icons/vue'
@@ -37,7 +46,7 @@ export default defineComponent({
       }
     }
 
-    onMounted(loadTopology)
+    onActivated(loadTopology)
 
     const serviceOptions = computed(() =>
       topologyData.value.nodes
@@ -141,7 +150,7 @@ export default defineComponent({
       return 'unknown'
     }
 
-    const getHealthTagType = (node: TopologyNode): 'success' | 'warning' | 'error' | 'default' => {
+    const getHealthTagType = (node: TopologyNode): 'success' | 'warning' | 'danger' | 'default' => {
       const health = getHealthStatus(node)
       switch (health) {
         case 'healthy':
@@ -149,7 +158,7 @@ export default defineComponent({
         case 'degraded':
           return 'warning'
         case 'critical':
-          return 'error'
+          return 'danger'
         default:
           return 'default'
       }
@@ -192,14 +201,14 @@ export default defineComponent({
           key={`${direction}-${node.id}-${edge.from}-${edge.to}`}
           class="mobile-topology__card-wrapper"
           onClick={() => navigateToServiceDetail(node.id)}>
-          <NCard size="small" bordered={false} class="mobile-topology__card">
+          <MobileCard size="small" bordered={false} class="mobile-topology__card">
             <div class="mobile-topology__card-content">
               <div class="mobile-topology__card-main">
                 <div class="mobile-topology__card-title-row">
                   <span class="mobile-topology__card-name">{node.name}</span>
-                  <NTag size="small" bordered={false} type={getHealthTagType(node)}>
+                  <MobileTag size="small" plain type={getHealthTagType(node)}>
                     {getHealthLabel(node)}
-                  </NTag>
+                  </MobileTag>
                 </div>
                 <div class="mobile-topology__card-id">{node.id}</div>
                 <div class="mobile-topology__card-meta">
@@ -248,7 +257,7 @@ export default defineComponent({
                 </svg>
               </div>
             </div>
-          </NCard>
+          </MobileCard>
         </div>
       )
     }
@@ -260,43 +269,42 @@ export default defineComponent({
             <h2 class="mobile-topology__title">服务拓扑</h2>
             <div class="mobile-topology__subtitle">依赖关系与链路概览</div>
           </div>
-          <NButton size="small" secondary type="primary" onClick={loadTopology}>
-            {{
-              icon: () => (
-                <NIcon>
-                  <PhArrowsClockwise />
-                </NIcon>
-              ),
-              default: () => '刷新'
-            }}
-          </NButton>
+          <MobileButton
+            size="small"
+            type="ghost"
+            class="mobile-topology__refresh-action"
+            onClick={loadTopology}
+            icon={() => <PhArrowsClockwise size={16} />}>
+            刷新
+          </MobileButton>
         </div>
 
         {loading.value ? (
           <div class="mobile-topology__loading">
-            <NSpin size="large" />
+            <MobileLoading loading={loading.value} size="48px" />
           </div>
         ) : error.value ? (
           <div class="mobile-topology__error">
             <div class="mobile-topology__error-text">数据加载失败，请检查网络连接后重试</div>
-            <NButton size="small" type="primary" onClick={loadTopology}>
+            <MobileButton size="small" type="primary" onClick={loadTopology}>
               重试
-            </NButton>
+            </MobileButton>
           </div>
         ) : topologyData.value.nodes.length === 0 ? (
-          <NEmpty description="暂无拓扑数据" class="mobile-topology__empty-state">
+          <MobileEmpty description="暂无拓扑数据" class="mobile-topology__empty-state">
             <div class="mobile-topology__empty-tip">请确认服务注册中心是否正常运行</div>
-          </NEmpty>
+          </MobileEmpty>
         ) : (
           <>
             <div class="mobile-topology__selector">
-              <NSelect
-                v-model:value={selectedServiceId.value}
+              <MobileSelect
+                modelValue={selectedServiceId.value}
+                onUpdate:modelValue={(v) => {
+                  selectedServiceId.value = v
+                }}
                 options={serviceOptions.value}
                 placeholder="选择服务查看拓扑依赖"
-                filterable
                 clearable
-                size="medium"
               />
             </div>
 
@@ -304,13 +312,13 @@ export default defineComponent({
               <>
                 <div class="mobile-topology__summary">
                   <div class="mobile-topology__summary-item mobile-topology__summary-item--total">
-                    <NStatistic label="上游" value={summaryStats.value.totalUpstream} />
+                    <MobileStatistic label="上游" value={summaryStats.value.totalUpstream} />
                   </div>
                   <div class="mobile-topology__summary-item mobile-topology__summary-item--total">
-                    <NStatistic label="下游" value={summaryStats.value.totalDownstream} />
+                    <MobileStatistic label="下游" value={summaryStats.value.totalDownstream} />
                   </div>
                   <div class="mobile-topology__summary-item mobile-topology__summary-item--healthy">
-                    <NStatistic
+                    <MobileStatistic
                       label="健康"
                       value={summaryStats.value.healthyUpstream + summaryStats.value.healthyDownstream}
                     />
@@ -318,17 +326,19 @@ export default defineComponent({
                 </div>
 
                 <div class="mobile-topology__search">
-                  <NInput
-                    v-model:value={searchKeyword.value}
+                  <MobileInput
+                    modelValue={searchKeyword.value}
+                    onUpdate:modelValue={(v) => {
+                      searchKeyword.value = v
+                    }}
                     placeholder="搜索依赖服务名称或协议..."
                     clearable
-                    size="small"
                   />
                 </div>
 
                 {selectedNode.value && (
                   <div class="mobile-topology__current-service">
-                    <NCard size="small" bordered={false} class="mobile-topology__current-card">
+                    <MobileCard size="small" bordered={false} class="mobile-topology__current-card">
                       <div class="mobile-topology__current-content">
                         <div class="mobile-topology__current-info">
                           <div class="mobile-topology__current-name">{selectedNode.value.name}</div>
@@ -343,7 +353,7 @@ export default defineComponent({
                           />
                         </div>
                       </div>
-                    </NCard>
+                    </MobileCard>
                   </div>
                 )}
 

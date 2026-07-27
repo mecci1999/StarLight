@@ -14,7 +14,7 @@ export default defineComponent({
     // const appWindow = WebviewWindow.getCurrent()
     const settingStore = useSettingStore()
     const router = useRouter()
-    const { themes, page } = storeToRefs(settingStore)
+    const { page } = storeToRefs(settingStore)
     const tauriListener = useTauriListener()
 
     // 是否桌面端
@@ -95,7 +95,6 @@ export default defineComponent({
       if (!localStorage.getItem(StoresEnum.SETTING)) {
         settingStore.initTheme(ThemeEnum.OS)
       }
-      document.documentElement.dataset.theme = themes.value.content
       window.addEventListener('dragstart', preventDrag)
       window.addEventListener('needReLogin', handleReLogin)
       tauriListener.addListener(

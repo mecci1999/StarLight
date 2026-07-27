@@ -1,21 +1,18 @@
-import { defineComponent, ref, onMounted, onUnmounted, computed } from 'vue'
+import { defineComponent, ref, onActivated, onDeactivated, onUnmounted, computed, h } from 'vue'
+import { Tab } from 'vant'
 import {
-  NCard,
-  NButton,
-  NSpin,
-  NEmpty,
-  NTag,
-  NInput,
-  NSelect,
-  NResult,
-  NIcon,
-  NGrid,
-  NGridItem,
-  NTabs,
-  NTabPane,
-  NProgress,
-  NSwitch
-} from 'naive-ui'
+  MobileButton,
+  MobileCard,
+  MobileTag,
+  MobileEmpty,
+  MobileLoading,
+  MobileInput,
+  MobileSelect,
+  MobileTabs,
+  MobileProgress,
+  MobileSwitch,
+  MobileGrid
+} from '@/mobile/ui'
 import {
   PhArrowsClockwise,
   PhFile,
@@ -27,17 +24,17 @@ import {
 } from '@phosphor-icons/vue'
 import { searchLogs, fetchCatalogServices, getLogStats } from '@/api'
 import { getDebugDiagnosticsState, setDebugDiagnosticsState } from '@/api/logs'
-import type { LogEntry, LogOriginType } from '@/types/logs'
+import type { LogEntry, LogOriginType, LogSearchParams } from '@/types/logs'
 import { LogLevelEnum } from '@/types/logs'
 import dayjs from 'dayjs'
 import { getStoredUserInfo } from '@/services/authSession'
 import './MobileLogCenter.scss'
 
-const LOG_LEVELS = [
-  { key: 'ERROR', label: 'ERROR' },
-  { key: 'WARN', label: 'WARN' },
-  { key: 'INFO', label: 'INFO' },
-  { key: 'DEBUG', label: 'DEBUG' }
+const LOG_LEVELS: Array<{ key: LogLevelEnum; label: string }> = [
+  { key: LogLevelEnum.ERROR, label: 'ERROR' },
+  { key: LogLevelEnum.WARN, label: 'WARN' },
+  { key: LogLevelEnum.INFO, label: 'INFO' },
+  { key: LogLevelEnum.DEBUG, label: 'DEBUG' }
 ]
 
 const TIME_RANGES = [
@@ -47,15 +44,8 @@ const TIME_RANGES = [
   { key: '1d', label: '1天' }
 ]
 
-const levelColorMap: Record<string, string> = {
-  ERROR: 'var(--color-danger-6)',
-  WARN: 'var(--color-warning-6)',
-  INFO: 'var(--color-primary-6)',
-  DEBUG: 'var(--color-text-3)'
-}
-
-const levelTagTypeMap: Record<string, 'error' | 'warning' | 'info' | 'default'> = {
-  ERROR: 'error',
+const levelTagTypeMap: Record<string, 'danger' | 'warning' | 'info' | 'default'> = {
+  ERROR: 'danger',
   WARN: 'warning',
   INFO: 'info',
   DEBUG: 'default'
@@ -100,7 +90,7 @@ export default defineComponent({
     const logsHasMore = ref(false)
     const listRef = ref<HTMLElement | null>(null)
     const searchKeyword = ref('')
-    const activeLevels = ref<string[]>([])
+    const activeLevels = ref<LogLevelEnum[]>([])
     const overviewOriginType = ref<LogOriginType>(isAdminUser ? 'darwin-app' : 'microservice')
     const timeRange = ref('1h')
     const expandedLogId = ref<string | null>(null)
@@ -109,6 +99,8 @@ export default defineComponent({
     const streamLoading = ref(false)
     const streamPaused = ref(false)
     const streamFreq = ref<number | null>(null)
+    let streamGeneration = 0
+    let isStreamActive = false
     const streamLogs = ref<LogEntry[]>([])
     const streamLogsTotal = ref(0)
 
@@ -203,8 +195,8 @@ export default defineComponent({
       return sortLogsByNewest([...existing, ...unique])
     }
 
-    const buildSearchParams = (page = 1): Record<string, unknown> => {
-      const params: Record<string, unknown> = {
+    const buildSearchParams = (page = 1): LogSearchParams => {
+      const params: LogSearchParams = {
         page,
         pageSize: logsPageSize,
         sortBy: 'timestamp',
@@ -229,7 +221,7 @@ export default defineComponent({
       error.value = false
       try {
         const params = buildSearchParams(page)
-        const res = await searchLogs(params as any)
+        const res = await searchLogs(params)
         logs.value = sortLogsByNewest(res?.logs || [])
         logsTotal.value = Number(res?.total || res?.logs?.length || 0)
         logsPage.value = page
@@ -248,7 +240,7 @@ export default defineComponent({
       try {
         const nextPage = logsPage.value + 1
         const params = buildSearchParams(nextPage)
-        const res = await searchLogs(params as any)
+        const res = await searchLogs(params)
         const incoming = res?.logs || []
         const newTotal = Number(res?.total || res?.logs?.length || 0)
         logs.value = dedupeLogs(logs.value, incoming)
@@ -269,7 +261,7 @@ export default defineComponent({
       if (dist <= 80) loadMoreLogs()
     }
 
-    const toggleLevel = (level: string) => {
+    const toggleLevel = (level: LogLevelEnum) => {
       const idx = activeLevels.value.indexOf(level)
       if (idx >= 0) {
         activeLevels.value.splice(idx, 1)
@@ -374,16 +366,19 @@ export default defineComponent({
     // ──────────────────────────────
 
     const startStream = async () => {
+      const generation = ++streamGeneration
+      isStreamActive = true
       streamLoading.value = true
       try {
-        const params: Record<string, unknown> = {
+        const params: LogSearchParams = {
           page: 1,
           pageSize: 50,
           sortBy: 'timestamp',
           sortOrder: 'desc',
           originType: overviewOriginType.value
         }
-        const res = await searchLogs(params as any)
+        const res = await searchLogs(params)
+        if (generation !== streamGeneration || !isStreamActive || activeTab.value !== 'stream') return
         streamLogs.value = res?.logs || []
         streamLogsTotal.value = Number(res?.total || streamLogs.value.length)
       } catch (err) {
@@ -392,29 +387,34 @@ export default defineComponent({
         streamLoading.value = false
       }
 
+      if (generation !== streamGeneration || !isStreamActive || activeTab.value !== 'stream') return
+
       if (streamFreq.value === null) {
         streamFreq.value = window.setInterval(async () => {
           if (!streamPaused.value) {
             try {
-              const params: Record<string, unknown> = {
+              const params: LogSearchParams = {
                 page: 1,
                 pageSize: 50,
                 sortBy: 'timestamp',
                 sortOrder: 'desc',
                 originType: overviewOriginType.value
               }
-              const res = await searchLogs(params as any)
+              const res = await searchLogs(params)
+              if (generation !== streamGeneration || !isStreamActive || activeTab.value !== 'stream') return
               streamLogs.value = res?.logs || []
               streamLogsTotal.value = Number(res?.total || streamLogs.value.length)
             } catch {
               /* silent */
             }
           }
-        }, 5000) as unknown as number
+        }, 5000)
       }
     }
 
     const stopStream = () => {
+      streamGeneration += 1
+      isStreamActive = false
       if (streamFreq.value !== null) {
         window.clearInterval(streamFreq.value)
         streamFreq.value = null
@@ -478,7 +478,7 @@ export default defineComponent({
       if (!selectedService.value) return
       serviceLoading.value = true
       try {
-        const params: Record<string, unknown> = {
+        const params: LogSearchParams = {
           page: 1,
           pageSize: 30,
           sortBy: 'timestamp',
@@ -486,7 +486,7 @@ export default defineComponent({
           service: selectedService.value,
           originType: overviewOriginType.value
         }
-        const res = await searchLogs(params as any)
+        const res = await searchLogs(params)
         serviceLogs.value = res?.logs || []
         serviceLogsTotal.value = Number(res?.total || serviceLogs.value.length)
       } catch (err) {
@@ -544,20 +544,35 @@ export default defineComponent({
       if (tab === 'exception') loadExceptionStats()
     }
 
-    onMounted(() => {
-      loadLogs(1)
-      if (isAdminUser) loadDebugState()
+    const startRefreshTimer = () => {
+      if (refreshTimer.value) window.clearInterval(refreshTimer.value)
       refreshTimer.value = window.setInterval(() => {
         if (activeTab.value === 'overview') loadLogs(1)
-      }, 30000) as unknown as number
+      }, 30000)
+    }
+
+    onActivated(() => {
+      loadLogs(1)
+      if (isAdminUser) loadDebugState()
+      startRefreshTimer()
+      if (activeTab.value === 'stream') startStream()
     })
 
-    onUnmounted(() => {
-      stopStream()
+    const stopRefreshTimer = () => {
       if (refreshTimer.value) {
         window.clearInterval(refreshTimer.value)
         refreshTimer.value = null
       }
+    }
+
+    onDeactivated(() => {
+      stopStream()
+      stopRefreshTimer()
+    })
+
+    onUnmounted(() => {
+      stopStream()
+      stopRefreshTimer()
     })
 
     // ──────────────────────────────
@@ -569,14 +584,14 @@ export default defineComponent({
       const expanded = expandedLogId.value === logId
       return (
         <div key={logId} class="mobile-log-center__list-card-wrapper" onClick={() => toggleExpand(logId)}>
-          <NCard size="small" bordered={false} class="mobile-log-center__list-card">
+          <MobileCard size="small" bordered={false} class="mobile-log-center__list-card">
             <div class="mobile-log-center__log-header">
               <span class="mobile-log-center__log-time">
                 {log.timestamp ? dayjs(log.timestamp).format('MM-DD HH:mm:ss') : '-'}
               </span>
-              <NTag size="tiny" bordered={false} type={levelTagTypeMap[log.level] || 'default'}>
+              <MobileTag size="small" type={levelTagTypeMap[log.level] || 'default'}>
                 {log.level}
-              </NTag>
+              </MobileTag>
             </div>
             <div class="mobile-log-center__log-service">{log.service || '-'}</div>
             <div class="mobile-log-center__log-message">
@@ -620,7 +635,7 @@ export default defineComponent({
                 )}
               </div>
             )}
-          </NCard>
+          </MobileCard>
         </div>
       )
     }
@@ -628,47 +643,41 @@ export default defineComponent({
     const renderOverviewTab = () => (
       <div class="mobile-log-center__tab-content">
         <div class="mobile-log-center__stats">
-          <NGrid cols={3} xGap={8} yGap={8}>
-            <NGridItem>
+          <MobileGrid cols={3} gap="8px">
+            <div>
               <div class="mobile-log-center__stat-card">
                 <div class="mobile-log-center__stat-icon mobile-log-center__stat-icon--total">
-                  <NIcon>
-                    <PhFile size={16} />
-                  </NIcon>
+                  <PhFile size={16} />
                 </div>
                 <div class="mobile-log-center__stat-value">{stats.value.total}</div>
                 <div class="mobile-log-center__stat-label">总日志</div>
               </div>
-            </NGridItem>
-            <NGridItem>
+            </div>
+            <div>
               <div class="mobile-log-center__stat-card">
                 <div class="mobile-log-center__stat-icon mobile-log-center__stat-icon--today">
-                  <NIcon>
-                    <PhCalendar size={16} />
-                  </NIcon>
+                  <PhCalendar size={16} />
                 </div>
                 <div class="mobile-log-center__stat-value">{stats.value.today}</div>
                 <div class="mobile-log-center__stat-label">今日</div>
               </div>
-            </NGridItem>
-            <NGridItem>
+            </div>
+            <div>
               <div class="mobile-log-center__stat-card">
                 <div class="mobile-log-center__stat-icon mobile-log-center__stat-icon--error-rate">
-                  <NIcon>
-                    <PhWarningCircle size={16} />
-                  </NIcon>
+                  <PhWarningCircle size={16} />
                 </div>
                 <div class="mobile-log-center__stat-value">{stats.value.errorRate}%</div>
                 <div class="mobile-log-center__stat-label">错误率</div>
               </div>
-            </NGridItem>
-          </NGrid>
+            </div>
+          </MobileGrid>
         </div>
 
         {/* Top 5 services + Level distribution */}
-        <NGrid cols={2} xGap={8} yGap={8} class="mobile-log-center__analytics">
-          <NGridItem>
-            <NCard size="small" title="Top 5 服务" bordered={false} class="mobile-log-center__analytic-card">
+        <MobileGrid cols={2} gap="8px" class="mobile-log-center__analytics">
+          <div>
+            <MobileCard size="small" title="Top 5 服务" bordered={false} class="mobile-log-center__analytic-card">
               {analyticTopServices.value.length > 0 ? (
                 <div class="mobile-log-center__service-list">
                   {analyticTopServices.value.map((svc, i) => (
@@ -683,22 +692,22 @@ export default defineComponent({
                           {svc.errorRate.toFixed(1)}% 错误
                         </span>
                       </div>
-                      <NProgress
+                      <MobileProgress
                         percentage={svc.percentage}
-                        showIndicator={false}
-                        height={4}
+                        showPivot={false}
+                        strokeWidth={4}
                         color="var(--color-primary-6)"
                       />
                     </div>
                   ))}
                 </div>
               ) : (
-                <NEmpty description="暂无数据" />
+                <MobileEmpty description="暂无数据" />
               )}
-            </NCard>
-          </NGridItem>
-          <NGridItem>
-            <NCard size="small" title="日志级别" bordered={false} class="mobile-log-center__analytic-card">
+            </MobileCard>
+          </div>
+          <div>
+            <MobileCard size="small" title="日志级别" bordered={false} class="mobile-log-center__analytic-card">
               {analyticLevelDistribution.value.length > 0 ? (
                 <div class="mobile-log-center__service-list">
                   {analyticLevelDistribution.value.map((lv, i) => (
@@ -711,33 +720,32 @@ export default defineComponent({
                         <span>{lv.count.toLocaleString()} 条</span>
                         <span>{lv.percentage.toFixed(1)}%</span>
                       </div>
-                      <NProgress
+                      <MobileProgress
                         percentage={lv.percentage}
-                        showIndicator={false}
-                        height={4}
+                        showPivot={false}
+                        strokeWidth={4}
                         color={levelColor(lv.level)}
                       />
                     </div>
                   ))}
                 </div>
               ) : (
-                <NEmpty description="暂无数据" />
+                <MobileEmpty description="暂无数据" />
               )}
-            </NCard>
-          </NGridItem>
-        </NGrid>
+            </MobileCard>
+          </div>
+        </MobileGrid>
 
         {/* Time range chips */}
         <div class="mobile-log-center__time-chips">
           {TIME_RANGES.map((range) => (
-            <NButton
+            <MobileButton
               key={range.key}
-              size="tiny"
+              size="small"
               type={timeRange.value === range.key ? 'primary' : 'default'}
-              secondary={timeRange.value !== range.key}
               onClick={() => setTimeRange(range.key)}>
               {range.label}
-            </NButton>
+            </MobileButton>
           ))}
         </div>
 
@@ -747,16 +755,19 @@ export default defineComponent({
               <span class="mobile-log-center__debug-title">调试日志收集</span>
               <span class="mobile-log-center__debug-status">{debugEnabled.value ? '已开启' : '已关闭'}</span>
             </div>
-            <NSwitch value={debugEnabled.value} loading={debugLoading.value} onUpdateValue={toggleDebug} />
+            <MobileSwitch
+              modelValue={debugEnabled.value}
+              loading={debugLoading.value}
+              onUpdate:modelValue={toggleDebug}
+            />
           </div>
         )}
         {isAdminUser && (
           <div class="mobile-log-center__origin-select">
-            <NSelect
-              value={overviewOriginType.value}
+            <MobileSelect
+              modelValue={overviewOriginType.value}
               options={originTypeOptions}
-              size="small"
-              onUpdateValue={(value: LogOriginType) => {
+              onUpdate:modelValue={(value: LogOriginType) => {
                 overviewOriginType.value = value
                 loadLogs(1)
               }}
@@ -765,33 +776,27 @@ export default defineComponent({
         )}
 
         <div class="mobile-log-center__search">
-          <NInput
-            v-model:value={searchKeyword.value}
+          <MobileInput
+            v-model={searchKeyword.value}
             placeholder="搜索日志关键词..."
             clearable
-            size="small"
-            onKeydown={(e: KeyboardEvent) => {
-              if (e.key === 'Enter') loadLogs(1)
-            }}
+            onEnter={() => loadLogs(1)}
           />
         </div>
 
         <div class="mobile-log-center__level-filters">
           {LOG_LEVELS.map((lvl) => (
             <div key={lvl.key} onClick={() => toggleLevel(lvl.key)} class="mobile-log-center__level-chip-wrapper">
-              <NTag
+              <MobileTag
                 size="small"
-                bordered={false}
                 type={activeLevels.value.includes(lvl.key) ? levelTagTypeMap[lvl.key] : 'default'}
                 class={[
                   'mobile-log-center__level-chip',
+                  `mobile-log-center__level-chip--${lvl.key}`,
                   activeLevels.value.includes(lvl.key) && 'mobile-log-center__level-chip--active'
-                ]}
-                style={{
-                  color: activeLevels.value.includes(lvl.key) ? undefined : levelColorMap[lvl.key]
-                }}>
+                ]}>
                 {lvl.label}
-              </NTag>
+              </MobileTag>
             </div>
           ))}
         </div>
@@ -799,23 +804,19 @@ export default defineComponent({
         {/* Content states */}
         {loading.value ? (
           <div class="mobile-log-center__loading">
-            <NSpin size="large" />
+            <MobileLoading loading={true} size="24px" />
           </div>
         ) : error.value ? (
           <div class="mobile-log-center__error">
-            <NResult status="500" title="数据加载失败" description="请检查网络连接后重试">
-              {{
-                footer: () => (
-                  <NButton type="primary" size="small" onClick={() => loadLogs(1)}>
-                    重新加载
-                  </NButton>
-                )
-              }}
-            </NResult>
+            <MobileEmpty description="数据加载失败，请检查网络连接后重试">
+              <MobileButton type="primary" size="small" onClick={() => loadLogs(1)}>
+                重新加载
+              </MobileButton>
+            </MobileEmpty>
           </div>
         ) : filteredLogs.value.length === 0 ? (
           <div class="mobile-log-center__empty-state">
-            <NEmpty description={searchKeyword.value.trim() ? '没有匹配的日志' : '暂无日志数据'} />
+            <MobileEmpty description={searchKeyword.value.trim() ? '没有匹配的日志' : '暂无日志数据'} />
           </div>
         ) : (
           <div ref={listRef} class="mobile-log-center__list" onScroll={handleOverviewScroll}>
@@ -832,20 +833,22 @@ export default defineComponent({
       <div class="mobile-log-center__tab-content">
         <div class="mobile-log-center__stream-actions">
           {streamFreq.value === null ? (
-            <NButton type="primary" size="small" onClick={startStream} loading={streamLoading.value}>
-              <NIcon>
-                <PhArrowsClockwise />
-              </NIcon>{' '}
+            <MobileButton
+              type="primary"
+              size="small"
+              onClick={startStream}
+              loading={streamLoading.value}
+              icon={() => h(PhArrowsClockwise, { size: 16 })}>
               开始
-            </NButton>
+            </MobileButton>
           ) : (
             <>
-              <NButton size="small" type={streamPaused.value ? 'primary' : 'default'} onClick={toggleStreamPause}>
+              <MobileButton size="small" type={streamPaused.value ? 'primary' : 'default'} onClick={toggleStreamPause}>
                 {streamPaused.value ? '恢复' : '暂停'}
-              </NButton>
-              <NButton size="small" onClick={stopStream}>
+              </MobileButton>
+              <MobileButton size="small" onClick={stopStream}>
                 停止
-              </NButton>
+              </MobileButton>
             </>
           )}
           <span class="mobile-log-center__stream-hint">
@@ -858,11 +861,11 @@ export default defineComponent({
         </div>
         {streamLoading.value ? (
           <div class="mobile-log-center__loading">
-            <NSpin size="large" />
+            <MobileLoading loading={true} size="24px" />
           </div>
         ) : streamLogs.value.length === 0 ? (
           <div class="mobile-log-center__empty-state">
-            <NEmpty description="暂无日志" />
+            <MobileEmpty description="暂无日志" />
           </div>
         ) : (
           <div class="mobile-log-center__stream-list">
@@ -871,13 +874,12 @@ export default defineComponent({
                 <span class="mobile-log-center__stream-line-time">
                   {log.timestamp ? dayjs(log.timestamp).format('HH:mm:ss') : '-'}
                 </span>
-                <NTag
-                  size="tiny"
-                  bordered={false}
+                <MobileTag
+                  size="small"
                   type={levelTagTypeMap[log.level] || 'default'}
-                  style={{ color: levelColorMap[log.level] }}>
+                  class={['mobile-log-center__stream-level', `mobile-log-center__stream-level--${log.level}`]}>
                   {log.level}
-                </NTag>
+                </MobileTag>
                 <span class="mobile-log-center__stream-line-service">{log.service || '-'}</span>
                 <span class="mobile-log-center__stream-line-msg">{log.message}</span>
               </div>
@@ -891,77 +893,67 @@ export default defineComponent({
       <div class="mobile-log-center__tab-content">
         {!isAdminUser ? (
           <div class="mobile-log-center__empty-state">
-            <NEmpty description="仅管理员可查看接入配置" />
+            <MobileEmpty description="仅管理员可查看接入配置" />
           </div>
         ) : ingestLoading.value ? (
           <div class="mobile-log-center__loading">
-            <NSpin size="large" />
+            <MobileLoading loading={true} size="24px" />
           </div>
         ) : ingestError.value ? (
           <div class="mobile-log-center__error">
-            <NResult status="500" title="数据加载失败" description="请检查网络连接后重试">
-              {{
-                footer: () => (
-                  <NButton type="primary" size="small" onClick={loadIngest}>
-                    重新加载
-                  </NButton>
-                )
-              }}
-            </NResult>
+            <MobileEmpty description="数据加载失败，请检查网络连接后重试">
+              <MobileButton type="primary" size="small" onClick={loadIngest}>
+                重新加载
+              </MobileButton>
+            </MobileEmpty>
           </div>
         ) : ingestKeys.value.length === 0 ? (
           <div class="mobile-log-center__empty-state">
-            <NEmpty description="暂无接入 Key" />
+            <MobileEmpty description="暂无接入 Key" />
           </div>
         ) : (
           <>
             <div class="mobile-log-center__ingest-stats">
-              <NGrid cols={3} xGap={8} yGap={8}>
-                <NGridItem>
+              <MobileGrid cols={3} gap="8px">
+                <div>
                   <div class="mobile-log-center__stat-card">
                     <div class="mobile-log-center__stat-icon mobile-log-center__stat-icon--total">
-                      <NIcon>
-                        <PhCloudArrowUp size={16} />
-                      </NIcon>
+                      <PhCloudArrowUp size={16} />
                     </div>
                     <div class="mobile-log-center__stat-value">{ingestStats.value.total}</div>
                     <div class="mobile-log-center__stat-label">总计</div>
                   </div>
-                </NGridItem>
-                <NGridItem>
+                </div>
+                <div>
                   <div class="mobile-log-center__stat-card">
                     <div class="mobile-log-center__stat-icon mobile-log-center__stat-icon--today">
-                      <NIcon>
-                        <PhComputerTower size={16} />
-                      </NIcon>
+                      <PhComputerTower size={16} />
                     </div>
                     <div class="mobile-log-center__stat-value">{ingestStats.value.active}</div>
                     <div class="mobile-log-center__stat-label">活跃</div>
                   </div>
-                </NGridItem>
-                <NGridItem>
+                </div>
+                <div>
                   <div class="mobile-log-center__stat-card">
                     <div class="mobile-log-center__stat-icon mobile-log-center__stat-icon--error-rate">
-                      <NIcon>
-                        <PhWarningCircle size={16} />
-                      </NIcon>
+                      <PhWarningCircle size={16} />
                     </div>
                     <div class="mobile-log-center__stat-value">{ingestStats.value.expired}</div>
                     <div class="mobile-log-center__stat-label">过期</div>
                   </div>
-                </NGridItem>
-              </NGrid>
+                </div>
+              </MobileGrid>
             </div>
             <div class="mobile-log-center__list">
               {ingestKeys.value.map((key: any, idx: number) => (
-                <NCard key={key.id || idx} size="small" bordered={false} class="mobile-log-center__list-card">
+                <MobileCard key={key.id || idx} size="small" bordered={false} class="mobile-log-center__list-card">
                   <div class="mobile-log-center__log-header">
                     <span class="mobile-log-center__log-service">{key.name || key.appKey || '-'}</span>
-                    <NTag size="tiny" bordered={false} type={key.isActive !== false ? 'success' : 'default'}>
+                    <MobileTag size="small" type={key.isActive !== false ? 'success' : 'default'}>
                       {key.isActive !== false ? '活跃' : '过期'}
-                    </NTag>
+                    </MobileTag>
                   </div>
-                </NCard>
+                </MobileCard>
               ))}
             </div>
           </>
@@ -972,14 +964,12 @@ export default defineComponent({
     const renderServiceTab = () => (
       <div class="mobile-log-center__tab-content">
         <div class="mobile-log-center__origin-select">
-          <NSelect
-            value={selectedService.value}
+          <MobileSelect
+            modelValue={selectedService.value ?? ''}
             options={serviceServices.value}
             placeholder={serviceLoading.value ? '加载中…' : '选择服务'}
-            size="small"
             clearable
-            loading={serviceLoading.value}
-            onUpdateValue={(value: string) => {
+            onUpdate:modelValue={(value: string) => {
               selectedService.value = value
               if (value) loadServiceLogs()
             }}
@@ -987,15 +977,15 @@ export default defineComponent({
         </div>
         {serviceLoading.value ? (
           <div class="mobile-log-center__loading">
-            <NSpin size="large" />
+            <MobileLoading loading={true} size="24px" />
           </div>
         ) : !selectedService.value ? (
           <div class="mobile-log-center__empty-state">
-            <NEmpty description="请选择一个服务" />
+            <MobileEmpty description="请选择一个服务" />
           </div>
         ) : serviceLogs.value.length === 0 ? (
           <div class="mobile-log-center__empty-state">
-            <NEmpty description={`${selectedService.value} 暂无日志`} />
+            <MobileEmpty description={`${selectedService.value} 暂无日志`} />
           </div>
         ) : (
           <div class="mobile-log-center__list">{serviceLogs.value.map((log, idx) => renderLogEntry(log, idx))}</div>
@@ -1007,51 +997,43 @@ export default defineComponent({
       <div class="mobile-log-center__tab-content">
         {exceptionLoading.value ? (
           <div class="mobile-log-center__loading">
-            <NSpin size="large" />
+            <MobileLoading loading={true} size="24px" />
           </div>
         ) : exceptionError.value ? (
           <div class="mobile-log-center__error">
-            <NResult status="500" title="数据加载失败" description="请检查网络连接后重试">
-              {{
-                footer: () => (
-                  <NButton type="primary" size="small" onClick={loadExceptionStats}>
-                    重新加载
-                  </NButton>
-                )
-              }}
-            </NResult>
+            <MobileEmpty description="数据加载失败，请检查网络连接后重试">
+              <MobileButton type="primary" size="small" onClick={loadExceptionStats}>
+                重新加载
+              </MobileButton>
+            </MobileEmpty>
           </div>
         ) : exceptionStats.value.total === 0 ? (
           <div class="mobile-log-center__empty-state">
-            <NEmpty description="暂无异常数据" />
+            <MobileEmpty description="暂无异常数据" />
           </div>
         ) : (
           <>
             <div class="mobile-log-center__stats">
-              <NGrid cols={2} xGap={8} yGap={8}>
-                <NGridItem>
+              <MobileGrid cols={2} gap="8px">
+                <div>
                   <div class="mobile-log-center__stat-card">
                     <div class="mobile-log-center__stat-icon mobile-log-center__stat-icon--error-rate">
-                      <NIcon>
-                        <PhBug size={16} />
-                      </NIcon>
+                      <PhBug size={16} />
                     </div>
                     <div class="mobile-log-center__stat-value">{exceptionStats.value.total}</div>
                     <div class="mobile-log-center__stat-label">异常总数</div>
                   </div>
-                </NGridItem>
-                <NGridItem>
+                </div>
+                <div>
                   <div class="mobile-log-center__stat-card">
                     <div class="mobile-log-center__stat-icon mobile-log-center__stat-icon--total">
-                      <NIcon>
-                        <PhWarningCircle size={16} />
-                      </NIcon>
+                      <PhWarningCircle size={16} />
                     </div>
                     <div class="mobile-log-center__stat-value">{exceptionStats.value.critical}</div>
                     <div class="mobile-log-center__stat-label">严重异常</div>
                   </div>
-                </NGridItem>
-              </NGrid>
+                </div>
+              </MobileGrid>
             </div>
           </>
         )}
@@ -1064,36 +1046,37 @@ export default defineComponent({
           <div>
             <h2 class="mobile-log-center__title">日志中心</h2>
           </div>
-          <NButton size="small" secondary type="primary" onClick={refreshData}>
-            <NIcon>
-              <PhArrowsClockwise />
-            </NIcon>
-          </NButton>
+          <MobileButton
+            size="small"
+            type="primary"
+            onClick={refreshData}
+            aria-label="刷新日志数据"
+            icon={() => h(PhArrowsClockwise, { size: 16 })}
+          />
         </div>
 
-        <NTabs
-          v-model:value={activeTab.value}
+        <MobileTabs
+          active={activeTab.value}
           type="line"
-          size="medium"
           animated
           class="mobile-log-center__tabs"
-          onUpdateValue={handleTabChange}>
-          <NTabPane name="overview" tab="概览">
+          onUpdate:active={handleTabChange}>
+          <Tab name="overview" title="概览">
             {renderOverviewTab()}
-          </NTabPane>
-          <NTabPane name="stream" tab="实时流">
+          </Tab>
+          <Tab name="stream" title="实时流">
             {renderStreamTab()}
-          </NTabPane>
-          <NTabPane name="service" tab="服务">
+          </Tab>
+          <Tab name="service" title="服务">
             {renderServiceTab()}
-          </NTabPane>
-          <NTabPane name="ingest" tab="接入">
+          </Tab>
+          <Tab name="ingest" title="接入">
             {renderIngestTab()}
-          </NTabPane>
-          <NTabPane name="exception" tab="异常">
+          </Tab>
+          <Tab name="exception" title="异常">
             {renderExceptionTab()}
-          </NTabPane>
-        </NTabs>
+          </Tab>
+        </MobileTabs>
       </div>
     )
   }

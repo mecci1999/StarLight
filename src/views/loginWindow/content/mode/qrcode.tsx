@@ -136,6 +136,13 @@ export default defineComponent({
               state.statusText = '已扫描，请在手机上确认'
               break
             case QrCodeStatus.CONFIRMED:
+              if (!props.protocol) {
+                state.qrStatus = 'scanned'
+                state.statusText = '请先阅读并同意服务协议与隐私保护指引后重新扫码'
+                stopPolling()
+                window.$message.warning('请先阅读并同意《星光服务协议》和《星光隐私保护指引》')
+                break
+              }
               state.qrStatus = 'success'
               state.statusText = '登录成功'
               stopPolling()

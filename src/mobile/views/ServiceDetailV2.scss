@@ -2,6 +2,7 @@
   min-height: 100vh;
   padding: 20px 16px;
   background: var(--color-bg-1);
+  overflow-x: clip;
 
   &__header {
     display: flex;
@@ -25,7 +26,7 @@
   }
 
   &__loading,
-  &__empty-state {
+  &__state {
     display: flex;
     justify-content: center;
     padding: 40px 0;
@@ -65,9 +66,14 @@
     margin-top: 4px;
     color: var(--color-text-3);
     font-size: 12px;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
   }
 
   &__stats-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
     margin-bottom: 16px;
   }
 
@@ -102,5 +108,19 @@
 
   &__footer {
     margin-top: 16px;
+  }
+
+  &__refresh {
+    min-height: var(--size-default);
+  }
+
+  @media (max-width: 359px) {
+    &__identity-content {
+      flex-direction: column;
+    }
+
+    &__runtime-grid {
+      grid-template-columns: minmax(0, 1fr);
+    }
   }
 }

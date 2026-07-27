@@ -61,7 +61,6 @@ export default defineComponent({
         state.info.password &&
         state.info.confirmPassword &&
         state.validCode &&
-        props.protocol &&
         isOnline.value
       )
     })
@@ -77,6 +76,10 @@ export default defineComponent({
     const handleRegister = throttle(async () => {
       // 如果按钮处于禁用状态或正在加载中，不执行注册操作
       if (state.loading) return
+      if (!props.protocol) {
+        window.$message.warning('请先阅读并同意《星光服务协议》和《星光隐私保护指引》')
+        return
+      }
 
       // 重置错误状态
       state.emailValid = false

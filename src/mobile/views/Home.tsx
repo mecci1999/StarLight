@@ -1,18 +1,14 @@
-import { defineComponent, ref, onMounted } from 'vue'
+import { defineComponent, ref, onMounted, h } from 'vue'
 import {
-  NCard,
-  NStatistic,
-  NGrid,
-  NGridItem,
-  NIcon,
-  NList,
-  NListItem,
-  NThing,
-  NTag,
-  NSpin,
-  NEmpty,
-  NButton
-} from 'naive-ui'
+  MobileButton,
+  MobileCard,
+  MobileTag,
+  MobileEmpty,
+  MobileLoading,
+  MobileList,
+  MobileListItem,
+  MobileStatistic
+} from '@/mobile/ui'
 import { PhActivity, PhClock, PhWarning } from '@phosphor-icons/vue'
 import { fetchAlerts, fetchOverviewSummary, type MetricsDatasetScope } from '@/api'
 import { getPreferredMetricsDatasetScope } from '@/services/authSession'
@@ -55,73 +51,60 @@ export default defineComponent({
       <div class="mobile-home">
         <div class="mobile-home__header">
           <h1 class="mobile-home__title">星光概览</h1>
-          <NTag type="info" size="small" bordered={false}>
+          <MobileTag type="info" size="small" plain>
             实时视图
-          </NTag>
+          </MobileTag>
         </div>
 
         {loading.value ? (
           <div class="mobile-home__loading">
-            <NSpin size="large" />
+            <MobileLoading size="36px" />
           </div>
         ) : loadError.value ? (
           <div class="mobile-home__error">
-            <NEmpty description="数据加载失败" />
-            <NButton size="small" type="primary" onClick={loadData}>
+            <MobileEmpty description="数据加载失败" />
+            <MobileButton size="small" type="primary" onClick={loadData}>
               重试
-            </NButton>
+            </MobileButton>
           </div>
         ) : (
           <>
-            <NGrid cols={2} xGap={12} yGap={12} class="mobile-home__metrics">
-              <NGridItem>
-                <NCard size="small" bordered={false} class="mobile-home__metric-card">
-                  <div class="mobile-home__metric-icon mobile-home__metric-icon--blue">
-                    <NIcon size={20}>
-                      <PhActivity />
-                    </NIcon>
-                  </div>
-                  <NStatistic label="请求总量">{displayMetric(stats.value.totalRequests)}</NStatistic>
-                </NCard>
-              </NGridItem>
-              <NGridItem>
-                <NCard size="small" bordered={false} class="mobile-home__metric-card">
-                  <div class="mobile-home__metric-icon mobile-home__metric-icon--orange">
-                    <NIcon size={20}>
-                      <PhClock />
-                    </NIcon>
-                  </div>
-                  <NStatistic label="P95 延迟">{displayMetric(stats.value.p95Latency, 'ms')}</NStatistic>
-                </NCard>
-              </NGridItem>
-            </NGrid>
+            <div
+              style="display:grid;grid-template-columns:repeat(2,1fr);gap:var(--spacing-3)"
+              class="mobile-home__metrics">
+              <MobileCard size="small" bordered={false} class="mobile-home__metric-card">
+                <div class="mobile-home__metric-icon mobile-home__metric-icon--blue">{h(PhActivity, { size: 20 })}</div>
+                <MobileStatistic label="请求总量" value={displayMetric(stats.value.totalRequests)} />
+              </MobileCard>
+              <MobileCard size="small" bordered={false} class="mobile-home__metric-card">
+                <div class="mobile-home__metric-icon mobile-home__metric-icon--orange">{h(PhClock, { size: 20 })}</div>
+                <MobileStatistic label="P95 延迟" value={displayMetric(stats.value.p95Latency, 'ms')} />
+              </MobileCard>
+            </div>
 
             <div class="mobile-home__section-title">活跃告警</div>
-            <NCard size="small" bordered={false} class="mobile-home__alerts-card">
+            <MobileCard size="small" bordered={false} class="mobile-home__alerts-card">
               {stats.value.alerts?.length > 0 ? (
-                <NList>
+                <MobileList>
                   {stats.value.alerts.map((alert: any) => (
-                    <NListItem key={alert.id}>
-                      <NThing title={alert.service}>
-                        {{
-                          'header-extra': () => (
-                            <NTag type={alert.level === 'critical' ? 'error' : 'warning'} size="small" bordered={false}>
-                              {alert.level}
-                            </NTag>
-                          ),
-                          description: () => alert.message,
-                          avatar: () => (
-                            <div class={['mobile-home__alert-dot', `mobile-home__alert-dot--${alert.level}`]} />
-                          )
-                        }}
-                      </NThing>
-                    </NListItem>
+                    <MobileListItem key={alert.id} title={alert.service} label={alert.message}>
+                      {{
+                        icon: () => (
+                          <div class={['mobile-home__alert-dot', `mobile-home__alert-dot--${alert.level}`]} />
+                        ),
+                        extra: () => (
+                          <MobileTag type={alert.level === 'critical' ? 'danger' : 'warning'} size="small" plain>
+                            {alert.level}
+                          </MobileTag>
+                        )
+                      }}
+                    </MobileListItem>
                   ))}
-                </NList>
+                </MobileList>
               ) : (
-                <NEmpty description="暂无活跃告警" />
+                <MobileEmpty description="暂无活跃告警" />
               )}
-            </NCard>
+            </MobileCard>
           </>
         )}
       </div>

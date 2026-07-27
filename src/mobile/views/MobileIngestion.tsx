@@ -1,7 +1,9 @@
-import { defineComponent, ref, onMounted, computed } from 'vue'
-import { NCard, NButton, NTag, NSpin, NEmpty, NStatistic, NIcon } from 'naive-ui'
+import { defineComponent, ref, onActivated, computed } from 'vue'
+import { Button, Empty, Loading } from 'vant'
+import { MobileTag } from '@/mobile/ui'
 import { PhArrowsClockwise, PhCpu, PhCheckCircle, PhXCircle, PhWarningCircle } from '@phosphor-icons/vue'
 import { getAppKeys, generateAppKey, deleteAppKey, getIngestionStatus } from '@/api/metrics'
+import { mobileFeedback } from '@/mobile/services/mobileFeedback'
 import './MobileIngestion.scss'
 
 // ── Types ──────────────────────────────────
@@ -80,7 +82,7 @@ export default defineComponent({
       }
     }
 
-    onMounted(loadData)
+    onActivated(loadData)
 
     // ── Helpers ──────────────────────────────
     const getSourceStatus = (item: AppKeyItem): 'active' | 'inactive' | 'error' | 'expired' => {
@@ -90,7 +92,7 @@ export default defineComponent({
       return 'active'
     }
 
-    const getStatusTagType = (status: string): 'success' | 'warning' | 'error' | 'default' => {
+    const getStatusTagType = (status: string): 'success' | 'warning' | 'danger' | 'default' => {
       switch (status) {
         case 'active':
           return 'success'
@@ -98,7 +100,7 @@ export default defineComponent({
           return 'warning'
         case 'error':
         case 'revoked':
-          return 'error'
+          return 'danger'
         default:
           return 'default'
       }
@@ -152,11 +154,19 @@ export default defineComponent({
       const keyId = item.keyId || item.id
       if (!keyId) return
       try {
+        await mobileFeedback.confirm({
+          title: '确认撤销',
+          message: `确定要撤销 AppKey「${item.name || item.keyName || keyId}」吗？此操作不可撤销。`,
+          confirmButtonText: '撤销',
+          cancelButtonText: '取消'
+        })
         await deleteAppKey({ keyId: String(keyId) })
         window.$message.success('AppKey 已撤销')
         await loadData()
-      } catch {
-        window.$message.error('撤销 AppKey 失败')
+      } catch (err) {
+        if (err !== 'cancel') {
+          window.$message.error('撤销 AppKey 失败')
+        }
       }
     }
 
@@ -164,27 +174,22 @@ export default defineComponent({
     const renderStatusSummary = () => {
       return (
         <div class="mobile-ingestion__summary-grid">
-          <NCard size="small" bordered={false} class="mobile-ingestion__summary-card">
-            <NStatistic label="总接入源" value={sourceCount.value} />
-          </NCard>
-          <NCard
-            size="small"
-            bordered={false}
-            class="mobile-ingestion__summary-card mobile-ingestion__summary-card--active">
-            <NStatistic label="活跃" value={activeCount.value} />
-          </NCard>
-          <NCard
-            size="small"
-            bordered={false}
-            class="mobile-ingestion__summary-card mobile-ingestion__summary-card--inactive">
-            <NStatistic label="非活跃" value={inactiveCount.value} />
-          </NCard>
-          <NCard
-            size="small"
-            bordered={false}
-            class="mobile-ingestion__summary-card mobile-ingestion__summary-card--error">
-            <NStatistic label="异常" value={errorCount.value} />
-          </NCard>
+          <div class="mobile-ingestion__summary-card">
+            <div class="mobile-ingestion__summary-label">总接入源</div>
+            <div class="mobile-ingestion__summary-value">{sourceCount.value}</div>
+          </div>
+          <div class="mobile-ingestion__summary-card mobile-ingestion__summary-card--active">
+            <div class="mobile-ingestion__summary-label">活跃</div>
+            <div class="mobile-ingestion__summary-value">{activeCount.value}</div>
+          </div>
+          <div class="mobile-ingestion__summary-card mobile-ingestion__summary-card--inactive">
+            <div class="mobile-ingestion__summary-label">非活跃</div>
+            <div class="mobile-ingestion__summary-value">{inactiveCount.value}</div>
+          </div>
+          <div class="mobile-ingestion__summary-card mobile-ingestion__summary-card--error">
+            <div class="mobile-ingestion__summary-label">异常</div>
+            <div class="mobile-ingestion__summary-value">{errorCount.value}</div>
+          </div>
         </div>
       )
     }
@@ -193,9 +198,9 @@ export default defineComponent({
       const isConnected = connectionStatus.value === 'connected'
       return (
         <div class="mobile-ingestion__connection-badge">
-          <NIcon size={16} color={isConnected ? 'var(--color-success-6)' : 'var(--color-warning-6)'}>
-            {isConnected ? <PhCheckCircle /> : <PhWarningCircle />}
-          </NIcon>
+          <span class="mobile-ingestion__connection-icon" aria-hidden="true">
+            {isConnected ? <PhCheckCircle size={16} /> : <PhWarningCircle size={16} />}
+          </span>
           <span>{isConnected ? '已接入' : '待接入'}</span>
         </div>
       )
@@ -207,11 +212,20 @@ export default defineComponent({
       const isExpanded = expandedKey.value === key
 
       return (
-        <div
-          key={key}
+        <article
           class={['mobile-ingestion__source-card', isExpanded ? 'mobile-ingestion__source-card--expanded' : '']}
-          onClick={() => toggleExpand(key)}>
-          <NCard size="small" bordered={false}>
+          role="button"
+          tabindex="0"
+          aria-expanded={isExpanded}
+          aria-label={`${isExpanded ? '收起' : '展开'}接入源：${item.name || item.keyName || item.appKey || '-'}`}
+          onClick={() => toggleExpand(key)}
+          onKeydown={(event: KeyboardEvent) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault()
+              toggleExpand(key)
+            }
+          }}>
+          <div class="mobile-ingestion__source-card-inner">
             <div class="mobile-ingestion__source-header">
               <div class="mobile-ingestion__source-info">
                 <div class="mobile-ingestion__source-name">{item.name || item.keyName || item.appKey || '-'}</div>
@@ -220,17 +234,16 @@ export default defineComponent({
                 </div>
               </div>
               <div class="mobile-ingestion__source-badges">
-                <NTag size="tiny" bordered={false} type={getStatusTagType(sourceStatus)}>
+                <MobileTag size="small" type={getStatusTagType(sourceStatus)}>
                   {getStatusLabel(sourceStatus)}
-                </NTag>
-                <NIcon
+                </MobileTag>
+                <PhCpu
                   class={[
                     'mobile-ingestion__source-chevron',
                     isExpanded ? 'mobile-ingestion__source-chevron--open' : ''
                   ]}
-                  size={16}>
-                  <PhCpu />
-                </NIcon>
+                  size={16}
+                />
               </div>
             </div>
 
@@ -256,9 +269,9 @@ export default defineComponent({
                   )}
                   <div class="mobile-ingestion__source-detail-item">
                     <span class="mobile-ingestion__source-detail-label">状态</span>
-                    <NTag size="tiny" bordered={false} type={getStatusTagType(sourceStatus)}>
+                    <MobileTag size="small" type={getStatusTagType(sourceStatus)}>
                       {getStatusLabel(sourceStatus)}
-                    </NTag>
+                    </MobileTag>
                   </div>
                   {item.description && (
                     <div class="mobile-ingestion__source-detail-item">
@@ -270,25 +283,23 @@ export default defineComponent({
 
                 {sourceStatus !== 'active' && sourceStatus !== 'expired' && (
                   <div class="mobile-ingestion__source-actions">
-                    <NButton
-                      size="tiny"
-                      type="error"
-                      secondary
-                      onClick={(e: Event) => {
+                    <Button
+                      size="small"
+                      type="default"
+                      class="mobile-ingestion__revoke-button"
+                      onClick={(e: MouseEvent) => {
                         e.stopPropagation()
                         handleRevoke(item)
                       }}>
-                      <NIcon size={14}>
-                        <PhXCircle />
-                      </NIcon>
+                      <PhXCircle size={14} />
                       <span class="mobile-ingestion__source-action-label">撤销</span>
-                    </NButton>
+                    </Button>
                   </div>
                 )}
               </div>
             )}
-          </NCard>
-        </div>
+          </div>
+        </article>
       )
     }
 
@@ -297,7 +308,7 @@ export default defineComponent({
       if (loading.value) {
         return (
           <div class="mobile-ingestion__loading">
-            <NSpin size="medium" />
+            <Loading size="28px" />
           </div>
         )
       }
@@ -305,15 +316,12 @@ export default defineComponent({
       if (error.value) {
         return (
           <div class="mobile-ingestion__error-state">
-            <NEmpty description="接入数据加载失败">
-              {{
-                action: () => (
-                  <NButton size="small" type="primary" onClick={loadData}>
-                    重新加载
-                  </NButton>
-                )
-              }}
-            </NEmpty>
+            <div class="mobile-ingestion__error-content">
+              <Empty description="接入数据加载失败" />
+              <Button size="small" type="primary" onClick={loadData}>
+                重新加载
+              </Button>
+            </div>
           </div>
         )
       }
@@ -321,15 +329,12 @@ export default defineComponent({
       if (appKeys.value.length === 0) {
         return (
           <div class="mobile-ingestion__empty-state">
-            <NEmpty description="暂无接入源，请先生成 AppKey">
-              {{
-                action: () => (
-                  <NButton size="small" type="primary" onClick={() => (showGenerateForm.value = true)}>
-                    生成 AppKey
-                  </NButton>
-                )
-              }}
-            </NEmpty>
+            <div class="mobile-ingestion__empty-content">
+              <Empty description="暂无接入源，请先生成 AppKey" />
+              <Button size="small" type="primary" onClick={() => (showGenerateForm.value = true)}>
+                生成 AppKey
+              </Button>
+            </div>
           </div>
         )
       }
@@ -345,21 +350,21 @@ export default defineComponent({
     const renderGenerateForm = () => {
       if (!showGenerateForm.value) return null
       return (
-        <NCard size="small" bordered={false} class="mobile-ingestion__generate-card">
+        <section class="mobile-ingestion__generate-card">
           <div class="mobile-ingestion__generate-header">
             <span class="mobile-ingestion__generate-title">生成 AppKey</span>
-            <NButton
-              size="tiny"
-              quaternary
+            <Button
+              size="small"
+              type="default"
+              plain
+              aria-label="关闭生成 AppKey 表单"
               onClick={() => {
                 showGenerateForm.value = false
                 generateFormName.value = ''
                 generateFormDesc.value = ''
               }}>
-              <NIcon size={16}>
-                <PhXCircle />
-              </NIcon>
-            </NButton>
+              <PhXCircle size={16} />
+            </Button>
           </div>
           <div class="mobile-ingestion__generate-body">
             <input
@@ -378,11 +383,11 @@ export default defineComponent({
                 generateFormDesc.value = (e.target as HTMLInputElement).value
               }}
             />
-            <NButton size="small" type="primary" block onClick={handleGenerate}>
+            <Button size="small" type="primary" block onClick={handleGenerate}>
               生成
-            </NButton>
+            </Button>
           </div>
-        </NCard>
+        </section>
       )
     }
 
@@ -390,7 +395,7 @@ export default defineComponent({
     return () => (
       <div class="mobile-ingestion">
         {/* ── Header ──────────────────────────── */}
-        <div class="mobile-ingestion__header">
+        <header class="mobile-ingestion__header">
           <div>
             <h2 class="mobile-ingestion__title">接入管理</h2>
             <div class="mobile-ingestion__subtitle">
@@ -398,20 +403,18 @@ export default defineComponent({
             </div>
           </div>
           <div class="mobile-ingestion__header-actions">
-            <NButton
+            <Button
               size="small"
-              secondary
               type="primary"
+              plain
               onClick={() => (showGenerateForm.value = !showGenerateForm.value)}>
               + 生成
-            </NButton>
-            <NButton size="small" secondary type="primary" onClick={loadData}>
-              <NIcon size={16}>
-                <PhArrowsClockwise />
-              </NIcon>
-            </NButton>
+            </Button>
+            <Button size="small" type="primary" plain onClick={loadData} aria-label="刷新接入数据">
+              <PhArrowsClockwise size={18} />
+            </Button>
           </div>
-        </div>
+        </header>
 
         {/* ── Connection badge ────────────────── */}
         {!loading.value && !error.value && renderConnectionBadge()}

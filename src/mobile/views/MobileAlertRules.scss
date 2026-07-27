@@ -3,6 +3,8 @@
   min-height: 100dvh;
   padding: clamp(12px, 4vw, 20px) clamp(12px, 4vw, 16px);
   background: var(--color-bg-1);
+  padding-bottom: calc(clamp(12px, 4vw, 20px) + env(safe-area-inset-bottom, 0px));
+  overflow-x: clip;
 
   // ── Header ──────────────────────────────
 
@@ -42,12 +44,12 @@
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-sm);
 
-    :deep(.n-statistic__label) {
+    .mobile-statistic__label {
       font-size: var(--font-size-caption);
       color: var(--color-text-3);
     }
 
-    :deep(.n-statistic-content) {
+    .mobile-statistic__value {
       font-size: var(--font-size-title-3);
       font-weight: var(--font-weight-semibold);
     }
@@ -66,13 +68,13 @@
   }
 
   &__tabs {
-    :deep(.n-tabs-nav) {
+    :deep(.van-tabs__nav) {
       background: var(--color-fill-2);
       border-radius: var(--radius-md);
       padding: 2px;
     }
 
-    :deep(.n-tabs-tab) {
+    :deep(.van-tab) {
       padding: var(--spacing-1) var(--spacing-3);
       font-size: var(--font-size-body-1);
       white-space: nowrap;
@@ -160,6 +162,7 @@
     margin-bottom: var(--spacing-1);
     color: var(--color-text-3);
     font-size: var(--font-size-body-1);
+    overflow-wrap: anywhere;
   }
 
   &__card-condition {
@@ -169,6 +172,8 @@
     padding: var(--spacing-1) var(--spacing-2);
     background: var(--color-fill-1);
     border-radius: var(--radius-md);
+    flex-wrap: wrap;
+    overflow-wrap: anywhere;
   }
 
   &__card-metric {
@@ -193,6 +198,7 @@
     margin-top: var(--spacing-2);
     color: var(--color-text-3);
     font-size: var(--font-size-caption);
+    overflow-wrap: anywhere;
   }
 
   &__card-channels-label {
@@ -227,23 +233,35 @@
     gap: var(--spacing-1);
   }
 
-  // ── Modal ───────────────────────────────
+  &__delete-button {
+    min-width: var(--size-default);
+    min-height: var(--size-default);
+    color: var(--color-danger-6);
+    border-color: var(--color-danger-3);
+  }
 
-  &__modal {
-    :deep(.n-card) {
-      max-height: 85vh;
-      overflow-y: auto;
+  // ── Form groups (mobile) ────────────────
+
+  &__form-group {
+    margin-bottom: var(--spacing-3);
+    padding: 0 var(--spacing-1);
+
+    &--switch {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
     }
   }
 
-  &__form {
-    :deep(.n-form-item) {
-      margin-bottom: var(--spacing-3);
-    }
+  &__form-label {
+    margin-bottom: var(--spacing-1);
+    color: var(--color-text-2);
+    font-size: var(--font-size-body-1);
+    font-weight: var(--font-weight-medium);
+  }
 
-    :deep(.n-form-item-blank) {
-      width: 100%;
-    }
+  &__form {
+    padding: var(--spacing-2) 0;
   }
 
   &__condition-row {
@@ -252,14 +270,49 @@
     width: 100%;
   }
 
-  &__operator-select {
-    width: 120px;
-    flex-shrink: 0;
-  }
-
   &__modal-footer {
     display: flex;
     justify-content: flex-end;
     gap: var(--spacing-2);
+    padding: var(--spacing-3) var(--spacing-1);
+  }
+
+  @media (max-width: 359px) {
+    &__summary-grid :deep(.mobile-grid) {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    &__action-bar,
+    &__bulk-bar {
+      flex-wrap: wrap;
+    }
+
+    &__action-bar :deep(.mobile-button),
+    &__bulk-bar :deep(.mobile-button) {
+      min-height: var(--size-default);
+    }
+
+    &__card-actions {
+      align-items: flex-start;
+      flex-direction: column;
+    }
+
+    &__card-buttons {
+      width: 100%;
+      justify-content: flex-end;
+    }
+
+    &__condition-row {
+      flex-direction: column;
+    }
+
+    &__modal-footer {
+      justify-content: stretch;
+    }
+
+    &__modal-footer :deep(.mobile-button) {
+      flex: 1;
+      min-height: var(--size-large);
+    }
   }
 }

@@ -1,5 +1,5 @@
-import { defineComponent, ref, computed, onMounted } from 'vue'
-import { NCard, NButton, NEmpty, NSpin, NTag, NResult, NIcon } from 'naive-ui'
+import { defineComponent, ref, computed, onActivated } from 'vue'
+import { Button, Empty, Loading, Tag } from 'vant'
 import { PhArrowsClockwise, PhCaretDown, PhCaretUp } from '@phosphor-icons/vue'
 import { listExceptions } from '@/api'
 import type { ExceptionGroup } from '@/types/logs'
@@ -70,7 +70,7 @@ export default defineComponent({
       }
     }
 
-    onMounted(loadExceptions)
+    onActivated(loadExceptions)
 
     const toggleExpand = (id: string) => {
       const newSet = new Set(expandedIds.value)
@@ -105,8 +105,21 @@ export default defineComponent({
     })
 
     const renderCard = (ex: ExceptionGroup) => (
-      <div key={ex.id} class="mobile-exception-analysis__card-wrapper" onClick={() => toggleExpand(ex.id)}>
-        <NCard size="small" bordered={false} class="mobile-exception-analysis__list-card">
+      <div
+        key={ex.id}
+        class="mobile-exception-analysis__card-wrapper"
+        role="button"
+        tabindex="0"
+        aria-expanded={expandedIds.value.has(ex.id)}
+        aria-label={`查看异常详情：${ex.message || '未知异常'}`}
+        onClick={() => toggleExpand(ex.id)}
+        onKeydown={(event: KeyboardEvent) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault()
+            toggleExpand(ex.id)
+          }
+        }}>
+        <section class="mobile-exception-analysis__list-card">
           <div class="mobile-exception-analysis__card-header">
             <div class="mobile-exception-analysis__card-main">
               <div class="mobile-exception-analysis__card-message">
@@ -115,15 +128,15 @@ export default defineComponent({
                   : ex.message || '未知异常'}
               </div>
               <div class="mobile-exception-analysis__card-meta">
-                <NTag size="tiny" bordered={false} type="error">
+                <Tag size="medium" type="danger">
                   {ex.type || 'Unknown'}
-                </NTag>
+                </Tag>
                 <span class="mobile-exception-analysis__card-count">次数: {ex.count ?? 0}</span>
                 <span class="mobile-exception-analysis__card-time">{ex.lastOccurrence || '-'}</span>
               </div>
             </div>
             <div class="mobile-exception-analysis__card-expand">
-              <NIcon size={18}>{expandedIds.value.has(ex.id) ? <PhCaretUp /> : <PhCaretDown />}</NIcon>
+              {expandedIds.value.has(ex.id) ? <PhCaretUp size={18} /> : <PhCaretDown size={18} />}
             </div>
           </div>
 
@@ -149,7 +162,7 @@ export default defineComponent({
               </div>
             </div>
           )}
-        </NCard>
+        </section>
       </div>
     )
 
@@ -159,11 +172,15 @@ export default defineComponent({
           <div>
             <h2 class="mobile-exception-analysis__title">异常分析</h2>
           </div>
-          <NButton size="small" secondary type="primary" onClick={loadExceptions}>
-            <NIcon>
-              <PhArrowsClockwise />
-            </NIcon>
-          </NButton>
+          <Button
+            size="small"
+            type="primary"
+            plain
+            class="mobile-exception-analysis__refresh-action"
+            onClick={loadExceptions}
+            aria-label="刷新异常数据">
+            <PhArrowsClockwise size={18} />
+          </Button>
         </div>
 
         {/* ── Time Range Filter ── */}
@@ -200,29 +217,23 @@ export default defineComponent({
 
         {loading.value ? (
           <div class="mobile-exception-analysis__loading">
-            <NSpin size="large" />
+            <Loading size="32px" />
           </div>
         ) : error.value ? (
-          <NResult
-            status="500"
-            title="数据加载失败"
-            description="请检查网络连接后重试"
-            class="mobile-exception-analysis__error">
-            {{
-              footer: () => (
-                <NButton type="primary" size="small" onClick={loadExceptions}>
-                  重新加载
-                </NButton>
-              )
-            }}
-          </NResult>
+          <div class="mobile-exception-analysis__error-state">
+            <h3>数据加载失败</h3>
+            <p>请检查网络连接后重试</p>
+            <Button type="primary" size="small" onClick={loadExceptions}>
+              重新加载
+            </Button>
+          </div>
         ) : exceptions.value.length === 0 ? (
           <div class="mobile-exception-analysis__empty-state">
-            <NEmpty description="暂无异常数据" />
+            <Empty description="暂无异常数据" />
           </div>
         ) : groupedExceptions.value.length === 0 ? (
           <div class="mobile-exception-analysis__empty-state">
-            <NEmpty description="无匹配的异常数据" />
+            <Empty description="无匹配的异常数据" />
           </div>
         ) : (
           <div class="mobile-exception-analysis__list">

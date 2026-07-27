@@ -1,5 +1,5 @@
-import { defineComponent, ref, onMounted } from 'vue'
-import { NCard, NButton, NEmpty, NSpin, NTag } from 'naive-ui'
+import { defineComponent, ref, onActivated } from 'vue'
+import { MobileButton, MobileCard, MobileEmpty, MobileLoading, MobileTag } from '@/mobile/ui'
 import { useRouter, useRoute } from 'vue-router'
 import { fetchCatalogServices } from '@/api'
 
@@ -46,7 +46,9 @@ export default defineComponent({
       }
     }
 
-    onMounted(() => loadServices(route.query.keyword as string))
+    const refresh = () => loadServices(route.query.keyword as string)
+
+    onActivated(refresh)
 
     return () => (
       <div class="mobile-services-v2">
@@ -55,26 +57,30 @@ export default defineComponent({
             <h2 class="mobile-services-v2__title">服务目录</h2>
             <div class="mobile-services-v2__subtitle">移动端摘要列表</div>
           </div>
-          <NButton size="small" secondary type="primary" onClick={() => loadServices()}>
+          <MobileButton size="small" type="ghost" class="mobile-services-v2__refresh" onClick={refresh}>
             刷新
-          </NButton>
+          </MobileButton>
         </div>
 
         {loading.value ? (
           <div class="mobile-services-v2__loading">
-            <NSpin size="large" />
+            <MobileLoading size="32px" />
           </div>
         ) : services.value.length ? (
           <div class="mobile-services-v2__list">
             {services.value.map((service) => (
-              <NCard key={service.id} size="small" bordered={false} class="mobile-services-v2__card">
+              <MobileCard key={service.id} size="small" bordered={false} class="mobile-services-v2__card">
                 <div class="mobile-services-v2__card-content">
                   <div class="mobile-services-v2__card-main">
                     <div class="mobile-services-v2__card-title">{service.name}</div>
-                    <div class="mobile-services-v2__card-meta">
+                    <div
+                      class="mobile-services-v2__card-meta"
+                      title={`Owner: ${service.owner || '-'} · 区域: ${service.region || '-'}`}>
                       Owner: {service.owner || '-'} · 区域: {service.region || '-'}
                     </div>
-                    <div class="mobile-services-v2__card-stats">
+                    <div
+                      class="mobile-services-v2__card-stats"
+                      title={`QPS ${service.qps ?? '未知'} · 延迟 ${service.latency ?? '未知'}${typeof service.latency === 'number' ? 'ms' : ''} · 错误率 ${service.errorRate ?? '未知'}${typeof service.errorRate === 'number' ? '%' : ''}`}>
                       QPS {service.qps ?? '未知'}
                       {typeof service.qps === 'number' ? '' : ''} · 延迟 {service.latency ?? '未知'}
                       {typeof service.latency === 'number' ? 'ms' : ''} · 错误率 {service.errorRate ?? '未知'}
@@ -82,9 +88,8 @@ export default defineComponent({
                     </div>
                   </div>
                   <div class="mobile-services-v2__card-actions">
-                    <NTag
+                    <MobileTag
                       size="small"
-                      bordered={false}
                       type={
                         service.health === 'healthy'
                           ? 'success'
@@ -92,7 +97,7 @@ export default defineComponent({
                             ? 'warning'
                             : service.health === 'unknown'
                               ? 'default'
-                              : 'error'
+                              : 'danger'
                       }>
                       {service.health === 'healthy'
                         ? '健康'
@@ -101,27 +106,29 @@ export default defineComponent({
                           : service.health === 'unknown'
                             ? '未知'
                             : '异常'}
-                    </NTag>
-                    <NButton
-                      size="tiny"
-                      secondary
-                      type="primary"
+                    </MobileTag>
+                    <MobileButton
+                      size="small"
+                      type="ghost"
+                      class="mobile-services-v2__detail-button"
                       onClick={() => router.push(`/mobile/service-detail-v2/${service.id}`)}>
                       详情
-                    </NButton>
+                    </MobileButton>
                   </div>
                 </div>
-              </NCard>
+              </MobileCard>
             ))}
           </div>
         ) : (
-          <NEmpty description="暂无服务数据" class="mobile-services-v2__empty-state" />
+          <div class="mobile-services-v2__state">
+            <MobileEmpty description="暂无服务数据" />
+          </div>
         )}
 
         <div class="mobile-services-v2__footer">
-          <NButton block onClick={() => router.push('/mobile/overview-v2')}>
+          <MobileButton block onClick={() => router.push('/mobile/overview-v2')}>
             返回概览
-          </NButton>
+          </MobileButton>
         </div>
       </div>
     )

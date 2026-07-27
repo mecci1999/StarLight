@@ -26,6 +26,13 @@
     gap: var(--spacing-2);
   }
 
+  &__refresh-action {
+    width: var(--size-large);
+    min-width: var(--size-large);
+    height: var(--size-large);
+    padding: 0;
+  }
+
   // ── Service Select ──────────────────────
 
   &__service-select {
@@ -36,13 +43,12 @@
 
   &__time-range {
     display: flex;
+    flex-wrap: wrap;
     gap: var(--spacing-2);
     margin-bottom: var(--spacing-3);
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
 
-    &::-webkit-scrollbar {
-      display: none;
+    :deep(.mobile-button) {
+      min-height: var(--size-large);
     }
   }
 
@@ -50,18 +56,26 @@
 
   &__loading {
     display: flex;
+    align-items: center;
     justify-content: center;
-    padding: var(--spacing-10) 0;
+    min-height: 200px;
+    padding: var(--spacing-6) 0;
   }
 
   &__error {
-    margin-top: var(--spacing-8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 200px;
+    padding: var(--spacing-6) 0;
   }
 
   &__empty-state {
     display: flex;
+    align-items: center;
     justify-content: center;
-    padding: var(--spacing-10) 0;
+    min-height: 200px;
+    padding: var(--spacing-6) 0;
   }
 
   // ── Stats ───────────────────────────────
@@ -130,6 +144,18 @@
     margin-bottom: var(--spacing-3);
   }
 
+  &__view-toggle-actions {
+    display: flex;
+    gap: var(--spacing-1);
+
+    :deep(.mobile-button) {
+      width: var(--size-large);
+      min-width: var(--size-large);
+      height: var(--size-large);
+      padding: 0;
+    }
+  }
+
   // ── Card List ───────────────────────────
 
   &__list {
@@ -141,6 +167,11 @@
   &__list-card {
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-sm);
+    transition: transform var(--duration-fast) var(--ease-default);
+
+    &:active {
+      transform: scale(0.99);
+    }
   }
 
   &__card-header {
@@ -157,6 +188,8 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+    min-width: 0;
+    flex: 1;
   }
 
   &__card-metrics {
@@ -196,6 +229,7 @@
     margin-top: var(--spacing-2);
     color: var(--color-text-3);
     font-size: var(--font-size-caption);
+    overflow-wrap: anywhere;
   }
 
   &__card-time {
@@ -214,23 +248,6 @@
 
   &__table-header-row {
     display: none;
-  }
-
-  &__table {
-    :deep(.n-data-table-td) {
-      font-size: var(--font-size-body-1);
-      padding: var(--spacing-2) var(--spacing-2);
-    }
-
-    :deep(.n-data-table-th) {
-      font-size: var(--font-size-body-1);
-      font-weight: var(--font-weight-medium);
-      cursor: pointer;
-      user-select: none;
-      padding: var(--spacing-2) var(--spacing-2);
-      color: var(--color-text-2);
-      background: var(--color-bg-3);
-    }
   }
 
   &__table-mono {

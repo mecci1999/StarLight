@@ -1,0 +1,1 @@
+import{r,u as e}from"./request-CkNSaX6U.js";const t=r=>Object.fromEntries(Object.entries(r||{}).filter(([,r])=>null!=r&&""!==r&&"undefined"!==r&&"null"!==r));function n(n){return r.get(e.traceSearch,t(n)).then(r=>Array.isArray(r)?r:[])}function a(n,a){return r.get(e.traceDetail,t({traceId:n,...a||{}})).then(r=>Array.isArray(r)?r:[])}export{a as g,n as s};

@@ -1,5 +1,6 @@
-import { defineComponent, ref, onMounted, computed } from 'vue'
-import { NCard, NButton, NTag, NSpin, NEmpty, NStatistic, NProgress, NIcon } from 'naive-ui'
+import { defineComponent, ref, onActivated, computed } from 'vue'
+import { Button, Empty, Loading, Progress } from 'vant'
+import { MobileTag } from '@/mobile/ui'
 import { PhArrowsClockwise, PhWallet, PhChartBar, PhStack } from '@phosphor-icons/vue'
 import { getStoredUserInfo } from '@/services/authSession'
 import * as subscriptionApi from '@/api/subscription'
@@ -236,11 +237,23 @@ export default defineComponent({
       }
     }
 
+    const refreshing = ref(false)
+
     const loadAll = async () => {
       await Promise.all([loadPlans(), loadPayment(), loadUsage()])
     }
 
-    onMounted(loadAll)
+    const refreshAll = async () => {
+      if (refreshing.value) return
+      refreshing.value = true
+      try {
+        await loadAll()
+      } finally {
+        refreshing.value = false
+      }
+    }
+
+    onActivated(loadAll)
 
     // ── Tab switch ───────────────────────────
     const handleTabChange = (tab: MobileBillingTab) => {
@@ -248,14 +261,14 @@ export default defineComponent({
     }
 
     // ── Status tag ───────────────────────────
-    const statusTagType = (status: string): 'success' | 'warning' | 'error' | 'default' | 'info' => {
+    const statusTagType = (status: string): 'success' | 'warning' | 'danger' | 'default' | 'info' => {
       switch (status) {
         case 'paid':
           return 'success'
         case 'pending':
           return 'warning'
         case 'overdue':
-          return 'error'
+          return 'danger'
         case 'active':
           return 'success'
         case 'cancelled':
@@ -287,7 +300,7 @@ export default defineComponent({
       if (plansLoading.value) {
         return (
           <div class="mobile-billing__loading">
-            <NSpin size="medium" />
+            <Loading size="28px" />
           </div>
         )
       }
@@ -295,15 +308,12 @@ export default defineComponent({
       if (plansError.value && plans.value.length === 0) {
         return (
           <div class="mobile-billing__error-state">
-            <NEmpty description="套餐数据加载失败">
-              {{
-                action: () => (
-                  <NButton size="small" type="primary" onClick={loadPlans}>
-                    重新加载
-                  </NButton>
-                )
-              }}
-            </NEmpty>
+            <div class="mobile-billing__error-content">
+              <Empty description="套餐数据加载失败" />
+              <Button size="small" type="primary" onClick={loadPlans}>
+                重新加载
+              </Button>
+            </div>
           </div>
         )
       }
@@ -311,7 +321,7 @@ export default defineComponent({
       if (plans.value.length === 0) {
         return (
           <div class="mobile-billing__empty-state">
-            <NEmpty description="暂无可用套餐" />
+            <Empty description="暂无可用套餐" />
           </div>
         )
       }
@@ -319,10 +329,8 @@ export default defineComponent({
       return (
         <div class="mobile-billing__plans-list">
           {plans.value.map((plan) => (
-            <NCard
+            <article
               key={plan.value}
-              size="small"
-              bordered={false}
               class={[
                 'mobile-billing__plan-card',
                 currentPlan.value === plan.value ? 'mobile-billing__plan-card--current' : ''
@@ -331,9 +339,9 @@ export default defineComponent({
                 <div class="mobile-billing__plan-name-row">
                   <span class="mobile-billing__plan-name">{plan.name}</span>
                   {currentPlan.value === plan.value && (
-                    <NTag size="tiny" bordered={false} type="success">
+                    <MobileTag size="small" type="success">
                       当前套餐
-                    </NTag>
+                    </MobileTag>
                   )}
                 </div>
                 <div class="mobile-billing__plan-price">
@@ -352,14 +360,13 @@ export default defineComponent({
               </div>
 
               <div class="mobile-billing__plan-status">
-                <NTag
+                <MobileTag
                   size="small"
-                  bordered={false}
                   type={statusTagType(currentPlan.value === plan.value ? currentStatus.value : 'pending')}>
                   {currentPlan.value === plan.value ? statusLabel(currentStatus.value) : '可订阅'}
-                </NTag>
+                </MobileTag>
               </div>
-            </NCard>
+            </article>
           ))}
         </div>
       )
@@ -370,7 +377,7 @@ export default defineComponent({
       if (paymentLoading.value) {
         return (
           <div class="mobile-billing__loading">
-            <NSpin size="medium" />
+            <Loading size="28px" />
           </div>
         )
       }
@@ -381,27 +388,28 @@ export default defineComponent({
         return (
           <div class="mobile-billing__admin-summary">
             <div class="mobile-billing__summary-grid">
-              <NCard size="small" bordered={false} class="mobile-billing__summary-card">
-                <NStatistic label="活跃订阅" value={analytics.value.summary.activeSubscriptions} />
-              </NCard>
-              <NCard size="small" bordered={false} class="mobile-billing__summary-card">
-                <NStatistic
-                  label="已确认收入"
-                  value={formatAmount(analytics.value.currency, analytics.value.summary.paidRevenue)}
-                />
-              </NCard>
-              <NCard size="small" bordered={false} class="mobile-billing__summary-card">
-                <NStatistic
-                  label="待收款"
-                  value={formatAmount(analytics.value.currency, analytics.value.summary.pendingRevenue)}
-                />
-              </NCard>
-              <NCard size="small" bordered={false} class="mobile-billing__summary-card">
-                <NStatistic
-                  label="逾期风险"
-                  value={formatAmount(analytics.value.currency, analytics.value.summary.overdueRevenue)}
-                />
-              </NCard>
+              <div class="mobile-billing__summary-card">
+                <div class="mobile-billing__summary-label">活跃订阅</div>
+                <div class="mobile-billing__summary-value">{analytics.value.summary.activeSubscriptions}</div>
+              </div>
+              <div class="mobile-billing__summary-card">
+                <div class="mobile-billing__summary-label">已确认收入</div>
+                <div class="mobile-billing__summary-value">
+                  {formatAmount(analytics.value.currency, analytics.value.summary.paidRevenue)}
+                </div>
+              </div>
+              <div class="mobile-billing__summary-card">
+                <div class="mobile-billing__summary-label">待收款</div>
+                <div class="mobile-billing__summary-value">
+                  {formatAmount(analytics.value.currency, analytics.value.summary.pendingRevenue)}
+                </div>
+              </div>
+              <div class="mobile-billing__summary-card">
+                <div class="mobile-billing__summary-label">逾期风险</div>
+                <div class="mobile-billing__summary-value">
+                  {formatAmount(analytics.value.currency, analytics.value.summary.overdueRevenue)}
+                </div>
+              </div>
             </div>
           </div>
         )
@@ -410,15 +418,12 @@ export default defineComponent({
       if (paymentError.value && paymentHistory.value.length === 0) {
         return (
           <div class="mobile-billing__error-state">
-            <NEmpty description="账单数据加载失败">
-              {{
-                action: () => (
-                  <NButton size="small" type="primary" onClick={loadPayment}>
-                    重新加载
-                  </NButton>
-                )
-              }}
-            </NEmpty>
+            <div class="mobile-billing__error-content">
+              <Empty description="账单数据加载失败" />
+              <Button size="small" type="primary" onClick={loadPayment}>
+                重新加载
+              </Button>
+            </div>
           </div>
         )
       }
@@ -426,7 +431,7 @@ export default defineComponent({
       if (paymentHistory.value.length === 0) {
         return (
           <div class="mobile-billing__empty-state">
-            <NEmpty description="暂无账单记录" />
+            <Empty description="暂无账单记录" />
           </div>
         )
       }
@@ -436,18 +441,23 @@ export default defineComponent({
           {renderAdminSummary()}
           <div class="mobile-billing__payment-list">
             {paymentHistory.value.map((item) => (
-              <NCard key={item.id} size="small" bordered={false} class="mobile-billing__payment-card">
+              <article key={item.id} class="mobile-billing__payment-card">
                 <div class="mobile-billing__payment-card-header">
                   <div class="mobile-billing__payment-card-desc">{item.description}</div>
-                  <NTag size="tiny" bordered={false} type={statusTagType(item.status)}>
+                  <MobileTag size="small" type={statusTagType(item.status)}>
                     {statusLabel(item.status)}
-                  </NTag>
+                  </MobileTag>
                 </div>
                 <div class="mobile-billing__payment-card-body">
                   <span class="mobile-billing__payment-card-amount">{item.amount}</span>
                   <span class="mobile-billing__payment-card-date">{item.date}</span>
                 </div>
-              </NCard>
+                {item.downloadUrl && (
+                  <a class="mobile-billing__receipt-link" href={item.downloadUrl} target="_blank" rel="noreferrer">
+                    查看账单凭证
+                  </a>
+                )}
+              </article>
             ))}
           </div>
         </div>
@@ -459,7 +469,7 @@ export default defineComponent({
       if (usageLoading.value) {
         return (
           <div class="mobile-billing__loading">
-            <NSpin size="medium" />
+            <Loading size="28px" />
           </div>
         )
       }
@@ -467,15 +477,12 @@ export default defineComponent({
       if (usageError.value) {
         return (
           <div class="mobile-billing__error-state">
-            <NEmpty description="用量数据加载失败">
-              {{
-                action: () => (
-                  <NButton size="small" type="primary" onClick={loadUsage}>
-                    重新加载
-                  </NButton>
-                )
-              }}
-            </NEmpty>
+            <div class="mobile-billing__error-content">
+              <Empty description="用量数据加载失败" />
+              <Button size="small" type="primary" onClick={loadUsage}>
+                重新加载
+              </Button>
+            </div>
           </div>
         )
       }
@@ -483,7 +490,7 @@ export default defineComponent({
       if (usageQuotas.value.length === 0) {
         return (
           <div class="mobile-billing__empty-state">
-            <NEmpty description="暂无用量数据" />
+            <Empty description="暂无用量数据" />
           </div>
         )
       }
@@ -492,9 +499,7 @@ export default defineComponent({
         <div class="mobile-billing__usage-section">
           {planSummary.value && (
             <div class="mobile-billing__usage-plan-badge">
-              <NTag bordered={false} type="info">
-                {planSummary.value.planDisplayName || planSummary.value.planName}
-              </NTag>
+              <MobileTag type="info">{planSummary.value.planDisplayName || planSummary.value.planName}</MobileTag>
               <span class="mobile-billing__usage-expiry">到期时间：{planSummary.value.expiresAt || '—'}</span>
             </div>
           )}
@@ -503,24 +508,30 @@ export default defineComponent({
             {usageQuotas.value.map((quota) => {
               const percent = getQuotaPercent(quota)
               return (
-                <NCard key={quota.type} size="small" bordered={false} class="mobile-billing__usage-quota-card">
+                <article key={quota.type} class="mobile-billing__usage-quota-card">
                   <div class="mobile-billing__usage-quota-head">
                     <span class="mobile-billing__usage-quota-label">{quota.label}</span>
-                    <NTag size="tiny" bordered={false} type={percent >= 85 ? 'warning' : 'success'}>
+                    <MobileTag size="small" type={percent >= 100 ? 'danger' : percent >= 85 ? 'warning' : 'success'}>
                       {percent}%
-                    </NTag>
+                    </MobileTag>
                   </div>
                   <div class="mobile-billing__usage-quota-value">
                     {displayNumber(quota.current)} / {displayNumber(quota.total)}
                   </div>
-                  <NProgress
+                  <Progress
                     percentage={percent}
-                    showIndicator={false}
-                    status={percent >= 85 ? 'warning' : 'success'}
-                    height={8}
-                    borderRadius={4}
+                    showPivot={false}
+                    strokeWidth="8px"
+                    color={
+                      percent >= 100
+                        ? 'var(--color-danger-6)'
+                        : percent >= 85
+                          ? 'var(--color-warning-6)'
+                          : 'var(--color-success-6)'
+                    }
+                    trackColor="var(--color-fill-2)"
                   />
-                </NCard>
+                </article>
               )
             })}
           </div>
@@ -539,39 +550,46 @@ export default defineComponent({
               {isAdminUser.value ? '管理套餐、支付与用量' : '查看套餐、账单与配额'}
             </div>
           </div>
-          <NButton size="small" secondary type="primary" onClick={loadAll}>
-            <NIcon size={16}>
-              <PhArrowsClockwise />
-            </NIcon>
-          </NButton>
+          <Button
+            size="small"
+            type="primary"
+            plain
+            loading={refreshing.value}
+            onClick={refreshAll}
+            aria-label="刷新计费数据">
+            <PhArrowsClockwise size={18} />
+          </Button>
         </div>
 
         {/* ── Tab bar ─────────────────────────── */}
-        <div class="mobile-billing__tab-bar">
-          <div
+        <div class="mobile-billing__tab-bar" role="tablist" aria-label="计费信息">
+          <button
+            type="button"
             class={['mobile-billing__tab', activeTab.value === 'plans' ? 'mobile-billing__tab--active' : '']}
+            role="tab"
+            aria-selected={activeTab.value === 'plans'}
             onClick={() => handleTabChange('plans')}>
-            <NIcon size={16}>
-              <PhStack />
-            </NIcon>
+            <PhStack size={16} />
             <span>套餐</span>
-          </div>
-          <div
+          </button>
+          <button
+            type="button"
             class={['mobile-billing__tab', activeTab.value === 'payment' ? 'mobile-billing__tab--active' : '']}
+            role="tab"
+            aria-selected={activeTab.value === 'payment'}
             onClick={() => handleTabChange('payment')}>
-            <NIcon size={16}>
-              <PhWallet />
-            </NIcon>
+            <PhWallet size={16} />
             <span>支付</span>
-          </div>
-          <div
+          </button>
+          <button
+            type="button"
             class={['mobile-billing__tab', activeTab.value === 'usage' ? 'mobile-billing__tab--active' : '']}
+            role="tab"
+            aria-selected={activeTab.value === 'usage'}
             onClick={() => handleTabChange('usage')}>
-            <NIcon size={16}>
-              <PhChartBar />
-            </NIcon>
+            <PhChartBar size={16} />
             <span>用量</span>
-          </div>
+          </button>
         </div>
 
         {/* ── Content ─────────────────────────── */}

@@ -1,3 +1,4 @@
+import { h } from 'vue'
 import {
   PhUser,
   PhMoon,
@@ -9,22 +10,20 @@ import {
   PhGear
 } from '@phosphor-icons/vue'
 import {
-  NCard,
-  NButton,
-  NAvatar,
-  NList,
-  NListItem,
-  NIcon,
-  NSwitch,
-  NModal,
-  NForm,
-  NFormItem,
-  NInput,
-  NSelect,
-  NTag,
-  NProgress,
-  NText
-} from 'naive-ui'
+  MobileAvatar,
+  MobileButton,
+  MobileCard,
+  MobileInput,
+  MobileList,
+  MobileListItem,
+  MobileLoading,
+  MobileProgress,
+  MobileSelect,
+  MobileSheet,
+  MobileSwitch,
+  MobileTag,
+  MobileEmpty
+} from '@/mobile/ui'
 import {
   getStoredUserInfo,
   clearStoredAuthSession,
@@ -115,8 +114,8 @@ export default defineComponent({
       email: rawUser.email || '',
       avatar: rawUser.avatar || '',
       userId: rawUser.userId || '',
-      isAdmin: (rawUser as any).isAdmin || false,
-      role: (rawUser as any).isAdmin ? '管理员' : '普通用户',
+      isAdmin: rawUser.isAdmin || false,
+      role: rawUser.isAdmin ? '管理员' : '普通用户',
       scopeLabel: getMetricsDatasetScopeLabel(rawUser),
       status: rawUser.status || 'active',
       source: rawUser.source || 'email',
@@ -232,58 +231,50 @@ export default defineComponent({
     return () => (
       <div class="mobile-profile">
         <div class="mobile-profile__header">
-          <NAvatar size={72} src={avatarUrl.value} class="mobile-profile__avatar">
+          <MobileAvatar size={72} src={avatarUrl.value || ''} class="mobile-profile__avatar" alt={displayName.value}>
             {{
-              default: () =>
-                avatarUrl.value ? undefined : (
-                  <NIcon size={36}>
-                    <PhUser />
-                  </NIcon>
-                )
+              fallback: () => h(PhUser, { size: 36 })
             }}
-          </NAvatar>
+          </MobileAvatar>
           <div class="mobile-profile__name">{displayName.value}</div>
           <div class="mobile-profile__email">{displayEmail.value}</div>
-          <NButton size="small" quaternary circle class="mobile-profile__edit-btn" onClick={openEditModal}>
-            {{
-              icon: () => (
-                <NIcon>
-                  <PhPencilSimple />
-                </NIcon>
-              )
-            }}
-          </NButton>
+          <MobileButton
+            size="small"
+            aria-label="编辑个人资料"
+            class="mobile-profile__edit-btn"
+            onClick={openEditModal}
+            icon={() => h(PhPencilSimple)}
+          />
         </div>
 
         {/* Profile Info Cards */}
         <div class="mobile-profile__info-cards">
           <div class="mobile-profile__info-row">
-            <NTag bordered={false} type={userInfo.value.isAdmin ? 'warning' : 'info'}>
+            <MobileTag type={userInfo.value.isAdmin ? 'warning' : 'info'} plain>
               {userInfo.value.role}
-            </NTag>
-            <NTag bordered={false} type="success">
+            </MobileTag>
+            <MobileTag type="success" plain>
               {userInfo.value.scopeLabel}
-            </NTag>
+            </MobileTag>
           </div>
           <div class="mobile-profile__completion">
             <div class="mobile-profile__completion-label">
               <span>资料完整度</span>
               <strong>{completionPercent.value}%</strong>
             </div>
-            <NProgress
+            <MobileProgress
               percentage={completionPercent.value}
               color={completionPercent.value >= 80 ? 'var(--color-success-6)' : 'var(--color-warning-6)'}
-              indicatorPlacement="inside"
-              height={18}
-              borderRadius="var(--radius-sm)"
+              strokeWidth={18}
+              showPivot={false}
             />
           </div>
           <div class="mobile-profile__meta-grid">
             <div class="mobile-profile__meta-item">
               <span class="mobile-profile__meta-label">账号状态</span>
-              <NTag size="small" bordered={false} type={userInfo.value.status === 'active' ? 'success' : 'error'}>
+              <MobileTag size="small" type={userInfo.value.status === 'active' ? 'success' : 'danger'} plain>
                 {userInfo.value.status === 'active' ? '正常' : userInfo.value.status}
-              </NTag>
+              </MobileTag>
             </div>
             <div class="mobile-profile__meta-item">
               <span class="mobile-profile__meta-label">注册来源</span>
@@ -299,89 +290,75 @@ export default defineComponent({
             </div>
           </div>
           <div class="mobile-profile__user-id">
-            <NText depth={3}>用户 ID</NText>
-            <NText code>{userInfo.value.userId || '-'}</NText>
+            <span>用户 ID</span>
+            <code>{userInfo.value.userId || '-'}</code>
           </div>
         </div>
 
-        <NCard size="small" bordered={false} class="mobile-profile__card">
-          <NList>
-            <NListItem class="mobile-profile__list-item">
+        <MobileCard size="small" bordered={false} class="mobile-profile__card">
+          <MobileList>
+            <MobileListItem class="mobile-profile__list-item">
               {{
-                prefix: () => (
-                  <NIcon>
-                    <PhMoon size={22} class="mobile-profile__menu-icon" />
-                  </NIcon>
-                ),
-                suffix: () => <NSwitch value={isDark.value} onUpdateValue={toggleTheme} />,
+                icon: () => h(PhMoon, { size: 22, class: 'mobile-profile__menu-icon' }),
+                extra: () => <MobileSwitch modelValue={isDark.value} onUpdate:modelValue={toggleTheme} />,
                 default: () => <div class="mobile-profile__menu-label">深色模式</div>
               }}
-            </NListItem>
+            </MobileListItem>
             {menuItems.map((item) => (
-              <NListItem key={item.label} class="mobile-profile__list-item">
+              <MobileListItem key={item.label} class="mobile-profile__list-item" isLink onClick={item.onClick}>
                 {{
-                  prefix: () => <NIcon component={item.icon} size={22} class="mobile-profile__menu-icon" />,
-                  suffix: () => <span class="mobile-profile__arrow">&rsaquo;</span>,
-                  default: () => (
-                    <div class="mobile-profile__menu-label" onClick={item.onClick}>
-                      {item.label}
-                    </div>
-                  )
+                  icon: () => h(item.icon, { size: 22, class: 'mobile-profile__menu-icon' }),
+                  default: () => <div class="mobile-profile__menu-label">{item.label}</div>
                 }}
-              </NListItem>
+              </MobileListItem>
             ))}
-          </NList>
-        </NCard>
+          </MobileList>
+        </MobileCard>
 
         {/* Admin Section */}
         {userInfo.value.isAdmin && (
-          <NCard size="small" bordered={false} class="mobile-profile__card">
+          <MobileCard size="small" bordered={false} class="mobile-profile__card">
             <div class="mobile-profile__section-title">
-              <NText depth={3}>管理</NText>
+              <span>管理</span>
             </div>
-            <NList>
+            <MobileList>
               {adminMenuItems.map((item) => (
-                <NListItem key={item.label} class="mobile-profile__list-item">
+                <MobileListItem key={item.label} class="mobile-profile__list-item" isLink onClick={item.onClick}>
                   {{
-                    prefix: () => <NIcon component={item.icon} size={22} class="mobile-profile__menu-icon" />,
-                    suffix: () => <span class="mobile-profile__arrow">&rsaquo;</span>,
-                    default: () => (
-                      <div class="mobile-profile__menu-label" onClick={item.onClick}>
-                        {item.label}
-                      </div>
-                    )
+                    icon: () => h(item.icon, { size: 22, class: 'mobile-profile__menu-icon' }),
+                    default: () => <div class="mobile-profile__menu-label">{item.label}</div>
                   }}
-                </NListItem>
+                </MobileListItem>
               ))}
-            </NList>
-          </NCard>
+            </MobileList>
+          </MobileCard>
         )}
 
         <div class="mobile-profile__actions">
-          <NButton block type="error" size="large" onClick={handleLogout} class="mobile-profile__logout-btn">
-            {{
-              icon: () => (
-                <NIcon>
-                  <PhSignOut />
-                </NIcon>
-              ),
-              default: () => '退出登录'
-            }}
-          </NButton>
+          <MobileButton
+            block
+            type="danger"
+            size="large"
+            onClick={handleLogout}
+            class="mobile-profile__logout-btn"
+            icon={() => h(PhSignOut)}>
+            退出登录
+          </MobileButton>
         </div>
 
         <div class="mobile-profile__version">星光 Odyssey v0.1.0</div>
 
-        <NModal
-          v-model:show={showEditModal.value}
-          preset="card"
-          title="编辑个人资料"
-          class="mobile-profile__edit-modal"
-          onUpdateShow={(v: boolean) => {
+        <MobileSheet
+          show={showEditModal.value}
+          onUpdate:show={(v: boolean) => {
             showEditModal.value = v
-          }}>
-          <NForm labelPlacement="top" class="mobile-profile__edit-form">
-            <NFormItem label="头像">
+          }}
+          title="编辑个人资料"
+          position="bottom"
+          class="mobile-profile__edit-modal">
+          <div class="mobile-profile__edit-form">
+            <div class="mobile-profile__form-section">
+              <div class="mobile-profile__form-label">头像</div>
               <div class="mobile-profile__avatar-upload">
                 <AvatarCropUploader
                   userId={userInfo.value.userId}
@@ -395,107 +372,103 @@ export default defineComponent({
                   {{
                     default: ({ open, uploading }: { open: () => void; uploading: boolean }) => (
                       <div class="mobile-profile__avatar-preview" onClick={open}>
-                        <NAvatar size={64} round src={editForm.value.avatarUrl || userInfo.value.avatar || undefined}>
+                        <MobileAvatar
+                          size={64}
+                          src={editForm.value.avatarUrl || userInfo.value.avatar || ''}
+                          alt={displayName.value}>
                           {{
                             fallback: () => (
                               <span class="mobile-profile__avatar-text">{displayName.value.charAt(0)}</span>
                             )
                           }}
-                        </NAvatar>
+                        </MobileAvatar>
                         <div class="mobile-profile__avatar-overlay">
-                          <NText depth="3" style="font-size: 11px">
+                          <span class="mobile-profile__avatar-overlay-text">
                             {uploading ? '上传中...' : '点击更换'}
-                          </NText>
+                          </span>
                         </div>
                       </div>
                     )
                   }}
                 </AvatarCropUploader>
               </div>
-            </NFormItem>
-            <NFormItem label="头像链接">
-              <NInput
-                value={editForm.value.avatarUrl}
-                maxlength={512}
-                placeholder="或直接输入头像图片 URL"
-                onUpdate:value={(value: string) => (editForm.value.avatarUrl = value)}
-              />
-            </NFormItem>
-            <NFormItem label="昵称">
-              <NInput
-                value={editForm.value.nickName}
-                maxlength={64}
-                placeholder="请输入展示昵称"
-                onUpdate:value={(value: string) => (editForm.value.nickName = value)}
-              />
-            </NFormItem>
-            <NFormItem label="头衔">
-              <NInput
-                value={editForm.value.title}
-                maxlength={40}
-                placeholder="例如：SRE / 产品负责人 / 独立开发者"
-                onUpdate:value={(value: string) => (editForm.value.title = value)}
-              />
-            </NFormItem>
-            <NFormItem label="公司 / 组织">
-              <NInput
-                value={editForm.value.company}
-                maxlength={64}
-                placeholder="你的团队或组织"
-                onUpdate:value={(value: string) => (editForm.value.company = value)}
-              />
-            </NFormItem>
-            <NFormItem label="所在地">
-              <NInput
-                value={editForm.value.location}
-                maxlength={64}
-                placeholder="例如：上海 / Singapore"
-                onUpdate:value={(value: string) => (editForm.value.location = value)}
-              />
-            </NFormItem>
-            <NFormItem label="个人链接">
-              <NInput
-                value={editForm.value.website}
-                maxlength={120}
-                placeholder="https://example.com"
-                onUpdate:value={(value: string) => (editForm.value.website = value)}
-              />
-            </NFormItem>
-            <NFormItem label="时区">
-              <NSelect
-                value={editForm.value.timezone}
-                options={TIMEZONE_OPTIONS}
-                placeholder="选择时区"
-                onUpdate:value={(value: string) => (editForm.value.timezone = value)}
-              />
-            </NFormItem>
-            <NFormItem label="语言">
-              <NSelect
-                value={editForm.value.locale}
-                options={LOCALE_OPTIONS}
-                placeholder="选择语言"
-                onUpdate:value={(value: string) => (editForm.value.locale = value)}
-              />
-            </NFormItem>
-            <NFormItem label="个人简介">
-              <NInput
-                value={editForm.value.bio}
-                type="textarea"
-                maxlength={160}
-                placeholder="用一句话介绍你自己，方便团队成员快速识别。"
-                onUpdate:value={(value: string) => (editForm.value.bio = value)}
-              />
-            </NFormItem>
-          </NForm>
-          <div class="mobile-profile__edit-actions">
-            <NButton secondary onClick={closeEditModal} disabled={saving.value}>
-              取消
-            </NButton>
-            <NButton type="primary" loading={saving.value} onClick={saveProfile}>
-              保存
-            </NButton>
+            </div>
+
+            <MobileInput
+              label="头像链接"
+              modelValue={editForm.value.avatarUrl}
+              maxlength={512}
+              placeholder="或直接输入头像图片 URL"
+              onUpdate:modelValue={(value: string | number) => (editForm.value.avatarUrl = value as string)}
+            />
+            <MobileInput
+              label="昵称"
+              modelValue={editForm.value.nickName}
+              maxlength={64}
+              placeholder="请输入展示昵称"
+              onUpdate:modelValue={(value: string | number) => (editForm.value.nickName = value as string)}
+            />
+            <MobileInput
+              label="头衔"
+              modelValue={editForm.value.title}
+              maxlength={40}
+              placeholder="例如：SRE / 产品负责人 / 独立开发者"
+              onUpdate:modelValue={(value: string | number) => (editForm.value.title = value as string)}
+            />
+            <MobileInput
+              label="公司 / 组织"
+              modelValue={editForm.value.company}
+              maxlength={64}
+              placeholder="你的团队或组织"
+              onUpdate:modelValue={(value: string | number) => (editForm.value.company = value as string)}
+            />
+            <MobileInput
+              label="所在地"
+              modelValue={editForm.value.location}
+              maxlength={64}
+              placeholder="例如：上海 / Singapore"
+              onUpdate:modelValue={(value: string | number) => (editForm.value.location = value as string)}
+            />
+            <MobileInput
+              label="个人链接"
+              modelValue={editForm.value.website}
+              maxlength={120}
+              placeholder="https://example.com"
+              onUpdate:modelValue={(value: string | number) => (editForm.value.website = value as string)}
+            />
+            <MobileSelect
+              title="时区"
+              modelValue={editForm.value.timezone}
+              options={TIMEZONE_OPTIONS}
+              placeholder="选择时区"
+              onUpdate:modelValue={(value: string | number) => (editForm.value.timezone = value as string)}
+            />
+            <MobileSelect
+              title="语言"
+              modelValue={editForm.value.locale}
+              options={LOCALE_OPTIONS}
+              placeholder="选择语言"
+              onUpdate:modelValue={(value: string | number) => (editForm.value.locale = value as string)}
+            />
+            <MobileInput
+              label="个人简介"
+              modelValue={editForm.value.bio}
+              type="textarea"
+              maxlength={160}
+              placeholder="用一句话介绍你自己，方便团队成员快速识别。"
+              onUpdate:modelValue={(value: string | number) => (editForm.value.bio = value as string)}
+              autosize
+            />
           </div>
-        </NModal>
+          <div class="mobile-profile__edit-actions">
+            <MobileButton onClick={closeEditModal} disabled={saving.value}>
+              取消
+            </MobileButton>
+            <MobileButton type="primary" loading={saving.value} onClick={saveProfile}>
+              保存
+            </MobileButton>
+          </div>
+        </MobileSheet>
       </div>
     )
   }

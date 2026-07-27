@@ -38,7 +38,6 @@
 
   &__metric-card {
     border-radius: var(--radius-lg);
-    :deep(.n-card__content) {
       padding: var(--spacing-4) var(--spacing-3);
     }
   }

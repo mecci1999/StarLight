@@ -1,20 +1,17 @@
-import { defineComponent, ref, onMounted, computed, watch } from 'vue'
+import { defineComponent, ref, onActivated, onUnmounted, computed, watch, h, inject } from 'vue'
 import {
-  NCard,
-  NTag,
-  NList,
-  NListItem,
-  NSpin,
-  NEmpty,
-  NButton,
-  NIcon,
-  NSelect,
-  NInput,
-  NModal,
-  NForm,
-  NFormItem,
-  useMessage
-} from 'naive-ui'
+  MobileButton,
+  MobileCard,
+  MobileTag,
+  MobileEmpty,
+  MobileLoading,
+  MobileInput,
+  MobileSelect,
+  MobileSheet,
+  MobileList,
+  MobileListItem
+} from '@/mobile/ui'
+import { mobileFeedback } from '@/mobile/services/mobileFeedback'
 import {
   PhCheckCircle,
   PhXCircle,
@@ -22,7 +19,6 @@ import {
   PhUserPlus,
   PhArrowsClockwise,
   PhDownload,
-  PhCaretDown,
   PhMagnifyingGlass
 } from '@phosphor-icons/vue'
 import {
@@ -37,6 +33,9 @@ import { fetchCatalogServices, type MetricsDatasetScope } from '@/api/metrics'
 import { useTimeStore } from '@/store/useTimeStore'
 import { getPreferredMetricsDatasetScope } from '@/services/authSession'
 import type { AlertItem } from '@/types/monitor'
+import type { MobileTagType } from '@/mobile/ui/MobileTag'
+import type { TimeRangeKey } from '@/store/useTimeStore'
+import { MOBILE_ALERT_BADGE_REFRESH_KEY } from '@/mobile/layout/MobileLayout'
 import './MobileAlertsInbox.scss'
 
 function relativeTime(dateStr: string): string {
@@ -65,14 +64,28 @@ const TIME_RANGE_OPTIONS = [
   { label: '最近 7 天', value: '7d' }
 ]
 
+const LEVEL_FILTERS: Array<{ label: string; value: AlertItem['level'] }> = [
+  { label: '严重', value: 'critical' },
+  { label: '警告', value: 'warning' },
+  { label: '提示', value: 'info' }
+]
+
 const PAGE_SIZE = 15
+
+type AlertActionResponse = boolean | { success?: boolean }
+
+const isStandardTimeRange = (value: TimeRangeKey): value is Exclude<TimeRangeKey, 'custom'> => value !== 'custom'
+
+const isSuccessfulAction = (result: AlertActionResponse) =>
+  result === true || (typeof result === 'object' && result.success === true)
 
 export default defineComponent({
   name: 'MobileAlertsInbox',
   setup() {
-    const message = useMessage()
+    const route = useRoute()
     const timeStore = useTimeStore()
     const datasetScope = computed<MetricsDatasetScope>(() => getPreferredMetricsDatasetScope())
+    const refreshAlertBadge = inject(MOBILE_ALERT_BADGE_REFRESH_KEY)
 
     // ── State ──────────────────────────────────
     const loading = ref(true)
@@ -81,11 +94,13 @@ export default defineComponent({
     const allAlerts = ref<AlertItem[]>([])
 
     const selectedService = ref('')
-    const selectedLevel = ref<string[]>([])
+    const selectedLevel = ref<AlertItem['level'][]>([])
     const selectedStatus = ref('')
     const selectedAssignee = ref('')
     const keyword = ref('')
-    const timeRangeValue = ref<string>('1h')
+    const timeRangeValue = ref<Exclude<TimeRangeKey, 'custom'> | ''>(
+      isStandardTimeRange(timeStore.timeRange) ? timeStore.timeRange : ''
+    )
 
     const serviceOptions = ref([{ label: '全部服务', value: '' }])
     const assigneeOptions = ref([{ label: '全部处理人', value: '' }])
@@ -100,8 +115,10 @@ export default defineComponent({
     const confirmAction = ref<{ type: 'acknowledge' | 'resolve' | 'suppress'; alert: AlertItem } | null>(null)
 
     const expandingAlertId = ref<string | null>(null)
+    const pendingIncidentId = ref<string | null>(null)
 
     const displayCount = ref(PAGE_SIZE)
+    let alertRequestId = 0
 
     // ── Computed ────────────────────────────────
     const activeCount = computed(() => allAlerts.value.filter((a) => a.status === 'active').length)
@@ -135,6 +152,13 @@ export default defineComponent({
           }[selectedStatus.value] || selectedStatus.value
         filters.push({ key: 'status', label: '状态', value: label })
       }
+      if (selectedService.value) {
+        const option = serviceOptions.value.find((item) => item.value === selectedService.value)
+        filters.push({ key: 'service', label: '服务', value: option?.label || selectedService.value })
+      }
+      if (selectedLevel.value.length > 0) {
+        filters.push({ key: 'level', label: '级别', value: selectedLevel.value.map(levelLabel).join('、') })
+      }
       if (selectedAssignee.value) {
         const opt = assigneeOptions.value.find((o) => o.value === selectedAssignee.value)
         filters.push({ key: 'assignee', label: '处理人', value: opt?.label || selectedAssignee.value })
@@ -148,22 +172,26 @@ export default defineComponent({
     const hasActiveFilters = computed(() => activeFilters.value.length > 0)
 
     const clearAllFilters = () => {
+      selectedService.value = ''
+      selectedLevel.value = []
       selectedStatus.value = ''
       selectedAssignee.value = ''
       keyword.value = ''
     }
 
     const removeFilter = (key: string) => {
+      if (key === 'service') selectedService.value = ''
+      if (key === 'level') selectedLevel.value = []
       if (key === 'status') selectedStatus.value = ''
       if (key === 'assignee') selectedAssignee.value = ''
       if (key === 'keyword') keyword.value = ''
     }
 
     // ── Helpers ─────────────────────────────────
-    const levelType = (level: AlertItem['level']): 'error' | 'warning' | 'info' | 'default' => {
+    const levelType = (level: AlertItem['level']): MobileTagType => {
       switch (level) {
         case 'critical':
-          return 'error'
+          return 'danger'
         case 'warning':
           return 'warning'
         case 'info':
@@ -201,10 +229,10 @@ export default defineComponent({
       }
     }
 
-    const statusType = (status: AlertItem['status']): 'error' | 'success' | 'warning' | 'default' => {
+    const statusType = (status: AlertItem['status']): MobileTagType => {
       switch (status) {
         case 'active':
-          return 'error'
+          return 'danger'
         case 'resolved':
           return 'success'
         case 'suppressed':
@@ -251,6 +279,11 @@ export default defineComponent({
       return data.filter((item) => selectedLevel.value.includes(item.level))
     }
 
+    const applyServiceFilter = (data: AlertItem[]): AlertItem[] => {
+      if (!selectedService.value) return data
+      return data.filter((item) => item.serviceId === selectedService.value)
+    }
+
     const applyStatusFilter = (data: AlertItem[]): AlertItem[] => {
       if (!selectedStatus.value) return data
       return data.filter((item) => item.status === selectedStatus.value)
@@ -278,6 +311,7 @@ export default defineComponent({
 
     const applyAllFilters = (data: AlertItem[]): AlertItem[] => {
       let filtered = data
+      filtered = applyServiceFilter(filtered)
       filtered = applyLevelFilter(filtered)
       filtered = applyStatusFilter(filtered)
       filtered = applyKeywordFilter(filtered)
@@ -285,30 +319,46 @@ export default defineComponent({
       return filtered
     }
 
+    const expandIncidentFromRoute = () => {
+      if (!pendingIncidentId.value) return
+      const matchedAlert = alerts.value.find((alert) => alert.id === pendingIncidentId.value)
+      if (matchedAlert) {
+        expandingAlertId.value = matchedAlert.id
+        selectedAlert.value = matchedAlert
+        pendingIncidentId.value = null
+      }
+    }
+
     const loadAlerts = async () => {
+      const requestId = ++alertRequestId
+      const scope = datasetScope.value
+      const startTime = timeStore.startTime
+      const endTime = timeStore.endTime
       loading.value = true
       error.value = false
       try {
         const list = await fetchAlerts({
-          serviceId: selectedService.value,
-          scope: datasetScope.value,
-          startTime: timeStore.startTime,
-          endTime: timeStore.endTime
+          scope,
+          startTime,
+          endTime
         })
+        if (requestId !== alertRequestId) return
         allAlerts.value = Array.isArray(list) ? list : []
         alerts.value = applyAllFilters(allAlerts.value)
         displayCount.value = PAGE_SIZE
+        expandIncidentFromRoute()
       } catch (e) {
+        if (requestId !== alertRequestId) return
         console.error('Failed to load alerts:', e)
         error.value = true
       } finally {
-        loading.value = false
+        if (requestId === alertRequestId) loading.value = false
       }
     }
 
-    const onTimeRangeChange = (value: string) => {
+    const onTimeRangeChange = (value: Exclude<TimeRangeKey, 'custom'>) => {
       timeRangeValue.value = value
-      timeStore.setTimeRange(value as any)
+      timeStore.setTimeRange(value)
     }
 
     const loadMore = () => {
@@ -333,15 +383,20 @@ export default defineComponent({
       if (!assigningAlert.value) return
       const matched = assigneeOptions.value.find((item) => item.value === assignForm.value.assigneeUserId)
       try {
-        await assignAlert(assigningAlert.value.id, {
+        const result = await assignAlert(assigningAlert.value.id, {
           assigneeUserId: assignForm.value.assigneeUserId || '',
           assigneeName: assignForm.value.assigneeUserId ? matched?.label || '' : ''
         })
+        if (!isSuccessfulAction(result)) {
+          mobileFeedback.error('更新告警处理人失败')
+          return
+        }
         showAssignModal.value = false
         await loadAlerts()
-        message.success('告警处理人已更新')
+        await refreshAlertBadge?.()
+        mobileFeedback.success('告警处理人已更新')
       } catch {
-        message.error('更新告警处理人失败')
+        mobileFeedback.error('更新告警处理人失败')
       }
     }
 
@@ -364,22 +419,30 @@ export default defineComponent({
       if (!confirmAction.value) return
       const { type, alert } = confirmAction.value
       try {
-        if (type === 'acknowledge') await acknowledgeAlert(alert.id)
-        else if (type === 'resolve') await resolveAlert(alert.id)
-        else if (type === 'suppress') await suppressAlert(alert.id)
+        const result =
+          type === 'acknowledge'
+            ? await acknowledgeAlert(alert.id)
+            : type === 'resolve'
+              ? await resolveAlert(alert.id)
+              : await suppressAlert(alert.id)
+        if (!isSuccessfulAction(result)) {
+          mobileFeedback.error('操作未完成，请稍后重试')
+          return
+        }
 
         showConfirmModal.value = false
         confirmAction.value = null
         await loadAlerts()
+        await refreshAlertBadge?.()
 
         const labels = {
           acknowledge: '告警已确认',
           resolve: '告警已解决',
           suppress: '告警已静默'
         }
-        message.success(labels[type])
+        mobileFeedback.success(labels[type])
       } catch {
-        message.error('操作失败，请重试')
+        mobileFeedback.error('操作失败，请重试')
       }
     }
 
@@ -406,7 +469,7 @@ export default defineComponent({
     const handleExport = () => {
       const data = allAlerts.value
       if (data.length === 0) {
-        message.warning('暂无告警数据可导出')
+        mobileFeedback.warning('暂无告警数据可导出')
         return
       }
       const headers = ['ID', '时间', '服务', '等级', '消息', '状态', '处理人']
@@ -429,14 +492,18 @@ export default defineComponent({
       link.download = `alerts_${new Date().toISOString().slice(0, 10)}.csv`
       link.click()
       URL.revokeObjectURL(url)
-      message.success('告警数据已导出')
+      mobileFeedback.success('告警数据已导出')
     }
 
     // ── Lifecycle ───────────────────────────────
-    onMounted(() => {
+    onActivated(() => {
+      const queryValue = (value: unknown) => (typeof value === 'string' ? value : '')
+      keyword.value = queryValue(route.query.keyword)
+      pendingIncidentId.value = queryValue(route.query.incidentId) || null
       loadServiceOptions()
       loadAssignees()
       loadAlerts()
+      refreshAlertBadge?.()
     })
 
     watch(
@@ -445,10 +512,27 @@ export default defineComponent({
     )
 
     watch(
-      () => [selectedLevel.value, selectedStatus.value, selectedAssignee.value],
+      () => timeStore.timeRange,
+      (range) => {
+        timeRangeValue.value = isStandardTimeRange(range) ? range : ''
+      }
+    )
+
+    watch(
+      () => [route.query.keyword, route.query.incidentId],
+      ([nextKeyword, nextIncidentId]) => {
+        keyword.value = typeof nextKeyword === 'string' ? nextKeyword : ''
+        pendingIncidentId.value = typeof nextIncidentId === 'string' ? nextIncidentId : null
+        expandIncidentFromRoute()
+      }
+    )
+
+    watch(
+      () => [selectedService.value, selectedLevel.value, selectedStatus.value, selectedAssignee.value],
       () => {
         alerts.value = applyAllFilters(allAlerts.value)
         displayCount.value = PAGE_SIZE
+        expandIncidentFromRoute()
       },
       { deep: true }
     )
@@ -459,7 +543,12 @@ export default defineComponent({
       keywordTimer = setTimeout(() => {
         alerts.value = applyAllFilters(allAlerts.value)
         displayCount.value = PAGE_SIZE
+        expandIncidentFromRoute()
       }, 300)
+    })
+
+    onUnmounted(() => {
+      if (keywordTimer) clearTimeout(keywordTimer)
     })
 
     return () => (
@@ -468,156 +557,133 @@ export default defineComponent({
         <header class="mobile-alerts-inbox__header">
           <h2 class="mobile-alerts-inbox__title">告警收件箱</h2>
           <div class="mobile-alerts-inbox__header-actions">
-            <NButton size="tiny" quaternary onClick={handleExport} class="mobile-alerts-inbox__export-btn">
-              {{
-                icon: () => (
-                  <NIcon size={16}>
-                    <PhDownload />
-                  </NIcon>
-                )
-              }}
-            </NButton>
-            <NButton
-              size="tiny"
-              quaternary
+            <MobileButton
+              size="small"
+              type="ghost"
+              onClick={handleExport}
+              class="mobile-alerts-inbox__export-btn"
+              icon={() => h(PhDownload, { size: 16 })}
+            />
+            <MobileButton
+              size="small"
+              type="ghost"
               onClick={loadAlerts}
               class="mobile-alerts-inbox__refresh-btn"
-              loading={loading.value}>
-              {{
-                icon: () => (
-                  <NIcon size={16}>
-                    <PhArrowsClockwise />
-                  </NIcon>
-                )
-              }}
-            </NButton>
+              loading={loading.value}
+              icon={() => h(PhArrowsClockwise, { size: 16 })}
+            />
           </div>
         </header>
 
         {/* ── Summary grid ───────────────────── */}
         <div class="mobile-alerts-inbox__summary-grid">
           {[
-            { label: '总计', value: allAlerts.value.length, color: 'var(--color-text-1)' },
-            { label: '活跃', value: activeCount.value, color: 'var(--color-danger-6)' },
-            { label: '已解决', value: resolvedCount.value, color: 'var(--color-success-6)' },
-            { label: '已静默', value: suppressedCount.value, color: 'var(--color-text-3)' }
+            { label: '总计', value: allAlerts.value.length, tone: 'default' },
+            { label: '活跃', value: activeCount.value, tone: 'danger' },
+            { label: '已解决', value: resolvedCount.value, tone: 'success' },
+            { label: '已静默', value: suppressedCount.value, tone: 'muted' }
           ].map((item, idx) => (
-            <NCard key={idx} size="small" bordered={false} class="mobile-alerts-inbox__summary-card">
-              <div class="mobile-alerts-inbox__summary-value" style={{ color: item.color }}>
+            <MobileCard key={idx} size="small" bordered={false} class="mobile-alerts-inbox__summary-card">
+              <div class={`mobile-alerts-inbox__summary-value mobile-alerts-inbox__summary-value--${item.tone}`}>
                 {item.value}
               </div>
               <div class="mobile-alerts-inbox__summary-label">{item.label}</div>
-            </NCard>
+            </MobileCard>
           ))}
         </div>
 
         {/* ── Filters ────────────────────────── */}
         <div class="mobile-alerts-inbox__filters">
-          <NSelect
-            v-model:value={timeRangeValue.value}
-            options={TIME_RANGE_OPTIONS}
-            placeholder="时间范围"
-            size="small"
-            class="mobile-alerts-inbox__time-select"
-            onUpdate:value={onTimeRangeChange}
-          />
+          <section class="mobile-alerts-inbox__filter-group" aria-label="范围筛选">
+            <span class="mobile-alerts-inbox__filter-label">范围</span>
+            <div class="mobile-alerts-inbox__filter-controls">
+              <MobileSelect
+                v-model:modelValue={timeRangeValue.value}
+                options={TIME_RANGE_OPTIONS}
+                placeholder={timeStore.timeRange === 'custom' ? '自定义时间' : '时间范围'}
+                class="mobile-alerts-inbox__time-select"
+                onUpdate:modelValue={onTimeRangeChange}
+              />
+              <MobileSelect
+                v-model:modelValue={selectedService.value}
+                options={serviceOptions.value}
+                placeholder="全部服务"
+                clearable
+                class="mobile-alerts-inbox__service-select"
+              />
+            </div>
+          </section>
+          <section class="mobile-alerts-inbox__filter-group" aria-label="生命周期筛选">
+            <span class="mobile-alerts-inbox__filter-label">生命周期</span>
+            <div class="mobile-alerts-inbox__chip-row">
+              {[
+                { label: '全部', value: '' },
+                { label: '活跃', value: 'active' },
+                { label: '待处理', value: 'pending' },
+                { label: '已解决', value: 'resolved' },
+                { label: '已静默', value: 'suppressed' }
+              ].map((chip) => {
+                const active = selectedStatus.value === chip.value
+                return (
+                  <MobileButton
+                    key={chip.value}
+                    size="small"
+                    type={active ? 'primary' : 'ghost'}
+                    aria-pressed={active}
+                    onClick={() => (selectedStatus.value = chip.value)}>
+                    {chip.label}
+                  </MobileButton>
+                )
+              })}
+            </div>
+          </section>
+          <section class="mobile-alerts-inbox__filter-group" aria-label="严重程度筛选">
+            <span class="mobile-alerts-inbox__filter-label">严重程度</span>
+            <div class="mobile-alerts-inbox__chip-row">
+              {LEVEL_FILTERS.map((chip) => {
+                const active = selectedLevel.value.includes(chip.value)
+                return (
+                  <MobileButton
+                    key={chip.value}
+                    size="small"
+                    type={active ? 'primary' : 'ghost'}
+                    aria-pressed={active}
+                    onClick={() => {
+                      const i = selectedLevel.value.indexOf(chip.value)
+                      if (i >= 0) {
+                        selectedLevel.value.splice(i, 1)
+                      } else {
+                        selectedLevel.value.push(chip.value)
+                      }
+                    }}>
+                    {chip.label}
+                  </MobileButton>
+                )
+              })}
+            </div>
+          </section>
+        </div>
 
-          <NSelect
-            v-model:value={selectedService.value}
-            options={serviceOptions.value}
-            placeholder="全部服务"
-            size="small"
-            clearable
-            class="mobile-alerts-inbox__service-select"
-          />
+        {/* ── Advanced filters ───────────────── */}
+        <div class="mobile-alerts-inbox__advanced-filters">
+          <span class="mobile-alerts-inbox__filter-label">高级</span>
+          <div class="mobile-alerts-inbox__search-row">
+            <MobileInput
+              v-model:modelValue={keyword.value}
+              placeholder="搜索告警内容、服务…"
+              clearable
+              class="mobile-alerts-inbox__search-input"
+              leftIcon={() => h(PhMagnifyingGlass, { size: 16 })}
+            />
 
-          <div class="mobile-alerts-inbox__level-chips">
-            {[
-              { label: '严重', value: 'critical' },
-              { label: '警告', value: 'warning' },
-              { label: '提示', value: 'info' }
-            ].map((chip) => {
-              const active = selectedLevel.value.includes(chip.value)
-              return (
-                <NButton
-                  key={chip.value}
-                  size="tiny"
-                  round
-                  type={active ? 'primary' : 'default'}
-                  ghost={!active}
-                  onClick={() => {
-                    const i = selectedLevel.value.indexOf(chip.value)
-                    if (i >= 0) {
-                      selectedLevel.value.splice(i, 1)
-                    } else {
-                      selectedLevel.value.push(chip.value)
-                    }
-                  }}>
-                  {chip.label}
-                </NButton>
-              )
-            })}
+            <MobileSelect
+              v-model:modelValue={selectedAssignee.value}
+              options={assigneeOptions.value}
+              placeholder="全部处理人"
+              clearable
+              class="mobile-alerts-inbox__assignee-select"
+            />
           </div>
-
-          <NButton size="small" type="primary" onClick={loadAlerts} class="mobile-alerts-inbox__query-btn">
-            查询
-          </NButton>
-        </div>
-
-        {/* ── Status filter chips ───────────── */}
-        <div class="mobile-alerts-inbox__status-chips">
-          {[
-            { label: '全部', value: '' },
-            { label: '活跃', value: 'active' },
-            { label: '待处理', value: 'pending' },
-            { label: '已解决', value: 'resolved' },
-            { label: '已屏蔽', value: 'suppressed' }
-          ].map((chip) => {
-            const active = selectedStatus.value === chip.value
-            return (
-              <NButton
-                key={chip.value}
-                size="tiny"
-                round
-                type={active ? 'primary' : 'default'}
-                ghost={!active}
-                onClick={() => {
-                  selectedStatus.value = chip.value
-                }}>
-                {chip.label}
-              </NButton>
-            )
-          })}
-        </div>
-
-        {/* ── Keyword search + Assignee filter ── */}
-        <div class="mobile-alerts-inbox__search-row">
-          <NInput
-            v-model:value={keyword.value}
-            placeholder="搜索告警内容、服务…"
-            size="small"
-            clearable
-            class="mobile-alerts-inbox__search-input"
-            onClear={() => {
-              keyword.value = ''
-            }}>
-            {{
-              prefix: () => (
-                <NIcon size={16}>
-                  <PhMagnifyingGlass />
-                </NIcon>
-              )
-            }}
-          </NInput>
-
-          <NSelect
-            v-model:value={selectedAssignee.value}
-            options={assigneeOptions.value}
-            placeholder="全部处理人"
-            size="small"
-            clearable
-            class="mobile-alerts-inbox__assignee-select"
-          />
         </div>
 
         {/* ── Keyword result count or active filter chips ── */}
@@ -627,29 +693,25 @@ export default defineComponent({
               <div key={filter.key} class="mobile-alerts-inbox__filter-chip">
                 <span class="mobile-alerts-inbox__filter-chip-label">{filter.label}:</span>
                 <span class="mobile-alerts-inbox__filter-chip-value">{filter.value}</span>
-                <NButton
-                  size="tiny"
-                  quaternary
+                <MobileButton
+                  size="small"
+                  type="ghost"
                   class="mobile-alerts-inbox__filter-chip-close"
-                  onClick={() => removeFilter(filter.key)}>
-                  {{
-                    icon: () => (
-                      <NIcon size={14}>
-                        <PhXCircle />
-                      </NIcon>
-                    )
+                  icon={() => h(PhXCircle, { size: 14 })}
+                  onClick={(event: MouseEvent) => {
+                    event.stopPropagation()
+                    removeFilter(filter.key)
                   }}
-                </NButton>
+                />
               </div>
             ))}
-            <NButton
-              size="tiny"
-              quaternary
-              type="primary"
+            <MobileButton
+              size="small"
+              type="ghost"
               class="mobile-alerts-inbox__filter-clear-all"
               onClick={clearAllFilters}>
               清除全部
-            </NButton>
+            </MobileButton>
           </div>
         )}
 
@@ -662,33 +724,39 @@ export default defineComponent({
         {/* ── Content ────────────────────────── */}
         {loading.value ? (
           <div class="mobile-alerts-inbox__loading">
-            <NSpin size="large" />
+            <MobileLoading loading={loading.value} size="36px" />
           </div>
         ) : error.value ? (
           <div class="mobile-alerts-inbox__error">
-            <NEmpty description="加载失败，请重试" />
-            <NButton size="small" onClick={loadAlerts} class="mobile-alerts-inbox__retry-btn">
+            <MobileEmpty description="加载失败，请重试" />
+            <MobileButton size="small" onClick={loadAlerts} class="mobile-alerts-inbox__retry-btn">
               重试
-            </NButton>
+            </MobileButton>
           </div>
         ) : alerts.value.length === 0 ? (
           <div class="mobile-alerts-inbox__empty">
-            <NEmpty description="暂无告警数据" />
+            <MobileEmpty description={hasActiveFilters.value ? '没有匹配当前筛选条件的告警' : '暂无告警数据'}>
+              {hasActiveFilters.value && (
+                <MobileButton size="small" type="default" onClick={clearAllFilters}>
+                  清除筛选条件
+                </MobileButton>
+              )}
+            </MobileEmpty>
             <p class="mobile-alerts-inbox__empty-hint">
-              {selectedLevel.value.length > 0 || selectedService.value
-                ? '调整筛选条件可能找到更多结果'
-                : '暂无告警，系统运行正常'}
+              {hasActiveFilters.value ? '清除或调整筛选条件后可查看当前时间范围内的告警' : '暂无告警，系统运行正常'}
             </p>
           </div>
         ) : (
           <div class="mobile-alerts-inbox__list-wrapper">
-            <NCard size="small" bordered={false} class="mobile-alerts-inbox__list-card">
-              <NList>
+            <MobileCard size="small" bordered={false} class="mobile-alerts-inbox__list-card">
+              <MobileList>
                 {visibleAlerts.value.map((alert) => {
                   const isExpanded = expandingAlertId.value === alert.id
                   return (
-                    <NListItem key={alert.id}>
-                      <div class="mobile-alerts-inbox__card" onClick={() => toggleExpand(alert.id)}>
+                    <MobileListItem key={alert.id}>
+                      <div
+                        class={['mobile-alerts-inbox__card', `mobile-alerts-inbox__card--${alert.level}`]}
+                        onClick={() => toggleExpand(alert.id)}>
                         <div
                           class={[
                             'mobile-alerts-inbox__card-accent',
@@ -698,12 +766,12 @@ export default defineComponent({
                         <div class="mobile-alerts-inbox__card-header">
                           <span class="mobile-alerts-inbox__card-service">{alert.service}</span>
                           <div class="mobile-alerts-inbox__card-tags">
-                            <NTag size="small" type={levelType(alert.level)} bordered={false}>
+                            <MobileTag size="small" type={levelType(alert.level)}>
                               {levelLabel(alert.level)}
-                            </NTag>
-                            <NTag size="small" type={statusType(alert.status) as any} bordered={false}>
+                            </MobileTag>
+                            <MobileTag size="small" type={statusType(alert.status)}>
                               {statusLabel(alert.status)}
-                            </NTag>
+                            </MobileTag>
                           </div>
                         </div>
                         <div class="mobile-alerts-inbox__card-msg">{alert.message || '无详情'}</div>
@@ -711,22 +779,20 @@ export default defineComponent({
                           <span class="mobile-alerts-inbox__card-time">{relativeTime(alert.time)}</span>
                           {alert.status === 'active' && (
                             <div class="mobile-alerts-inbox__card-actions">
-                              <NButton
-                                size="tiny"
+                              <MobileButton
+                                size="small"
                                 type="primary"
-                                secondary
                                 class="mobile-alerts-inbox__card-action-btn"
                                 onClick={(e: MouseEvent) => quickAcknowledge(e, alert)}>
                                 确认
-                              </NButton>
-                              <NButton
-                                size="tiny"
-                                type="success"
-                                secondary
+                              </MobileButton>
+                              <MobileButton
+                                size="small"
+                                type="default"
                                 class="mobile-alerts-inbox__card-action-btn"
                                 onClick={(e: MouseEvent) => quickResolve(e, alert)}>
                                 解决
-                              </NButton>
+                              </MobileButton>
                             </div>
                           )}
                         </div>
@@ -735,9 +801,9 @@ export default defineComponent({
                             <div class="mobile-alerts-inbox__detail-grid">
                               <div class="mobile-alerts-inbox__detail-item">
                                 <span class="mobile-alerts-inbox__detail-label">状态</span>
-                                <NTag size="small" type={statusType(alert.status) as any} bordered={false}>
+                                <MobileTag size="small" type={statusType(alert.status)}>
                                   {statusLabel(alert.status)}
-                                </NTag>
+                                </MobileTag>
                               </div>
                               <div class="mobile-alerts-inbox__detail-item">
                                 <span class="mobile-alerts-inbox__detail-label">处理人</span>
@@ -764,109 +830,116 @@ export default defineComponent({
                             {/* Action buttons */}
                             <div class="mobile-alerts-inbox__detail-actions">
                               {alert.status === 'active' && (
-                                <NButton
+                                <MobileButton
                                   size="small"
                                   type="primary"
-                                  secondary
-                                  onClick={() => openConfirmModal('acknowledge', alert)}>
-                                  {{
-                                    icon: () => (
-                                      <NIcon size={16}>
-                                        <PhHand />
-                                      </NIcon>
-                                    )
-                                  }}
+                                  icon={() => h(PhHand, { size: 16 })}
+                                  onClick={(event: MouseEvent) => {
+                                    event.stopPropagation()
+                                    openConfirmModal('acknowledge', alert)
+                                  }}>
                                   确认
-                                </NButton>
+                                </MobileButton>
                               )}
                               {alert.status === 'active' && (
-                                <NButton
+                                <MobileButton
                                   size="small"
-                                  type="success"
-                                  secondary
-                                  onClick={() => openConfirmModal('resolve', alert)}>
-                                  {{
-                                    icon: () => (
-                                      <NIcon>
-                                        <PhCheckCircle />
-                                      </NIcon>
-                                    )
-                                  }}
+                                  type="default"
+                                  icon={() => h(PhCheckCircle, { size: 16 })}
+                                  onClick={(event: MouseEvent) => {
+                                    event.stopPropagation()
+                                    openConfirmModal('resolve', alert)
+                                  }}>
                                   解决
-                                </NButton>
+                                </MobileButton>
                               )}
-                              <NButton size="small" secondary onClick={() => openConfirmModal('suppress', alert)}>
-                                {{
-                                  icon: () => (
-                                    <NIcon>
-                                      <PhXCircle />
-                                    </NIcon>
-                                  )
-                                }}
-                                静默
-                              </NButton>
-                              <NButton size="small" secondary onClick={() => openAssignModal(alert)}>
-                                {{
-                                  icon: () => (
-                                    <NIcon size={16}>
-                                      <PhUserPlus />
-                                    </NIcon>
-                                  )
-                                }}
+                              {alert.status === 'active' && (
+                                <MobileButton
+                                  size="small"
+                                  type="default"
+                                  icon={() => h(PhXCircle, { size: 16 })}
+                                  onClick={(event: MouseEvent) => {
+                                    event.stopPropagation()
+                                    openConfirmModal('suppress', alert)
+                                  }}>
+                                  静默
+                                </MobileButton>
+                              )}
+                              <MobileButton
+                                size="small"
+                                type="ghost"
+                                icon={() => h(PhUserPlus, { size: 16 })}
+                                onClick={(event: MouseEvent) => {
+                                  event.stopPropagation()
+                                  openAssignModal(alert)
+                                }}>
                                 指派
-                              </NButton>
+                              </MobileButton>
                             </div>
                           </div>
                         )}
                       </div>
-                    </NListItem>
+                    </MobileListItem>
                   )
                 })}
-              </NList>
-            </NCard>
+              </MobileList>
+            </MobileCard>
 
             {/* Load more */}
             {hasMore.value && (
               <div class="mobile-alerts-inbox__load-more">
-                <NButton text type="primary" onClick={loadMore}>
+                <MobileButton type="primary" onClick={loadMore}>
                   加载更多 ({alerts.value.length - displayCount.value} 条)
-                </NButton>
+                </MobileButton>
               </div>
             )}
           </div>
         )}
 
         {/* ── Assign modal ───────────────────── */}
-        <NModal
-          v-model:show={showAssignModal.value}
-          preset="dialog"
-          title="指派告警处理人"
-          positiveText="保存"
-          negativeText="取消"
-          onPositiveClick={handleAssign}>
-          <NForm>
-            <NFormItem label="处理人">
-              <NSelect
-                v-model:value={assignForm.value.assigneeUserId}
-                options={assigneeOptions.value.filter((item) => item.value !== '' && item.value !== '__unassigned__')}
-                clearable
-                placeholder="选择处理人"
-              />
-            </NFormItem>
-          </NForm>
-        </NModal>
+        <MobileSheet
+          show={showAssignModal.value}
+          onUpdate:show={(v) => (showAssignModal.value = v)}
+          position="bottom"
+          title="指派告警处理人">
+          <div class="mobile-alerts-inbox__assign-form">
+            <div class="mobile-alerts-inbox__assign-label">处理人</div>
+            <MobileSelect
+              v-model:modelValue={assignForm.value.assigneeUserId}
+              options={assigneeOptions.value.filter((item) => item.value !== '' && item.value !== '__unassigned__')}
+              clearable
+              placeholder="选择处理人"
+            />
+          </div>
+          <div class="mobile-alerts-inbox__sheet-actions">
+            <MobileButton block onClick={() => (showAssignModal.value = false)}>
+              取消
+            </MobileButton>
+            <MobileButton block type="primary" onClick={handleAssign}>
+              保存
+            </MobileButton>
+          </div>
+        </MobileSheet>
 
         {/* ── Confirm action modal ───────────── */}
-        <NModal
-          v-model:show={showConfirmModal.value}
-          preset="dialog"
-          title={confirmActionTitle.value}
-          type="warning"
-          positiveText="确认"
-          negativeText="取消"
-          onPositiveClick={executeConfirmAction}>
+        <MobileSheet
+          show={showConfirmModal.value}
+          onUpdate:show={(v) => (showConfirmModal.value = v)}
+          position="bottom"
+          title={confirmActionTitle.value}>
           <div class="mobile-alerts-inbox__confirm-content">{confirmActionContent.value}</div>
-        </NModal>
+          <div class="mobile-alerts-inbox__sheet-actions">
+            <MobileButton block onClick={() => (showConfirmModal.value = false)}>
+              取消
+            </MobileButton>
+            <MobileButton
+              block
+              type={confirmAction.value?.type === 'suppress' ? 'danger' : 'primary'}
+              onClick={executeConfirmAction}>
+              确认
+            </MobileButton>
+          </div>
+        </MobileSheet>
       </div>
     )
   }

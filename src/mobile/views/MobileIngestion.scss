@@ -3,6 +3,7 @@
   min-height: 100dvh;
   padding: clamp(12px, 4vw, 20px) clamp(12px, 4vw, 16px);
   background: var(--color-bg-1);
+  overflow-x: clip;
 
   // ── Header ──────────────────────────────
 
@@ -11,6 +12,7 @@
     align-items: center;
     justify-content: space-between;
     margin-bottom: var(--spacing-3);
+    gap: var(--spacing-2);
   }
 
   &__header-actions {
@@ -30,6 +32,9 @@
     margin-top: var(--spacing-1);
     color: var(--color-text-3);
     font-size: var(--font-size-body-1);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   // ── Connection badge ────────────────────
@@ -60,32 +65,14 @@
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-sm);
 
-    :deep(.n-statistic__label) {
-      font-size: var(--font-size-caption);
-      color: var(--color-text-3);
-    }
-
-    :deep(.n-statistic-content) {
-      font-size: var(--font-size-title-3);
-      font-weight: var(--font-weight-semibold);
-    }
-
     &--active {
-      :deep(.n-statistic-content) {
-        color: var(--color-success-6);
-      }
+      border: 1px solid var(--color-success-6);
     }
-
     &--inactive {
-      :deep(.n-statistic-content) {
-        color: var(--color-warning-6);
-      }
+      border: 1px solid var(--color-warning-6);
     }
-
     &--error {
-      :deep(.n-statistic-content) {
-        color: var(--color-error-6);
-      }
+      border: 1px solid var(--color-danger-6);
     }
   }
 
@@ -128,6 +115,11 @@
 
     &:active {
       border-color: var(--color-primary-5);
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--color-primary-5);
+      outline-offset: var(--spacing-1);
     }
 
     &--expanded {
@@ -208,6 +200,12 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+
+    .mobile-ingestion__source-detail-grid & {
+      max-width: none;
+      overflow-wrap: anywhere;
+      white-space: normal;
+    }
   }
 
   // ── Source expanded ─────────────────────
@@ -241,6 +239,12 @@
     margin-top: var(--spacing-3);
     padding-top: var(--spacing-2);
     border-top: 1px solid var(--color-border-1);
+  }
+
+  &__revoke-button {
+    min-height: var(--size-default);
+    color: var(--color-danger-6);
+    border-color: var(--color-danger-3);
   }
 
   &__source-action-label {
@@ -294,6 +298,34 @@
     &:focus {
       border-color: var(--color-primary-5);
       box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary-5) 20%, transparent);
+    }
+  }
+
+  @media (max-width: 359px) {
+    &__header {
+      align-items: flex-start;
+    }
+
+    &__header-actions :deep(.van-button) {
+      min-height: var(--size-default);
+    }
+
+    &__source-detail-row,
+    &__source-detail-item {
+      align-items: flex-start;
+      flex-direction: column;
+    }
+
+    &__source-detail-value {
+      max-width: 100%;
+    }
+
+    &__source-actions {
+      justify-content: stretch;
+    }
+
+    &__revoke-button {
+      width: 100%;
     }
   }
 }

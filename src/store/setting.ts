@@ -35,13 +35,22 @@ export const useSettingStore = defineStore(StoresEnum.SETTING, {
     }
   }),
   actions: {
+    applySystemTheme() {
+      const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? ThemeEnum.DARK : ThemeEnum.LIGHT
+      this.themes.content = systemTheme
+      document.documentElement.dataset.theme = systemTheme
+    },
     /**
      * 初始化主题
      */
     initTheme(theme: string) {
-      this.themes.content = theme
-      document.documentElement.dataset.theme = theme
       this.themes.pattern = theme
+      if (theme === ThemeEnum.OS) {
+        this.applySystemTheme()
+      } else {
+        this.themes.content = theme
+        document.documentElement.dataset.theme = theme
+      }
     },
     /**
      * 切换主题
@@ -49,14 +58,15 @@ export const useSettingStore = defineStore(StoresEnum.SETTING, {
     setTheme(theme: string) {
       if (theme === ThemeEnum.OS) {
         this.themes.pattern = theme
-        const os = matchMedia('(prefers-color-scheme: dark)').matches ? ThemeEnum.DARK : ThemeEnum.LIGHT
-        document.documentElement.dataset.theme = os
-        this.themes.content = os
+        this.applySystemTheme()
       } else {
         this.themes.pattern = theme
         document.documentElement.dataset.theme = theme
         this.themes.content = theme
       }
+    },
+    syncSystemTheme() {
+      if (this.themes.pattern === ThemeEnum.OS) this.applySystemTheme()
     }
   },
   share: {

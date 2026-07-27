@@ -1,6 +1,6 @@
-import { defineComponent, ref, onMounted } from 'vue'
+import { defineComponent, ref, onActivated } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { NCard, NButton, NEmpty, NGrid, NGridItem, NSpin, NStatistic, NTag } from 'naive-ui'
+import { MobileButton, MobileCard, MobileEmpty, MobileLoading, MobileTag } from '@/mobile/ui'
 import { fetchServiceDetailSummary } from '@/api'
 
 import type { ServiceItem } from '@/types/monitor'
@@ -78,7 +78,7 @@ export default defineComponent({
     const displayMetric = (value: number | null | undefined, suffix = '') =>
       typeof value === 'number' ? `${value}${suffix}` : '未知'
 
-    onMounted(loadServiceDetail)
+    onActivated(loadServiceDetail)
 
     return () => (
       <div class="mobile-service-detail-v2">
@@ -87,20 +87,22 @@ export default defineComponent({
             <h2 class="mobile-service-detail-v2__title">服务详情</h2>
             <div class="mobile-service-detail-v2__subtitle">移动端 service-first 摘要详情</div>
           </div>
-          <NButton size="small" secondary type="primary" onClick={loadServiceDetail}>
+          <MobileButton size="small" type="ghost" class="mobile-service-detail-v2__refresh" onClick={loadServiceDetail}>
             刷新
-          </NButton>
+          </MobileButton>
         </div>
 
         {loading.value ? (
           <div class="mobile-service-detail-v2__loading">
-            <NSpin size="large" />
+            <MobileLoading size="32px" />
           </div>
         ) : !service.value ? (
-          <NEmpty description="未找到对应服务" class="mobile-service-detail-v2__empty-state" />
+          <div class="mobile-service-detail-v2__state">
+            <MobileEmpty description="未找到对应服务" />
+          </div>
         ) : (
           <>
-            <NCard size="small" bordered={false} class="mobile-service-detail-v2__identity">
+            <MobileCard size="small" bordered={false} class="mobile-service-detail-v2__identity">
               <div class="mobile-service-detail-v2__identity-content">
                 <div class="mobile-service-detail-v2__identity-main">
                   <div class="mobile-service-detail-v2__identity-title">{service.value.name}</div>
@@ -111,9 +113,8 @@ export default defineComponent({
                     版本: {service.value.version || '-'} · 实例数: {displayMetric(summary.value.instances)}
                   </div>
                 </div>
-                <NTag
+                <MobileTag
                   size="small"
-                  bordered={false}
                   type={
                     service.value.health === 'healthy'
                       ? 'success'
@@ -121,7 +122,7 @@ export default defineComponent({
                         ? 'warning'
                         : service.value.health === 'unknown'
                           ? 'default'
-                          : 'error'
+                          : 'danger'
                   }>
                   {service.value.health === 'healthy'
                     ? '健康'
@@ -130,11 +131,11 @@ export default defineComponent({
                       : service.value.health === 'unknown'
                         ? '未知'
                         : '异常'}
-                </NTag>
+                </MobileTag>
               </div>
-            </NCard>
+            </MobileCard>
 
-            <NGrid cols={2} xGap={12} yGap={12} class="mobile-service-detail-v2__stats-grid">
+            <div class="mobile-service-detail-v2__stats-grid">
               {(
                 [
                   { label: 'QPS', value: displayMetric(summary.value.qps) },
@@ -143,15 +144,15 @@ export default defineComponent({
                   { label: '活跃连接', value: displayMetric(summary.value.activeConnections) }
                 ] as Array<{ label: string; value: string | number }>
               ).map((item) => (
-                <NGridItem key={item.label}>
-                  <NCard size="small" bordered={false} class="mobile-service-detail-v2__stat-card">
-                    <NStatistic label={item.label} value={item.value} />
-                  </NCard>
-                </NGridItem>
+                <MobileCard key={item.label} size="small" bordered={false} class="mobile-service-detail-v2__stat-card">
+                  <div class="mobile-service-detail-v2__stat-label">{item.label}</div>
+                  <div class="mobile-service-detail-v2__stat-value">{item.value}</div>
+                </MobileCard>
               ))}
-            </NGrid>
+            </div>
 
-            <NCard size="small" bordered={false} class="mobile-service-detail-v2__runtime-card" title="运行摘要">
+            <MobileCard size="small" bordered={false} class="mobile-service-detail-v2__runtime-card">
+              <h3 class="mobile-service-detail-v2__runtime-title">运行摘要</h3>
               <div class="mobile-service-detail-v2__runtime-grid">
                 <div class="mobile-service-detail-v2__runtime-block">
                   <div class="mobile-service-detail-v2__runtime-label">CPU</div>
@@ -162,14 +163,14 @@ export default defineComponent({
                   <div class="mobile-service-detail-v2__runtime-value">{displayMetric(summary.value.memory, '%')}</div>
                 </div>
               </div>
-            </NCard>
+            </MobileCard>
           </>
         )}
 
         <div class="mobile-service-detail-v2__footer">
-          <NButton block onClick={() => router.push('/mobile/services-v2')}>
+          <MobileButton block onClick={() => router.push('/mobile/services-v2')}>
             返回服务目录
-          </NButton>
+          </MobileButton>
         </div>
       </div>
     )

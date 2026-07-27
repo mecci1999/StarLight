@@ -1,18 +1,15 @@
-import { defineComponent, ref, onMounted, computed } from 'vue'
+import { defineComponent, ref, onActivated, computed, h } from 'vue'
 import {
-  NCard,
-  NButton,
-  NEmpty,
-  NSpin,
-  NTag,
-  NInput,
-  NResult,
-  NIcon,
-  NGrid,
-  NGridItem,
-  NSelect,
-  NModal
-} from 'naive-ui'
+  MobileButton,
+  MobileCard,
+  MobileTag,
+  MobileEmpty,
+  MobileLoading,
+  MobileInput,
+  MobileSelect,
+  MobileSheet,
+  MobileGrid
+} from '@/mobile/ui'
 import {
   PhArrowsClockwise,
   PhGitBranch,
@@ -22,7 +19,7 @@ import {
   PhMagnifyingGlass
 } from '@phosphor-icons/vue'
 import { searchTraces, getTraceDetails } from '@/api/trace'
-import { fetchCatalogServices } from '@/api/metrics'
+import { fetchCatalogServices, type MetricsDatasetScope } from '@/api/metrics'
 import type { TraceSpan } from '@/types/monitor'
 import './MobileTraceExplorer.scss'
 
@@ -70,16 +67,26 @@ export default defineComponent({
 
     const loadServiceOptions = async () => {
       try {
-        const res = await fetchCatalogServices({ page: 1, pageSize: 200, scope: 'tenant' as any })
-        const items = Array.isArray((res as any)?.items) ? (res as any).items : []
-        serviceOptions.value = items.map((item: any) => ({
-          label: item.identity?.name || item.identity?.id,
-          value: normalizeServiceName(item.identity?.name || item.identity?.id)
-        }))
+        const res: unknown = await fetchCatalogServices({
+          page: 1,
+          pageSize: 200,
+          scope: 'tenant' satisfies MetricsDatasetScope
+        })
+        const items = isRecord(res) && Array.isArray(res.items) ? res.items : []
+        serviceOptions.value = items.flatMap((item) => {
+          if (!isRecord(item) || !isRecord(item.identity)) return []
+          const id = item.identity.id
+          const name = item.identity.name
+          const label = typeof name === 'string' ? name : typeof id === 'string' ? id : ''
+          return label ? [{ label, value: normalizeServiceName(label) }] : []
+        })
       } catch {
         serviceOptions.value = []
       }
     }
+
+    const isRecord = (value: unknown): value is Record<string, unknown> =>
+      typeof value === 'object' && value !== null && !Array.isArray(value)
 
     const buildSearchParams = () => {
       const params: Record<string, unknown> = {
@@ -120,7 +127,7 @@ export default defineComponent({
       }
     }
 
-    onMounted(() => {
+    onActivated(() => {
       loadServiceOptions()
       loadTraces()
     })
@@ -189,8 +196,8 @@ export default defineComponent({
     })
 
     // ---- Helpers ----
-    const statusTagType = (status: string): 'success' | 'error' | 'default' => {
-      return status === 'ok' ? 'success' : status === 'error' ? 'error' : 'default'
+    const statusTagType = (status: string): 'success' | 'danger' | 'default' => {
+      return status === 'ok' ? 'success' : status === 'error' ? 'danger' : 'default'
     }
 
     const statusLabel = (status: string): string => {
@@ -251,86 +258,82 @@ export default defineComponent({
           <div>
             <h2 class="mobile-trace-explorer__title">链路追踪</h2>
           </div>
-          <NButton size="small" secondary type="primary" onClick={loadTraces} loading={loading.value}>
-            <NIcon>
-              <PhArrowsClockwise />
-            </NIcon>
-          </NButton>
+          <MobileButton
+            size="small"
+            type="primary"
+            class="mobile-trace-explorer__refresh-action"
+            onClick={loadTraces}
+            loading={loading.value}
+            aria-label="刷新链路数据">
+            {h(PhArrowsClockwise, { size: 16 })}
+          </MobileButton>
         </div>
 
         {/* ── Stats Grid ── */}
         <div class="mobile-trace-explorer__stats">
-          <NGrid cols={4} xGap={8} yGap={8}>
-            <NGridItem>
+          <MobileGrid cols={4} gap="var(--spacing-2)">
+            <div>
               <div class="mobile-trace-explorer__stat-card">
                 <div class="mobile-trace-explorer__stat-icon mobile-trace-explorer__stat-icon--total">
-                  <NIcon>
-                    <PhGitBranch size={16} />
-                  </NIcon>
+                  {h(PhGitBranch, { size: 16 })}
                 </div>
                 <div class="mobile-trace-explorer__stat-value">{stats.value.total}</div>
                 <div class="mobile-trace-explorer__stat-label">总数</div>
               </div>
-            </NGridItem>
-            <NGridItem>
+            </div>
+            <div>
               <div class="mobile-trace-explorer__stat-card">
                 <div class="mobile-trace-explorer__stat-icon mobile-trace-explorer__stat-icon--healthy">
-                  <NIcon>
-                    <PhGitBranch size={16} />
-                  </NIcon>
+                  {h(PhGitBranch, { size: 16 })}
                 </div>
                 <div class="mobile-trace-explorer__stat-value">{stats.value.healthy}</div>
                 <div class="mobile-trace-explorer__stat-label">正常</div>
               </div>
-            </NGridItem>
-            <NGridItem>
+            </div>
+            <div>
               <div class="mobile-trace-explorer__stat-card">
                 <div class="mobile-trace-explorer__stat-icon mobile-trace-explorer__stat-icon--duration">
-                  <NIcon>
-                    <PhClock size={16} />
-                  </NIcon>
+                  {h(PhClock, { size: 16 })}
                 </div>
                 <div class="mobile-trace-explorer__stat-value">{stats.value.avgDuration}ms</div>
                 <div class="mobile-trace-explorer__stat-label">平均耗时</div>
               </div>
-            </NGridItem>
-            <NGridItem>
+            </div>
+            <div>
               <div class="mobile-trace-explorer__stat-card">
                 <div class="mobile-trace-explorer__stat-icon mobile-trace-explorer__stat-icon--error">
-                  <NIcon>
-                    <PhWarningCircle size={16} />
-                  </NIcon>
+                  {h(PhWarningCircle, { size: 16 })}
                 </div>
                 <div class="mobile-trace-explorer__stat-value">{stats.value.errorCount}</div>
                 <div class="mobile-trace-explorer__stat-label">异常</div>
               </div>
-            </NGridItem>
-          </NGrid>
+            </div>
+          </MobileGrid>
         </div>
 
         {/* ── Filters ── */}
         <div class="mobile-trace-explorer__filters">
           <div class="mobile-trace-explorer__filter-header">
             <div class="mobile-trace-explorer__filter-header-left">
-              <NIcon>
-                <PhFunnel size={14} />
-              </NIcon>
+              {h(PhFunnel, { size: 14 })}
               <span>筛选</span>
             </div>
             {hasActiveFilters.value ? (
-              <NButton text size="tiny" onClick={resetFilters}>
+              <MobileButton size="small" onClick={resetFilters}>
                 重置
-              </NButton>
+              </MobileButton>
             ) : null}
           </div>
 
           <div class="mobile-trace-explorer__filter-body">
-            <NSelect
-              v-model:value={selectedService.value}
+            <MobileSelect
+              modelValue={selectedService.value ?? ''}
+              onUpdate:modelValue={(value) => {
+                selectedService.value = value ? String(value) : null
+              }}
               options={serviceOptions.value}
               placeholder="选择服务"
               clearable
-              size="small"
               class="mobile-trace-explorer__filter-select"
             />
             <div class="mobile-trace-explorer__filter-chips">
@@ -371,75 +374,70 @@ export default defineComponent({
                 </button>
               ))}
             </div>
-            <NInput
-              v-model:value={operationFilter.value}
+            <MobileInput
+              modelValue={operationFilter.value}
+              onUpdate:modelValue={(value) => {
+                operationFilter.value = String(value)
+              }}
               placeholder="按操作名称过滤..."
               clearable
-              size="small"
               class="mobile-trace-explorer__filter-input">
               {{
-                prefix: () => (
-                  <NIcon>
-                    <PhMagnifyingGlass size={14} />
-                  </NIcon>
-                )
+                prefix: () => h(PhMagnifyingGlass, { size: 14 })
               }}
-            </NInput>
+            </MobileInput>
           </div>
         </div>
 
         {/* ── Keyword Search ── */}
         <div class="mobile-trace-explorer__search">
-          <NInput
-            v-model:value={searchQuery.value}
+          <MobileInput
+            modelValue={searchQuery.value}
+            onUpdate:modelValue={(value) => {
+              const nextValue = String(value)
+              const shouldReload = searchQuery.value.length > 0 && nextValue.length === 0
+              searchQuery.value = nextValue
+              if (shouldReload) loadTraces()
+            }}
             placeholder="搜索 Trace ID 或服务名..."
             clearable
-            size="small"
-            onClear={loadTraces}
-            onKeydown={(e: KeyboardEvent) => {
-              if (e.key === 'Enter') loadTraces()
-            }}>
+            onEnter={loadTraces}>
             {{
-              prefix: () => <NIcon component={PhMagnifyingGlass} size={14} />
+              prefix: () => h(PhMagnifyingGlass, { size: 14 })
             }}
-          </NInput>
+          </MobileInput>
           {searchQuery.value.trim() ? (
-            <NButton
-              text
-              size="tiny"
+            <MobileButton
+              size="small"
               class="mobile-trace-explorer__search-btn"
               onClick={() => {
                 loadTraces()
               }}>
               搜索
-            </NButton>
+            </MobileButton>
           ) : null}
         </div>
 
         {/* ── Content ── */}
         {loading.value ? (
           <div class="mobile-trace-explorer__loading">
-            <NSpin size="large" />
+            <MobileLoading loading={true} size="large" />
           </div>
         ) : error.value ? (
-          <NResult
-            status="500"
-            title="数据加载失败"
-            description="请检查网络连接后重试"
-            class="mobile-trace-explorer__error">
+          <MobileEmpty description="数据加载失败" class="mobile-trace-explorer__error">
             {{
-              footer: () => (
-                <NButton type="primary" size="small" onClick={loadTraces}>
+              action: () => (
+                <MobileButton type="primary" size="small" onClick={loadTraces}>
                   重新加载
-                </NButton>
+                </MobileButton>
               )
             }}
-          </NResult>
+          </MobileEmpty>
         ) : (
           <>
             {displayTraces.value.length === 0 ? (
               <div class="mobile-trace-explorer__empty-state">
-                <NEmpty description="暂无链路数据" />
+                <MobileEmpty description="暂无链路数据" />
               </div>
             ) : (
               <>
@@ -448,14 +446,17 @@ export default defineComponent({
                     <div
                       key={trace.id || trace.traceId}
                       class="mobile-trace-explorer__list-card-wrapper"
+                      role="button"
+                      tabindex="0"
+                      aria-label={`查看链路详情：${trace.traceId || trace.name || '未知链路'}`}
                       onClick={() => openTrace(trace.traceId)}>
-                      <NCard size="small" bordered={false} class="mobile-trace-explorer__list-card">
+                      <MobileCard size="small" bordered={false} class="mobile-trace-explorer__list-card">
                         <div class="mobile-trace-explorer__card-header">
                           <span class="mobile-trace-explorer__card-time">{formatTime(trace.startTime)}</span>
                           <div class="mobile-trace-explorer__card-header-right">
-                            <NTag size="tiny" bordered={false} type={statusTagType(trace.status)}>
+                            <MobileTag size="small" type={statusTagType(trace.status)}>
                               {statusLabel(trace.status)}
-                            </NTag>
+                            </MobileTag>
                           </div>
                         </div>
                         <div class="mobile-trace-explorer__card-main">
@@ -468,7 +469,7 @@ export default defineComponent({
                             {trace.traceId ? trace.traceId.slice(0, 16) + '...' : '-'}
                           </span>
                         </div>
-                      </NCard>
+                      </MobileCard>
                     </div>
                   ))}
                 </div>
@@ -476,26 +477,27 @@ export default defineComponent({
                 {/* ── Infinite Scroll Pagination ── */}
                 {hasMore.value ? (
                   <div class="mobile-trace-explorer__pagination">
-                    <NButton quaternary block size="small" onClick={loadMore} class="mobile-trace-explorer__load-more">
+                    <MobileButton block size="small" onClick={loadMore} class="mobile-trace-explorer__load-more">
                       加载更多 ({visibleCount.value}/{filteredTraces.value.length})
-                    </NButton>
+                    </MobileButton>
                   </div>
                 ) : null}
               </>
             )}
 
             {/* ── Span Detail Bottom Sheet ── */}
-            <NModal
-              v-model:show={showDrawer.value}
-              preset="card"
+            <MobileSheet
+              show={showDrawer.value}
+              onUpdate:show={(val: boolean) => {
+                if (val) showDrawer.value = true
+                else closeDrawer()
+              }}
+              position="bottom"
               class="mobile-trace-explorer__drawer"
-              title={`链路详情 - ${selectedTraceId.value ? selectedTraceId.value.slice(0, 16) + '...' : ''}`}
-              closable
-              onClose={closeDrawer}
-              onMaskClick={closeDrawer}>
+              title={`链路详情 - ${selectedTraceId.value ? selectedTraceId.value.slice(0, 16) + '...' : ''}`}>
               {drawerLoading.value ? (
                 <div class="mobile-trace-explorer__drawer-loading">
-                  <NSpin size="medium" />
+                  <MobileLoading loading={true} size="medium" />
                 </div>
               ) : drawerTraces.value.length > 0 && rootSpan.value ? (
                 <div class="mobile-trace-explorer__drawer-content">
@@ -537,6 +539,16 @@ export default defineComponent({
                         ]}
                         onClick={() => {
                           selectedSpan.value = selectedSpan.value?.id === span.id ? null : span
+                        }}
+                        role="button"
+                        tabindex="0"
+                        aria-expanded={selectedSpan.value?.id === span.id}
+                        aria-label={`查看 Span 详情：${span.name || span.service || span.id}`}
+                        onKeydown={(event: KeyboardEvent) => {
+                          if (event.key === 'Enter' || event.key === ' ') {
+                            event.preventDefault()
+                            selectedSpan.value = selectedSpan.value?.id === span.id ? null : span
+                          }
                         }}>
                         <div class="mobile-trace-explorer__drawer-span-header">
                           <div
@@ -595,9 +607,9 @@ export default defineComponent({
                   </div>
                 </div>
               ) : (
-                <NEmpty description="暂无链路详情" class="mobile-trace-explorer__drawer-empty" />
+                <MobileEmpty description="暂无链路详情" class="mobile-trace-explorer__drawer-empty" />
               )}
-            </NModal>
+            </MobileSheet>
           </>
         )}
       </div>
