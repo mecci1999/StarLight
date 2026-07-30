@@ -25,6 +25,8 @@
     "tauri:dev": "tauri dev",
     "========= 打包桌面应用程序 =========": "",
     "tauri:build": "tauri build",
+    "tauri:build:macos": "tauri build --config src-tauri/tauri.macos.conf.json",
+    "tauri:build:windows": "tauri build --config src-tauri/tauri.windows.conf.json",
     "========= 打包后可调试并且可以弹出控制台 =========": "",
     "tauri:build:debug": "tauri build --debug",
     "========= 启动StarLight ios 程序 =========": "",

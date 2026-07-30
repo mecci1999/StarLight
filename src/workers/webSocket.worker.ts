@@ -34,7 +34,17 @@ const resolveWebSocketUrl = () => {
     console.warn('VITE_WEBSOCKET_URL 指向了 HTTP API 路径，已回退到默认 WebSocket 地址:', configuredUrl)
   }
 
-  return 'ws://127.0.0.1:8090/ws'
+  const serviceUrl = String(import.meta.env.VITE_SERVICE_URL || '').trim()
+  if (serviceUrl) {
+    const endpoint = new URL(serviceUrl)
+    endpoint.protocol = endpoint.protocol === 'https:' ? 'wss:' : 'ws:'
+    endpoint.pathname = '/ws'
+    endpoint.search = ''
+    endpoint.hash = ''
+    return endpoint.toString().replace(/\/$/, '')
+  }
+
+  return 'wss://api.starlight.host/ws'
 }
 
 // 往 ws 发送消息

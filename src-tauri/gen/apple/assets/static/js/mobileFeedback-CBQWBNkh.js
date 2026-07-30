@@ -1,1 +1,0 @@
-import{bO as s,bP as e,bQ as a,bR as t,bS as o,bT as r}from"./invariable-CxrooRM6.js";const i={success:s=>r(s),error:e=>s(e),warning:s=>o("string"==typeof s?{message:s,type:"text"}:s),info:s=>o("string"==typeof s?{message:s,type:"text"}:s),loading:(s="加载中...")=>t(s),close:()=>a(),confirm:s=>e(s)};export{i as m};

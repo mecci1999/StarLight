@@ -28,3 +28,8 @@ src-tauri/target
 .cursorrules
 
 .trae
+
+build/ios
+build/releases
+build/verify-dmg-arm64
+build/verify-dmg-x64

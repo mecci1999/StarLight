@@ -1,0 +1,1 @@
+import{bS as s,bT as e,bU as a,bV as t,bW as o,bX as r}from"./invariable-_DbLQ8mT.js";const i={success:s=>r(s),error:e=>s(e),warning:s=>o("string"==typeof s?{message:s,type:"text"}:s),info:s=>o("string"==typeof s?{message:s,type:"text"}:s),loading:(s="加载中...")=>t(s),close:()=>a(),confirm:s=>e(s)};export{i as m};
