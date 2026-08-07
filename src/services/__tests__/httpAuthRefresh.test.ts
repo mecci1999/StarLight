@@ -181,4 +181,55 @@ describe('Http auth refresh', () => {
       message: '服务端暂不可用，请确认后端网关已启动'
     })
   })
+
+  it('preserves the three-day session when refresh returns a server error', async () => {
+    storage.set('REFRESH_TOKEN', 'refresh-1')
+    vi.mocked(fetch).mockResolvedValueOnce({
+      ok: false,
+      status: 500,
+      headers: new Headers({ 'Content-Type': 'application/json' }),
+      json: async () => ({ status: 500, data: { message: 'temporary outage', success: false, code: 500 } })
+    } as Response)
+
+    const { restoreAuthSession } = await import('../http')
+
+    await expect(restoreAuthSession()).resolves.toBe(false)
+    expect(storage.get('REFRESH_TOKEN')).toBe('refresh-1')
+    expect(window.dispatchEvent).not.toHaveBeenCalled()
+  })
+
+  it('does not clear the session when a retried protected request remains unauthorized', async () => {
+    storage.set('ACCESS_TOKEN', createJwt(60 * 60 * 1000))
+    storage.set('REFRESH_TOKEN', 'refresh-1')
+    vi.mocked(fetch)
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+        headers: new Headers({ 'Content-Type': 'application/json' }),
+        json: async () => ({ status: 401, data: { message: 'endpoint denied', success: false, code: 40001 } })
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        headers: new Headers(),
+        json: async () => ({
+          status: 200,
+          data: { content: { accessToken: 'new-access', refreshToken: 'refresh-1' }, success: true, code: 200 }
+        })
+      } as Response)
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+        headers: new Headers({ 'Content-Type': 'application/json' }),
+        json: async () => ({ status: 401, data: { message: 'endpoint denied', success: false, code: 40001 } })
+      } as Response)
+
+    const { default: Http } = await import('../http')
+
+    await expect(Http('http://127.0.0.1:6670/api/metrics/v1/layout', { method: 'GET' })).rejects.toMatchObject({
+      message: '当前请求未获授权，请稍后重试'
+    })
+    expect(storage.get('REFRESH_TOKEN')).toBe('refresh-1')
+    expect(window.dispatchEvent).not.toHaveBeenCalled()
+  })
 })

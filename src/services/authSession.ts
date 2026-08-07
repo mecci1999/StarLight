@@ -5,7 +5,10 @@ import type { QuerySpec } from '@/domains/metrics/queryModel'
 
 export type MetricsDatasetScope = 'tenant' | 'system'
 
-const ACCESS_TOKEN_EXPIRE_DAYS = 7
+// The server is the source of truth: access JWTs expire after six hours and
+// refresh JWTs expire after three days. Keeping the access cookie longer made
+// an expired session look valid after an application restart.
+const ACCESS_TOKEN_EXPIRE_DAYS = 0.25
 const REFRESH_TOKEN_EXPIRE_DAYS = 3
 
 export type AuthTokens = {

@@ -39,6 +39,7 @@ import dayjs from 'dayjs'
 import PageHeader from '@/shared/layout/PageHeader'
 import { getStoredUserInfo } from '@/services/authSession'
 import { buildRecentLogSearchParams, type RecentLogLevelFilter } from '@/domains/logs/recentLogQuery'
+import { copyLogText, formatLogForClipboard } from '@/domains/logs/clipboard'
 import './LogCenterPage.scss'
 
 import LogService from '@/views/homeWindow/log/service'
@@ -512,6 +513,21 @@ export default defineComponent({
 
     const hasRecentLogFilters = computed(() => Boolean(recentLogLevelFilter.value || recentLogKeyword.value.trim()))
 
+    const copyRecentLogs = async () => {
+      if (filteredRecentLogs.value.length === 0) {
+        message.warning('没有日志可复制')
+        return
+      }
+
+      const content = filteredRecentLogs.value.map((log) => formatLogForClipboard(log)).join('\n')
+      try {
+        await copyLogText(content)
+        message.success(`已复制 ${filteredRecentLogs.value.length} 条日志`)
+      } catch {
+        message.error('复制日志失败')
+      }
+    }
+
     onMounted(() => {
       loadStats()
       loadDebugDiagnosticsState()
@@ -784,6 +800,9 @@ export default defineComponent({
                             recentLogKeyword.value = value
                           }}
                         />
+                        <NButton secondary onClick={copyRecentLogs}>
+                          复制日志
+                        </NButton>
                       </div>
 
                       {filteredRecentLogs.value.length > 0 ? (

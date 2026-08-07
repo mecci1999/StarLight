@@ -148,9 +148,8 @@ export default defineComponent({
               stopPolling()
 
               // 手动保存 Token
-              const accessToken =
-                response.token || response.accessToken || response.access_token || getStoredAuthTokens().accessToken
-              const refreshToken = response.refreshToken || response.refresh_token || getStoredAuthTokens().refreshToken
+              const accessToken = response.token || response.accessToken || response.access_token
+              const refreshToken = response.refreshToken || response.refresh_token
 
               persistAuthTokens({ accessToken, refreshToken })
 

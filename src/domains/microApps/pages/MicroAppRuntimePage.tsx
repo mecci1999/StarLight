@@ -15,7 +15,7 @@ import {
 import './MicroAppRuntimePage.scss'
 
 const isTauriRuntime = () => Boolean((window as unknown as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__)
-const webviewLabel = (value: string) => `micro_app_${value}`.replace(/[^a-zA-Z0-9_:-]/g, '_')
+const webviewLabel = (appId: string, version: string) => `micro_app_${appId}:${version}`
 const FLOATING_LAYER_SELECTOR = ['.n-message-container', '.n-popover', '.n-dropdown-menu'].join(',')
 const FLOATING_LAYER_GAP = 8
 const MIN_WEBVIEW_HEIGHT = 160
@@ -91,7 +91,10 @@ export default defineComponent({
       const host = hostRef.value
       if (!host) return
       const rect = host.getBoundingClientRect()
-      const label = webviewLabel(previewKey.value || appId.value)
+      const url = new URL(nextUrl)
+      const [runtimeAppId, runtimeVersion] = url.pathname.split('/').filter(Boolean)
+      if (!runtimeAppId || !runtimeVersion) throw new Error('微应用运行地址缺少包身份')
+      const label = webviewLabel(runtimeAppId, runtimeVersion)
       const existing = await Webview.getByLabel(label)
       if (existing) await existing.close().catch(() => undefined)
 
@@ -167,6 +170,7 @@ export default defineComponent({
         subtree: true
       })
       window.addEventListener('resize', scheduleWebviewBoundsUpdate)
+      window.addEventListener('scroll', scheduleWebviewBoundsUpdate, true)
       document.addEventListener('click', scheduleWebviewBoundsUpdate, true)
       document.addEventListener('keydown', scheduleWebviewBoundsUpdate, true)
       void boot()
@@ -177,6 +181,7 @@ export default defineComponent({
       floatingLayerObserver?.disconnect()
       if (boundsUpdateFrame) window.cancelAnimationFrame(boundsUpdateFrame)
       window.removeEventListener('resize', scheduleWebviewBoundsUpdate)
+      window.removeEventListener('scroll', scheduleWebviewBoundsUpdate, true)
       document.removeEventListener('click', scheduleWebviewBoundsUpdate, true)
       document.removeEventListener('keydown', scheduleWebviewBoundsUpdate, true)
       if (previewKey.value) clearMicroAppPreviewRecord(previewKey.value)

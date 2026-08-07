@@ -43,6 +43,29 @@ describe('overviewWidgetQueryPreviewModel', () => {
     expect(result.supported).toBe(false)
   })
 
+  it('maps P95 latency summaries to a P95 response-time query', () => {
+    const widget = {
+      id: 'p95-latency-summary',
+      title: 'P95 延迟',
+      kind: 'metric-summary',
+      size: 'S',
+      capability: 'metrics',
+      description: '',
+      config: { metricKey: 'p95-latency', compareWindow: 'previous-period', threshold: null },
+      editor: { timeRange: '5m', visualization: 'number', displayedMetrics: ['p95-latency'] }
+    } as unknown as OverviewPanelWidget
+
+    const result = buildOverviewWidgetQueryPreviewSpec({ widget, scope: 'system', scopedServiceName: null, services })
+
+    expect(result.supported).toBe(true)
+    expect(result.query).toMatchObject({
+      metricRef: 'service.response.time',
+      aggregation: 'p95',
+      timeRange: '-5m',
+      visualizationHint: 'number'
+    })
+  })
+
   it('rejects multi-metric or grouped trend previews that cannot be expressed safely', () => {
     const multiMetricWidget = {
       id: 'w5',

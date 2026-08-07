@@ -1,10 +1,12 @@
 import NaiveProvider from '@/components/common/NaiveProvider'
+import { NSpin } from 'naive-ui'
 import { RouterView, useRouter } from 'vue-router'
 import { emit, listen } from '@tauri-apps/api/event'
 import { type } from '@tauri-apps/plugin-os'
 import { useSettingStore } from '@/store/setting'
 import { StoresEnum, ThemeEnum } from '@/types/enums'
 import { clearStoredAuthSession, persistAuthTokens } from '@/services/authSession'
+import { restoreAuthSession } from '@/services/http'
 
 import { useTauriListener } from '@/hooks/useTauriListener'
 
@@ -16,6 +18,7 @@ export default defineComponent({
     const router = useRouter()
     const { page } = storeToRefs(settingStore)
     const tauriListener = useTauriListener()
+    const sessionRestored = ref(false)
 
     // 是否桌面端
     const isDesktop = computed(() => {
@@ -106,6 +109,11 @@ export default defineComponent({
           }
         })
       )
+      // Restore the short-lived access token before the application starts its
+      // normal authenticated traffic. A temporary network error preserves the
+      // three-day refresh session and is retried by ordinary request handling.
+      await restoreAuthSession()
+      sessionRestored.value = true
       emit('auth-token-request')
       /** 开发环境不禁止 */
       if (process.env.NODE_ENV !== 'development') {
@@ -131,7 +139,13 @@ export default defineComponent({
     return () => (
       <NaiveProvider messageMax={3} notificMax={3}>
         <div id={'app-container'}>
-          <RouterView />
+          {sessionRestored.value ? (
+            <RouterView />
+          ) : (
+            <div class="flex-center h-full" role="status" aria-label="正在恢复登录状态">
+              <NSpin size="medium" />
+            </div>
+          )}
         </div>
       </NaiveProvider>
     )

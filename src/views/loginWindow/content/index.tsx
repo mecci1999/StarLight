@@ -3,6 +3,7 @@ import { useNetwork } from '@vueuse/core'
 import { NButton, NCheckbox, NFlex, NModal } from 'naive-ui'
 import LegalDocumentContent from '@/shared/legal/LegalDocumentContent'
 import type { LegalDocumentKind } from '@/shared/legal/agreements'
+import { hasAcceptedLegalAgreements, persistLegalAgreementAcceptance } from '@/shared/legal/agreementAcceptance'
 import LoginWindowContentEmail from './mode/email'
 import LoginWindowContentQRCode from './mode/qrcode'
 import LoginWindowContentRegister from './mode/register'
@@ -20,7 +21,7 @@ export default defineComponent({
     const state = reactive({
       mode: 'login', // 页面模式 login 账号登录 scan 扫码登录 forget 忘记密码 register 注册账号
       loginDisabled: !isOnline.value, // 登录按钮禁用状态
-      protocol: false, // 是否同意协议
+      protocol: hasAcceptedLegalAgreements(), // 是否同意协议
       activeLegalDocument: null as LegalDocumentKind | null
     })
 
@@ -118,6 +119,7 @@ export default defineComponent({
               checked={state.protocol}
               onUpdateChecked={(value) => {
                 state.protocol = value
+                persistLegalAgreementAcceptance(value)
               }}
             />
             <div class="footer-agreement">

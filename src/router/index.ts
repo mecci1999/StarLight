@@ -40,6 +40,7 @@ const routes: Array<RouteRecordRaw> = [
   {
     path: '/mobile',
     component: () => import('@/mobile/layout/MobileLayout'),
+    redirect: { name: 'mobile-overview-v2' },
     children: [
       { path: 'overview-v2', name: 'mobile-overview-v2', component: () => import('@/mobile/views/OverviewV2') },
       {

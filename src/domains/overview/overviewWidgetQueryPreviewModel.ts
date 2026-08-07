@@ -141,7 +141,7 @@ export const buildOverviewWidgetQueryPreviewSpec = (params: {
         sourceKind: 'auto',
         subject: scopedServiceId ? { type: 'service', id: scopedServiceId } : { type: 'system' },
         metricRef,
-        aggregation: visualizationHint === 'number' ? 'latest' : 'avg',
+        aggregation: metricKey === 'p95-latency' ? 'p95' : visualizationHint === 'number' ? 'latest' : 'avg',
         timeRange: editorTimeRange,
         visualizationHint
       }

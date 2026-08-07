@@ -42,6 +42,7 @@ import { buildRecentLogSearchParams } from '@/domains/logs/recentLogQuery'
 import webSocket from '@/services/webSocket'
 import { useMitt } from '@/hooks/useMitt'
 import { ConnectionState } from '@/types/enums'
+import { copyLogText, formatLogForClipboard } from '@/domains/logs/clipboard'
 import './LogStreamContent.scss'
 
 export default defineComponent({
@@ -284,14 +285,18 @@ export default defineComponent({
 
     const handleWebSocketConnectionState = (state: ConnectionState) => {
       isWebSocketConnected.value = state === ConnectionState.CONNECTED
-      if (state === ConnectionState.ERROR || state === ConnectionState.DISCONNECTED) {
-        setStreamStopped()
+      if (state === ConnectionState.CONNECTED && isStreaming.value) {
+        webSocket.send({ type: 'subscribe', data: { channel: 'logs' } })
       }
     }
 
-    const waitForWebSocketConnection = (timeoutMs = 2000) => {
+    const waitForWebSocketConnection = async (timeoutMs = 8000) => {
       isWebSocketConnected.value = isWebSocketConnected.value || webSocket.isConnected
-      if (isWebSocketConnected.value) return Promise.resolve(true)
+      if (isWebSocketConnected.value) return true
+
+      await webSocket.ensureConnected()
+      isWebSocketConnected.value = isWebSocketConnected.value || webSocket.isConnected
+      if (isWebSocketConnected.value) return true
 
       return new Promise<boolean>((resolve) => {
         let settled = false
@@ -367,6 +372,29 @@ export default defineComponent({
       streamStats.lastReceiveTime = ''
       streamStats.errorCount = 0
       message.info('日志已清空')
+    }
+
+    const copyLogs = async () => {
+      if (filteredLogs.value.length === 0) {
+        message.warning('没有日志可复制')
+        return
+      }
+
+      const content = filteredLogs.value
+        .map((log) =>
+          formatLogForClipboard(log, {
+            showTimestamp: showTimestamp.value,
+            showLevel: showLevel.value,
+            showService: showService.value
+          })
+        )
+        .join('\n')
+      try {
+        await copyLogText(content)
+        message.success(`已复制 ${filteredLogs.value.length} 条日志`)
+      } catch {
+        message.error('复制日志失败')
+      }
     }
 
     const exportLogs = () => {
@@ -514,6 +542,8 @@ export default defineComponent({
                   <NIcon component={DownloadOutline} class="mr-1" />
                   导出
                 </NButton>
+
+                <NButton onClick={copyLogs}>复制日志</NButton>
               </NSpace>
 
               <NSpace>

@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import apis from '@/api'
 import { StoresEnum } from '@/types/enums'
 import { UserInfoType } from '@/types/userInfo'
-import { clearStoredAuthSession, getStoredUserInfo, persistStoredUserInfo } from '@/services/authSession'
+import { getStoredUserInfo, persistStoredUserInfo } from '@/services/authSession'
 
 export const useUserStore = defineStore(StoresEnum.USER, () => {
   const userInfo = ref<Partial<UserInfoType>>({})
@@ -22,8 +22,10 @@ export const useUserStore = defineStore(StoresEnum.USER, () => {
         userInfo.value = nextUserInfo
         persistStoredUserInfo(userInfo.value)
       })
-      .catch(() => {
-        clearStoredAuthSession()
+      .catch((error) => {
+        // A profile request can fail for an offline device or a transient
+        // backend error. Token expiry is handled only by the refresh flow.
+        console.warn('刷新用户资料失败，将保留现有会话。', error)
       })
   }
 

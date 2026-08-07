@@ -5,7 +5,6 @@ import { NAvatar, NButton, NCheckbox, NFlex, NInput, NScrollbar } from 'naive-ui
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
 import { listen } from '@tauri-apps/api/event'
 import {
-  clearStoredAuthSession,
   syncAuthTokensToTauri,
   getStoredAuthTokens,
   persistAuthTokens,
@@ -199,8 +198,8 @@ export default defineComponent({
         // 尝试提取 Token (如果后端在Body中也返回了)
         const token = res.token || res.accessToken || res.access_token
         const refreshTokenVal = res.refreshToken || res.refresh_token
-        const accessToken = token || getStoredAuthTokens().accessToken
-        const refreshToken = refreshTokenVal || getStoredAuthTokens().refreshToken
+        const accessToken = token
+        const refreshToken = refreshTokenVal
 
         persistAuthTokens({ accessToken, refreshToken })
 
@@ -355,9 +354,8 @@ export default defineComponent({
             state.loading = false
           }, 1000)
         } catch (error) {
-          clearStoredAuthSession()
           state.loading = false
-          isAutoLogin.value = false
+          console.warn('自动登录时刷新用户信息失败，将保留会话并允许稍后重试。', error)
         }
       }
     }

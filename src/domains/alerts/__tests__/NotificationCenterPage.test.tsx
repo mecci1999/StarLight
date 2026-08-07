@@ -96,6 +96,7 @@ vi.mock('naive-ui', () => {
     }),
     NGrid: passthrough('div'),
     NGridItem: passthrough('div'),
+    NSpin: passthrough('div'),
     NEmpty: defineComponent({
       props: ['description'],
       setup(props, { slots }) {

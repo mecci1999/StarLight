@@ -1,7 +1,7 @@
 {
   "name": "tauri-app",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.6",
   "type": "module",
   "engines": {
     "node": "*",
@@ -33,10 +33,12 @@
     "tauri:ios:dev": "tauri ios dev",
     "ios:sim": "bash scripts/ios-sim-build.sh",
     "ios:build": "bash scripts/ios-sim-build.sh",
+    "ios:device:ipa": "bash scripts/ios-device-ipa.sh",
     "ios:deploy": "node scripts/ios-deploy.mjs deploy",
     "ios:check": "node scripts/ios-deploy.mjs status",
     "========= 启动StarLight android 程序 =========": "",
     "tauri:android:dev": "tauri android dev",
+    "android:release": "bash scripts/android-release-apk.sh",
     "========= 初始化 ios =========": "",
     "tauri:ios:init": "tauri ios init",
     "========= 初始化 android =========": "",

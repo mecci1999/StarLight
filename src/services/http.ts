@@ -13,7 +13,7 @@ const ERROR_MESSAGES = {
   UNKNOWN: '请求失败，请稍后重试'
 } as const
 
-const ACCESS_TOKEN_EXPIRE_DAYS = 7
+const ACCESS_TOKEN_EXPIRE_DAYS = 0.25
 const REFRESH_TOKEN_EXPIRE_DAYS = 3
 
 /**
@@ -388,6 +388,10 @@ let isRefreshing = false
 
 // 使用队列实现
 const requestQueue = new RequestQueue()
+
+const isConclusiveAuthenticationFailure = (status: number, code: unknown) =>
+  status === 401 || code === 10003 || code === 40000 || code === 40001
+
 async function refreshTokenAndRetry(): Promise<string> {
   if (isRefreshing) {
     const debugLoggingEnabled = await resolveDebugDiagnosticsEnabled(url.refreshToken)
@@ -437,12 +441,10 @@ async function refreshTokenAndRetry(): Promise<string> {
     const businessStatus = data?.status ?? data?.data?.status
     const businessCode = data?.code ?? data?.data?.code
     const businessSuccess = data?.data?.success ?? data?.success
-    const hasExplicitBusinessFailure =
-      (typeof businessStatus === 'number' && businessStatus >= 400) ||
-      businessSuccess === false ||
-      businessCode === 10003 ||
-      businessCode === 40000 ||
-      businessCode === 40001
+    const hasExplicitBusinessFailure = isConclusiveAuthenticationFailure(
+      response.status,
+      businessCode ?? businessStatus
+    )
 
     const isSuccess =
       (typeof businessStatus === 'number' && businessStatus >= 200 && businessStatus < 300) ||
@@ -459,7 +461,7 @@ async function refreshTokenAndRetry(): Promise<string> {
       fullData: data
     })
 
-    if (!response.ok || !isSuccess || hasExplicitBusinessFailure) {
+    if (hasExplicitBusinessFailure) {
       clearStoredTokens()
       window.dispatchEvent(new Event('needReLogin'))
       throw new AppException(data?.data?.message || data?.message || '登录已过期，请重新登录', {
@@ -470,11 +472,20 @@ async function refreshTokenAndRetry(): Promise<string> {
       })
     }
 
+    if (!response.ok || !isSuccess) {
+      throw new AppException(data?.data?.message || data?.message || '会话恢复失败，请稍后重试', {
+        type: response.status >= 500 ? ErrorType.Server : ErrorType.Network,
+        code: businessCode ?? businessStatus ?? response.status,
+        details: data,
+        showError: true
+      })
+    }
+
     const content = data?.data?.content || data?.content || data?.data || data || {}
     debugLog(debugLoggingEnabled, '🔍 提取token的content对象:', content)
 
-    const nextAccessToken = content.accessToken || content.token || content.access_token || getCookie('ACCESS_TOKEN')
-    const nextRefreshToken = content.refreshToken || content.refresh_token || getCookie('REFRESH_TOKEN')
+    const nextAccessToken = content.accessToken || content.token || content.access_token
+    const nextRefreshToken = content.refreshToken || content.refresh_token
 
     debugLog(debugLoggingEnabled, '🔑 提取到的token:', {
       hasAccessToken: !!nextAccessToken,
@@ -502,25 +513,33 @@ async function refreshTokenAndRetry(): Promise<string> {
       return safeAccessToken
     }
 
-    window.dispatchEvent(new Event('needReLogin'))
-    throw new Error('刷新令牌失败')
+    throw new AppException('会话恢复失败，请稍后重试', {
+      type: ErrorType.Server,
+      showError: true
+    })
   } catch (error: any) {
     console.error('❌ 刷新Token过程出错:', error)
     requestQueue.clear(error) // 发生错误时清空队列并拒绝等待请求
 
-    // 如果是网络错误，不触发强制登出
-    const isNetworkError =
-      error instanceof TypeError ||
-      error.name === 'AbortError' ||
-      !navigator.onLine ||
-      error.message?.toLowerCase().includes('network')
-
-    if (!isNetworkError && !(error instanceof AppException && error.message === '无刷新令牌')) {
-      window.dispatchEvent(new Event('needReLogin'))
-    }
     throw error
   } finally {
     isRefreshing = false
+  }
+}
+
+/**
+ * Restore a persisted session once during app startup. Network and server
+ * failures intentionally preserve local credentials so a temporary outage
+ * cannot turn into an involuntary logout.
+ */
+export async function restoreAuthSession() {
+  if (!getStoredToken('REFRESH_TOKEN')) return false
+
+  try {
+    await refreshTokenAndRetry()
+    return true
+  } catch {
+    return false
   }
 }
 
@@ -691,10 +710,8 @@ async function Http<T = any>(
 
         // 限制token刷新重试次数，最多重试一次，避免无限循环
         if (tokenRefreshCount >= 1) {
-          debugLog(debugLoggingEnabled, '🚫 Token刷新重试次数超过限制，清除token并重新登录')
-          clearStoredTokens()
-          window.dispatchEvent(new Event('needReLogin'))
-          throw new AppException('登录已过期，请重新登录', {
+          debugLog(debugLoggingEnabled, '🚫 Token刷新后原请求仍未授权，保留会话并返回请求错误')
+          throw new AppException('当前请求未获授权，请稍后重试', {
             type: ErrorType.TokenExpired,
             showError: true
           })

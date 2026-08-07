@@ -3,9 +3,7 @@
   "identifier": "default-capability",
   "description": "Capability for the main window",
   "platforms": ["macOS", "windows", "linux"],
-  "windows": [
-    "*"
-  ],
+  "webviews": ["home", "login", "tray", "notify", "capture"],
   "permissions": [
     "core:default",
     "core:window:default",

@@ -13,6 +13,20 @@ val tauriProperties = Properties().apply {
     }
 }
 
+fun signingInput(name: String): String? =
+    providers.gradleProperty(name).orNull ?: System.getenv(name)
+
+val androidReleaseSigningInputs = mapOf(
+    "STARLIGHT_ANDROID_KEYSTORE_PATH" to signingInput("STARLIGHT_ANDROID_KEYSTORE_PATH"),
+    "STARLIGHT_ANDROID_KEYSTORE_PASSWORD" to signingInput("STARLIGHT_ANDROID_KEYSTORE_PASSWORD"),
+    "STARLIGHT_ANDROID_KEY_ALIAS" to signingInput("STARLIGHT_ANDROID_KEY_ALIAS"),
+    "STARLIGHT_ANDROID_KEY_PASSWORD" to signingInput("STARLIGHT_ANDROID_KEY_PASSWORD"),
+)
+
+val missingAndroidReleaseSigningInputs = androidReleaseSigningInputs
+    .filterValues { it.isNullOrBlank() }
+    .keys
+
 android {
     compileSdk = 34
     namespace = "com.starlight_app.app"
@@ -23,6 +37,16 @@ android {
         targetSdk = 34
         versionCode = tauriProperties.getProperty("tauri.android.versionCode", "1").toInt()
         versionName = tauriProperties.getProperty("tauri.android.versionName", "1.0")
+    }
+    signingConfigs {
+        if (missingAndroidReleaseSigningInputs.isEmpty()) {
+            create("release") {
+                storeFile = file(requireNotNull(androidReleaseSigningInputs["STARLIGHT_ANDROID_KEYSTORE_PATH"]))
+                storePassword = requireNotNull(androidReleaseSigningInputs["STARLIGHT_ANDROID_KEYSTORE_PASSWORD"])
+                keyAlias = requireNotNull(androidReleaseSigningInputs["STARLIGHT_ANDROID_KEY_ALIAS"])
+                keyPassword = requireNotNull(androidReleaseSigningInputs["STARLIGHT_ANDROID_KEY_PASSWORD"])
+            }
+        }
     }
     buildTypes {
         getByName("debug") {
@@ -37,6 +61,9 @@ android {
             }
         }
         getByName("release") {
+            if (missingAndroidReleaseSigningInputs.isEmpty()) {
+                signingConfig = signingConfigs.getByName("release")
+            }
             isMinifyEnabled = true
             proguardFiles(
                 *fileTree(".") { include("**/*.pro") }
@@ -50,6 +77,19 @@ android {
     }
     buildFeatures {
         buildConfig = true
+    }
+}
+
+tasks.configureEach {
+    if (name.contains("Release", ignoreCase = true)) {
+        doFirst {
+            if (missingAndroidReleaseSigningInputs.isNotEmpty()) {
+                throw GradleException(
+                    "Signed Android release requires ${missingAndroidReleaseSigningInputs.joinToString()}. " +
+                        "Provide protected environment variables or Gradle properties; see docs/RELEASE_GUIDE.md."
+                )
+            }
+        }
     }
 }
 

@@ -5,7 +5,7 @@ import { getPreferredMetricsDatasetScope, getStoredUserInfo } from '@/services/a
 import { fetchAlerts } from '@/api/alerts'
 import { useTimeStore } from '@/store/useTimeStore'
 import type { MetricsDatasetScope } from '@/api/metrics'
-import { KeepAlive, provide, inject, type InjectionKey, type Ref } from 'vue'
+import { h, onErrorCaptured, provide, inject, type Component, type InjectionKey, type Ref } from 'vue'
 import MobileVantProvider from '@/mobile/providers/MobileVantProvider'
 import './MobileLayout.scss'
 
@@ -30,6 +30,7 @@ export default defineComponent({
     const router = useRouter()
     const route = useRoute()
     const drawerOpen = ref(false)
+    const routeContentError = ref(false)
     const userInfo = ref(getStoredUserInfo() || {})
     const timeStore = useTimeStore()
 
@@ -60,6 +61,18 @@ export default defineComponent({
     onMounted(refreshActiveAlertCount)
 
     watch(() => [timeStore.startTime, timeStore.endTime], refreshActiveAlertCount)
+    watch(
+      () => route.fullPath,
+      () => {
+        routeContentError.value = false
+      }
+    )
+
+    onErrorCaptured((error) => {
+      console.error('Failed to render mobile route content:', error)
+      routeContentError.value = true
+      return false
+    })
 
     const tabs = [
       { label: '看板', icon: PhSquaresFour, path: '/mobile/overview-v2' },
@@ -102,15 +115,16 @@ export default defineComponent({
       <MobileVantProvider>
         <div class="mobile-layout">
           <main class="mobile-layout__content">
-            <RouterView>
-              {{
-                default: ({ Component, route }: { Component: unknown; route: { name?: string | symbol } }) => (
-                  <KeepAlive>
-                    <component is={Component} key={route.name?.toString()} />
-                  </KeepAlive>
-                )
-              }}
-            </RouterView>
+            {routeContentError.value ? (
+              <section class="mobile-layout__content-error" role="alert">
+                <h1>页面暂时无法显示</h1>
+                <p>请切换到其他标签页后重试。</p>
+              </section>
+            ) : (
+              h(RouterView, null, {
+                default: ({ Component }: { Component: Component | undefined }) => (Component ? h(Component) : null)
+              })
+            )}
           </main>
 
           {/* Bottom tab bar — 4 tabs + avatar */}

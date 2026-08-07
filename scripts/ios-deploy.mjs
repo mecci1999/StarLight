@@ -10,7 +10,7 @@ const ROOT = resolve(__dirname, '..');
 
 const SIM_NAME = 'iPhone 16 Pro';
 const SCHEME = 'tauri-app_iOS';
-const BUNDLE_ID = 'com.starlight-app.app';
+const BUNDLE_ID = 'com.starlight_app.app';
 
 // ── helpers ──────────────────────────────────────────────
 function run(cmd, opts = {}) {

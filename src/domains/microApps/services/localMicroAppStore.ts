@@ -33,6 +33,8 @@ export type MicroAppPreviewRecord = {
   createdAt: string
 }
 
+type MicroAppIdentity = Pick<InstalledMicroApp, 'appId' | 'version'> & { entry?: string }
+
 const readInstalledMap = (): Record<string, InstalledMicroApp> => {
   try {
     return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}')
@@ -69,8 +71,95 @@ export const sha256Hex = async (bytes: Uint8Array) => {
     .join('')
 }
 
+export const isCanonicalMicroAppSegment = (value: string) => /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(value)
+
+export const canonicalZipPath = (path: string) => {
+  if (!path || path.includes('\\') || path.startsWith('/') || path.endsWith('/')) return null
+  const segments = path.split('/')
+  if (segments.some((segment) => !segment || segment === '.' || segment === '..')) return null
+  return path
+}
+
+const canonicalZipMemberPath = (path: string) => {
+  const isDirectory = path.endsWith('/')
+  const canonicalPath = canonicalZipPath(isDirectory ? path.slice(0, -1) : path)
+  return canonicalPath ? { canonicalPath, isDirectory } : null
+}
+
+const ZIP_END_OF_CENTRAL_DIRECTORY = 0x06054b50
+const ZIP_CENTRAL_DIRECTORY_FILE_HEADER = 0x02014b50
+const MAX_MICRO_APP_ARCHIVE_BYTES = 25 * 1024 * 1024
+const MAX_MICRO_APP_ENTRY_COUNT = 1_000
+const MAX_MICRO_APP_ENTRY_UNCOMPRESSED_BYTES = 16 * 1024 * 1024
+const MAX_MICRO_APP_TOTAL_UNCOMPRESSED_BYTES = 64 * 1024 * 1024
+const MAX_MICRO_APP_COMPRESSION_RATIO = 100
+
+const zipUint32 = (bytes: Uint8Array, offset: number) =>
+  bytes[offset] | (bytes[offset + 1] << 8) | (bytes[offset + 2] << 16) | (bytes[offset + 3] << 24)
+
+const zipUint16 = (bytes: Uint8Array, offset: number) => bytes[offset] | (bytes[offset + 1] << 8)
+
+const validateZipMemberPaths = (zipBytes: Uint8Array) => {
+  if (zipBytes.byteLength > MAX_MICRO_APP_ARCHIVE_BYTES) throw new Error('zip 包超过最大归档大小')
+  let endOfDirectory = -1
+  for (let index = zipBytes.length - 22; index >= Math.max(0, zipBytes.length - 65_557); index -= 1) {
+    if (zipUint32(zipBytes, index) === ZIP_END_OF_CENTRAL_DIRECTORY) {
+      endOfDirectory = index
+      break
+    }
+  }
+  if (endOfDirectory < 0 || endOfDirectory + 22 > zipBytes.length) throw new Error('无效的 ZIP 中央目录')
+
+  const entryCount = zipUint16(zipBytes, endOfDirectory + 10)
+  if (entryCount > MAX_MICRO_APP_ENTRY_COUNT) throw new Error('zip 包条目数量超过上限')
+  const centralDirectoryOffset = zipUint32(zipBytes, endOfDirectory + 16) >>> 0
+  let offset = centralDirectoryOffset
+  const memberPaths = new Set<string>()
+  const decoder = new TextDecoder()
+  let totalUncompressedBytes = 0
+
+  for (let entry = 0; entry < entryCount; entry += 1) {
+    if (offset + 46 > zipBytes.length || zipUint32(zipBytes, offset) !== ZIP_CENTRAL_DIRECTORY_FILE_HEADER) {
+      throw new Error('无效的 ZIP 文件条目')
+    }
+    const nameLength = zipUint16(zipBytes, offset + 28)
+    const extraLength = zipUint16(zipBytes, offset + 30)
+    const commentLength = zipUint16(zipBytes, offset + 32)
+    const compressedBytes = zipUint32(zipBytes, offset + 20) >>> 0
+    const uncompressedBytes = zipUint32(zipBytes, offset + 24) >>> 0
+    const end = offset + 46 + nameLength + extraLength + commentLength
+    if (end > zipBytes.length) throw new Error('无效的 ZIP 文件名')
+    const path = decoder.decode(zipBytes.subarray(offset + 46, offset + 46 + nameLength))
+    const memberPath = canonicalZipMemberPath(path)
+    if (!memberPath) throw new Error(`zip 包包含非规范路径: ${path}`)
+    if (memberPaths.has(memberPath.canonicalPath)) throw new Error(`zip 包包含重复路径: ${memberPath.canonicalPath}`)
+    if (uncompressedBytes > MAX_MICRO_APP_ENTRY_UNCOMPRESSED_BYTES) {
+      throw new Error(`zip 包条目超过解压大小上限: ${memberPath.canonicalPath}`)
+    }
+    if (
+      compressedBytes === 0
+        ? uncompressedBytes > 0
+        : uncompressedBytes / compressedBytes > MAX_MICRO_APP_COMPRESSION_RATIO
+    ) {
+      throw new Error(`zip 包条目压缩比超过上限: ${memberPath.canonicalPath}`)
+    }
+    totalUncompressedBytes += uncompressedBytes
+    if (totalUncompressedBytes > MAX_MICRO_APP_TOTAL_UNCOMPRESSED_BYTES) throw new Error('zip 包总解压大小超过上限')
+    memberPaths.add(memberPath.canonicalPath)
+    offset = end
+  }
+}
+
+const validateMicroAppIdentity = (identity: MicroAppIdentity) => {
+  if (!isCanonicalMicroAppSegment(identity.appId) || !isCanonicalMicroAppSegment(identity.version)) {
+    throw new Error('微应用 appId 和 version 必须是安全的包路径片段')
+  }
+}
+
 export const installMicroAppLocally = async (version: MicroAppVersion) => {
   if (!version.packageBase64) throw new Error('缺少微应用包内容')
+  validateMicroAppIdentity(version)
+  parseMicroAppZip(version.packageBase64, { ...version, entry: version.manifest.entry })
   const zipBytes = base64ToBytes(version.packageBase64)
   const actualHash = await sha256Hex(zipBytes)
   if (actualHash !== version.packageSha256) throw new Error('微应用包 SHA256 校验失败')
@@ -139,19 +228,54 @@ export const base64ToBytes = (base64: string) => {
   return bytes
 }
 
-export const normalizeZipPath = (path: string) => path.replace(/^\.\//, '').replace(/^\//, '')
+export const parseMicroAppZip = (zipBase64: string, expectedIdentity?: MicroAppIdentity): ParsedMicroAppZip => {
+  const zipBytes = base64ToBytes(zipBase64)
+  validateZipMemberPaths(zipBytes)
+  const files = unzipSync(zipBytes)
+  const canonicalFiles: Record<string, Uint8Array> = {}
+  for (const [path, content] of Object.entries(files)) {
+    if (path.endsWith('/')) continue
+    const canonicalPath = canonicalZipPath(path)
+    if (!canonicalPath) throw new Error(`zip 包包含非规范路径: ${path}`)
+    if (canonicalFiles[canonicalPath]) throw new Error(`zip 包包含重复路径: ${canonicalPath}`)
+    canonicalFiles[canonicalPath] = content
+  }
 
-export const parseMicroAppZip = (zipBase64: string): ParsedMicroAppZip => {
-  const files = unzipSync(base64ToBytes(zipBase64))
-  const manifestPath = Object.keys(files).find((path) => normalizeZipPath(path) === 'manifest.json')
-  if (!manifestPath) throw new Error('zip 包根目录必须包含 manifest.json')
-  const manifest = JSON.parse(strFromU8(files[manifestPath])) as MicroAppVersion['manifest']
-  if (!manifest.appId || !manifest.name || !manifest.version || !manifest.entry) {
+  const manifestBytes = canonicalFiles['manifest.json']
+  if (!manifestBytes) throw new Error('zip 包根目录必须包含 manifest.json')
+  let manifest: MicroAppVersion['manifest']
+  try {
+    manifest = JSON.parse(strFromU8(manifestBytes)) as MicroAppVersion['manifest']
+  } catch {
+    throw new Error('manifest.json 不是有效 JSON')
+  }
+  if (
+    !manifest ||
+    typeof manifest.appId !== 'string' ||
+    typeof manifest.name !== 'string' ||
+    typeof manifest.version !== 'string' ||
+    typeof manifest.entry !== 'string' ||
+    !manifest.appId ||
+    !manifest.name ||
+    !manifest.version ||
+    !manifest.entry
+  ) {
     throw new Error('manifest.json 必须包含 appId/name/version/entry')
   }
-  const entryPath = Object.keys(files).find((path) => normalizeZipPath(path) === normalizeZipPath(manifest.entry))
-  if (!entryPath) throw new Error(`zip 包中找不到入口文件: ${manifest.entry}`)
-  return { manifest, files }
+  validateMicroAppIdentity(manifest)
+  const entryPath = canonicalZipPath(manifest.entry)
+  if (!entryPath || entryPath !== manifest.entry) throw new Error('manifest.entry 必须是规范的相对 POSIX 路径')
+  if (!canonicalFiles[entryPath]) throw new Error(`zip 包中找不到入口文件: ${manifest.entry}`)
+  if (
+    expectedIdentity &&
+    (manifest.appId !== expectedIdentity.appId || manifest.version !== expectedIdentity.version)
+  ) {
+    throw new Error('manifest 身份与微应用包元数据不匹配')
+  }
+  if (expectedIdentity?.entry && manifest.entry !== expectedIdentity.entry) {
+    throw new Error('manifest 入口与微应用包元数据不匹配')
+  }
+  return { manifest, files: canonicalFiles }
 }
 
 const getMimeType = (path: string) => {
@@ -169,28 +293,25 @@ const getMimeType = (path: string) => {
 const rewriteHtmlAssets = (html: string, assetUrls: Record<string, string>) => {
   return html.replace(/(src|href)=(['"])([^'"]+)\2/g, (match, attr, quote, rawPath) => {
     if (/^(https?:|data:|blob:|#|javascript:)/i.test(rawPath)) return match
-    const normalized = normalizeZipPath(rawPath)
-    const withoutDot = normalizeZipPath(rawPath.replace(/^\.\//, ''))
-    const mapped = assetUrls[normalized] || assetUrls[withoutDot]
+    const relativePath = rawPath.replace(/^\.\//, '')
+    const normalized = canonicalZipPath(relativePath)
+    if (!normalized) return match
+    const mapped = assetUrls[normalized]
     return mapped ? `${attr}=${quote}${mapped}${quote}` : match
   })
 }
 
 export const buildMicroAppObjectUrl = (installed: InstalledMicroApp, runtimePayload: unknown) => {
   if (!installed.zipBase64) throw new Error('微应用本地 zip 包不存在')
-  const { files } = parseMicroAppZip(installed.zipBase64)
+  validateMicroAppIdentity(installed)
+  const { manifest, files } = parseMicroAppZip(installed.zipBase64, { ...installed, entry: installed.manifest.entry })
   const assetUrls: Record<string, string> = {}
   for (const [path, content] of Object.entries(files)) {
-    const normalized = normalizeZipPath(path)
-    if (normalized === normalizeZipPath(installed.manifest.entry)) continue
-    assetUrls[normalized] = URL.createObjectURL(new Blob([content], { type: getMimeType(normalized) }))
+    if (path === manifest.entry) continue
+    assetUrls[path] = URL.createObjectURL(new Blob([content], { type: getMimeType(path) }))
   }
 
-  const entryPath = Object.keys(files).find(
-    (path) => normalizeZipPath(path) === normalizeZipPath(installed.manifest.entry)
-  )
-  if (!entryPath) throw new Error(`找不到入口文件: ${installed.manifest.entry}`)
-  const html = strFromU8(files[entryPath])
+  const html = strFromU8(files[manifest.entry])
   const bridgeScript = `<script>window.__STARLIGHT_MICRO_APP__=${JSON.stringify(runtimePayload)};window.parent&&window.parent.postMessage({type:'STARLIGHT_MICRO_APP_READY',appId:${JSON.stringify(installed.appId)}},'*');</script>`
   const htmlWithBridge = html.includes('</head>')
     ? html.replace('</head>', `${bridgeScript}</head>`)
@@ -205,9 +326,10 @@ export const prepareMicroAppPreview = async (
   runtimePayload: unknown
 ) => {
   const key = createPreviewKey(manifest)
+  const parsed = parseMicroAppZip(packageBase64, manifest)
   const runtimeUrl = await buildMicroAppRuntimeUrl(
     {
-      appId: key,
+      appId: parsed.manifest.appId,
       version: manifest.version,
       manifest,
       zipBase64: packageBase64,
@@ -234,23 +356,18 @@ export const buildMicroAppRuntimeUrl = async (installed: InstalledMicroApp, runt
   if (!installed.zipBase64) throw new Error('微应用本地 zip 包不存在')
   if (!isTauriRuntime() || installed.storage !== 'appData') return buildMicroAppObjectUrl(installed, runtimePayload)
 
-  const { files } = parseMicroAppZip(installed.zipBase64)
+  validateMicroAppIdentity(installed)
+  const { manifest, files } = parseMicroAppZip(installed.zipBase64, { ...installed, entry: installed.manifest.entry })
   const dir = microAppDir(installed.appId, installed.version)
   await mkdir(dir, { baseDir: BaseDirectory.AppData, recursive: true })
 
   for (const [path, content] of Object.entries(files)) {
-    const normalized = normalizeZipPath(path)
-    if (!normalized || normalized.endsWith('/')) continue
-    const parentDir = normalized.split('/').slice(0, -1).join('/')
+    const parentDir = path.split('/').slice(0, -1).join('/')
     if (parentDir) await mkdir(`${dir}/${parentDir}`, { baseDir: BaseDirectory.AppData, recursive: true })
-    await writeFile(`${dir}/${normalized}`, content, { baseDir: BaseDirectory.AppData })
+    await writeFile(`${dir}/${path}`, content, { baseDir: BaseDirectory.AppData })
   }
 
-  const entryPath = Object.keys(files).find(
-    (path) => normalizeZipPath(path) === normalizeZipPath(installed.manifest.entry)
-  )
-  if (!entryPath) throw new Error(`找不到入口文件: ${installed.manifest.entry}`)
-  const html = strFromU8(files[entryPath])
+  const html = strFromU8(files[manifest.entry])
   const bridgeScript = `<script>window.__STARLIGHT_MICRO_APP__=${JSON.stringify(runtimePayload)};window.parent&&window.parent.postMessage({type:'STARLIGHT_MICRO_APP_READY',appId:${JSON.stringify(installed.appId)}},'*');</script>`
   const runtimeHtml = html.includes('</head>')
     ? html.replace('</head>', `${bridgeScript}</head>`)

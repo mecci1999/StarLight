@@ -1,6 +1,6 @@
 name: tauri-app
 options:
-  bundleIdPrefix: com.starlight-app.app
+  bundleIdPrefix: com.starlight_app.app
   deploymentTarget:
     iOS: 13.0
 fileGroups: [../../src]
@@ -11,7 +11,7 @@ settingGroups:
   app:
     base:
       PRODUCT_NAME: 星光
-      PRODUCT_BUNDLE_IDENTIFIER: com.starlight-app.app
+      PRODUCT_BUNDLE_IDENTIFIER: com.starlight_app.app
 targetTemplates:
   app:
     type: application
@@ -51,8 +51,8 @@ targets:
           - UIInterfaceOrientationPortraitUpsideDown
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
-        CFBundleShortVersionString: 0.1.0
-        CFBundleVersion: 0.1.0
+        CFBundleShortVersionString: 0.1.6
+        CFBundleVersion: 0.1.6
     entitlements:
       path: tauri-app_iOS/tauri-app_iOS.entitlements
     scheme:

@@ -1,0 +1,1 @@
+import{bR as s,bS as e,bT as a,bU as t,bV as o,bW as r}from"./invariable-CP1DmAO8.js";const i={success:s=>r(s),error:e=>s(e),warning:s=>o("string"==typeof s?{message:s,type:"text"}:s),info:s=>o("string"==typeof s?{message:s,type:"text"}:s),loading:(s="加载中...")=>t(s),close:()=>a(),confirm:s=>e(s)};export{i as m};

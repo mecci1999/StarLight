@@ -9,8 +9,7 @@ import { ConnectionState, WorkerMsgEnum, WsReqMsgContentType, WsResponseMessageT
 import { emit, listen } from '@tauri-apps/api/event'
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow'
 import { getEnhancedFingerprint } from './fingerprint'
-import { getCookie } from '@/utils/Cookie'
-import { clearStoredAuthSession } from '@/services/authSession'
+import { getStoredAuthTokens } from '@/services/authSession'
 
 // 创建webSocket Worker
 const worker: Worker = new Worker(new URL('../workers/webSocket.worker.ts', import.meta.url), { type: 'module' })
@@ -32,9 +31,13 @@ class WS {
   #tauriListener: ReturnType<typeof useTauriListener> | null = null
 
   constructor() {
-    this.initWindowType()
+    void this.initialize()
+  }
+
+  private async initialize() {
+    await this.initWindowType()
     if (isMainWindow) {
-      this.initConnect()
+      await this.initConnect()
       // 收到消息
       worker.addEventListener('message', this.onWorkerMsg)
       this.initMainWindowListeners()
@@ -83,16 +86,18 @@ class WS {
   }
 
   initConnect = async () => {
-    const token = getCookie('ACCESS_TOKEN')
-    // 如果token 是 null, 而且 localStorage 的用户信息有值，需要清空用户信息
-    if (token === null && localStorage.getItem('user')) {
-      clearStoredAuthSession()
-    }
-    const clientId = await getEnhancedFingerprint()
-    // 初始化 ws
-    worker.postMessage(
-      `{"type":"initWS","value":{"token":${token ? `"${token}"` : null},"clientId":${clientId ? `"${clientId}"` : null}}}`
-    )
+    const { accessToken: token } = getStoredAuthTokens()
+    const fingerprint = await getEnhancedFingerprint()
+    const storedFallbackClientId = localStorage.getItem('webSocketClientId')
+    const clientId = fingerprint || storedFallbackClientId || crypto.randomUUID()
+    if (!fingerprint && !storedFallbackClientId) localStorage.setItem('webSocketClientId', clientId)
+
+    worker.postMessage(JSON.stringify({ type: 'initWS', value: { token: token || null, clientId } }))
+  }
+
+  ensureConnected = async () => {
+    if (this.#connectReady) return
+    await this.initConnect()
   }
 
   onWorkerMsg = async (e: MessageEvent<any>) => {

@@ -9,7 +9,7 @@ const postMessage = ({ type, value }: { type: string; value?: { [key: string]: a
 }
 
 // ws实例
-let connection: WebSocket
+let connection: WebSocket | null = null
 // 心跳 timer
 let heartTimer: number | null = null
 
@@ -60,8 +60,7 @@ const HEARTBEAT_TIMEOUT = 15 * 1000 // 心跳超时时间，单位毫秒 15s超�
 const sendHeartPacket = () => {
   // 10s 检测心跳
   heartTimer = setInterval(() => {
-    // 心跳消息类型 2
-    connectionSend({ type: 2 })
+    connectionSend({ type: 'ping' })
 
     // 清除之前的超时计时器
     if (heartbeatTimeout) {
@@ -71,7 +70,9 @@ const sendHeartPacket = () => {
     // 设置新的超时计时器
     heartbeatTimeout = setTimeout(() => {
       console.log('心跳超时，重连...')
-      connection.close()
+      if (connection?.readyState === WebSocket.OPEN) {
+        connection.close()
+      }
     }, HEARTBEAT_TIMEOUT) as any
   }, 9900) as any
 }
@@ -81,6 +82,10 @@ const clearHeartPacketTimer = () => {
   if (heartTimer) {
     clearInterval(heartTimer)
     heartTimer = null
+  }
+  if (heartbeatTimeout) {
+    clearTimeout(heartbeatTimeout)
+    heartbeatTimeout = null
   }
 }
 
@@ -131,9 +136,9 @@ const onConnectError = () => {
 // ws 连接 close
 const onConnectClose = () => {
   console.log('📡 WebSocket 连接断开')
+  connection = null
   updateConnectionState(ConnectionState.DISCONNECTED)
   onCloseHandler()
-  token = null
   postMessage({ type: WorkerMsgEnum.CLOSE })
 }
 // ws 连接成功
@@ -145,7 +150,13 @@ const onConnectOpen = () => {
 }
 
 // ws 连接 接收到消息
-const onConnectMsg = (e: any) => postMessage({ type: WorkerMsgEnum.MESSAGE, value: e.data })
+const onConnectMsg = (e: any) => {
+  if (heartbeatTimeout) {
+    clearTimeout(heartbeatTimeout)
+    heartbeatTimeout = null
+  }
+  postMessage({ type: WorkerMsgEnum.MESSAGE, value: e.data })
+}
 
 // 更新连接状态
 const updateConnectionState = (newState: ConnectionState) => {
@@ -159,11 +170,12 @@ const initConnection = () => {
   updateConnectionState(ConnectionState.CONNECTING)
   connection?.removeEventListener('message', onConnectMsg)
 
-  // 建立链接
-  // 本地配置到 .env 里面修改。生产配置在 .env.production 里面
-  if (!connection) {
-    connection = new WebSocket(`${resolveWebSocketUrl()}?clientId=${clientId}${token ? `&token=${token}` : ''}`)
-  }
+  if (connection?.readyState === WebSocket.OPEN || connection?.readyState === WebSocket.CONNECTING) return
+
+  const endpoint = new URL(resolveWebSocketUrl())
+  endpoint.searchParams.set('clientId', clientId || '')
+  if (token) endpoint.searchParams.set('token', token)
+  connection = new WebSocket(endpoint.toString())
   // 收到消息
   connection.addEventListener('message', onConnectMsg)
   // 建立链接

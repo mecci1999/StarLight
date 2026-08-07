@@ -33,3 +33,10 @@ build/ios
 build/releases
 build/verify-dmg-arm64
 build/verify-dmg-x64
+
+# Mobile signing inputs and material must remain local/protected.
+scripts/mobile-signing.env
+*.keystore
+*.jks
+*.p12
+*.mobileprovision

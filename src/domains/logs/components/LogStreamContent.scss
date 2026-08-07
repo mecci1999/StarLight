@@ -132,6 +132,7 @@
     font-size: var(--font-size-body-1);
     line-height: 1.5;
     box-shadow: inset 0 1px 0 color-mix(in srgb, var(--color-text-5) 4%, transparent);
+    user-select: text;
   }
 
   &__terminal-list {

@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "星光",
-  "version": "0.1.0",
-  "identifier": "com.starlight-app.app",
+  "version": "0.1.6",
+  "identifier": "com.starlight_app.app",
   "build": {
     "beforeDevCommand": "pnpm dev",
     "beforeBuildCommand": "pnpm build",

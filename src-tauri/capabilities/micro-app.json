@@ -1,0 +1,8 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "micro-app-capability",
+  "description": "Unprivileged capability for dynamic micro-app Webviews",
+  "platforms": ["macOS", "windows", "linux"],
+  "webviews": ["micro_app_*"],
+  "permissions": []
+}

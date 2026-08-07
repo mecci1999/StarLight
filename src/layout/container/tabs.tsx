@@ -65,16 +65,22 @@ export default defineComponent({
 
     return () => (
       <nav class="container-tabs" aria-label="已打开页面">
-        <div class="container-tabs__track">
+        <div class="container-tabs__track" role="tablist" aria-label="已打开页面">
           {tabs.value.map((tab) => (
-            <button
+            <div
               key={tab.key}
-              type="button"
-              class={['container-tabs__item', tab.key === activeKey.value && 'is-active']}
-              onClick={() => openTab(tab)}
+              class={['container-tabs__tab', tab.key === activeKey.value && 'is-active']}
               onMouseup={(event) => handleTabMouseup(tab, event)}>
-              <span class="container-tabs__title">{tab.title}</span>
-              <i
+              <button
+                type="button"
+                role="tab"
+                aria-selected={tab.key === activeKey.value}
+                class="container-tabs__item"
+                onClick={() => openTab(tab)}>
+                <span class="container-tabs__title">{tab.title}</span>
+              </button>
+              <button
+                type="button"
                 class="container-tabs__close"
                 onClick={(event) => closeTab(tab, event)}
                 aria-label={`关闭${tab.title}`}
@@ -82,8 +88,8 @@ export default defineComponent({
                 <NIcon size={13}>
                   <CloseOutline />
                 </NIcon>
-              </i>
-            </button>
+              </button>
+            </div>
           ))}
           <button
             type="button"

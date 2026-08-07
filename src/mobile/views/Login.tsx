@@ -2,7 +2,6 @@ import { h } from 'vue'
 import { MobileAvatar, MobileButton, MobileCheckbox, MobileInput, MobileSheet } from '@/mobile/ui'
 import { PhCaretDown, PhCaretUp } from '@phosphor-icons/vue'
 import { encryptPassword } from '@/utils/Crypto'
-import { fetch as tauriFetch } from '@tauri-apps/plugin-http'
 import * as api from '@/api'
 import {
   getStoredAuthTokens,
@@ -18,6 +17,7 @@ import { useKeyboardAvoid } from '@/mobile/hooks/useKeyboardAvoid'
 import MobileVantProvider from '@/mobile/providers/MobileVantProvider'
 import LegalDocumentContent from '@/shared/legal/LegalDocumentContent'
 import type { LegalDocumentKind } from '@/shared/legal/agreements'
+import { hasAcceptedLegalAgreements, persistLegalAgreementAcceptance } from '@/shared/legal/agreementAcceptance'
 import type { UserInfoType } from '@/types/userInfo'
 import './Login.scss'
 
@@ -75,29 +75,6 @@ export default defineComponent({
   setup() {
     const router = useRouter()
     const settingStore = useSettingStore()
-    const isOnline = ref(false)
-    const checkingNetwork = ref(true)
-
-    // 用 Tauri 原生 HTTP 检测真实网络连通性
-    const checkNetwork = async () => {
-      try {
-        checkingNetwork.value = true
-        const resp = await tauriFetch('https://www.apple.com/library/test/success.html', {
-          method: 'GET',
-          connectTimeout: 5000
-        })
-        isOnline.value = resp.ok
-      } catch {
-        isOnline.value = false
-      } finally {
-        checkingNetwork.value = false
-      }
-    }
-
-    onMounted(() => {
-      checkNetwork()
-    })
-
     const { loginHistories, addLoginHistory, removeLoginHistory } = useLoginHistoriesStore()
 
     const state = reactive({
@@ -109,7 +86,7 @@ export default defineComponent({
       nickname: '',
       userId: '',
       remember: true,
-      protocol: false,
+      protocol: hasAcceptedLegalAgreements(),
       loading: false,
       mode: 'login' as 'login' | 'register' | 'forget',
       countdown: 0,
@@ -132,7 +109,7 @@ export default defineComponent({
     const isForgetMode = computed(() => state.mode === 'forget')
 
     const submitDisabled = computed(() => {
-      if (state.loading || !isOnline.value) return true
+      if (state.loading) return true
       if (!state.email || !state.validCode) return true
       if (isRegisterMode.value || isForgetMode.value) {
         if (!state.password || !state.confirmPassword) return true
@@ -143,7 +120,6 @@ export default defineComponent({
     })
 
     const submitText = computed(() => {
-      if (!isOnline.value) return '网络异常'
       if (isRegisterMode.value) return '注册'
       if (isForgetMode.value) return '重置密码'
       return '登录'
@@ -309,8 +285,8 @@ export default defineComponent({
         const token = res.token || res.accessToken || res.access_token
         const refreshTokenVal = res.refreshToken || res.refresh_token
         persistAuthTokens({
-          accessToken: token || getStoredAuthTokens().accessToken,
-          refreshToken: refreshTokenVal || getStoredAuthTokens().refreshToken
+          accessToken: token,
+          refreshToken: refreshTokenVal
         })
         syncAuthTokensToTauri().catch(() => {})
         const loginUserId = res.userId || ''
@@ -587,6 +563,7 @@ export default defineComponent({
                   modelValue={state.protocol}
                   onUpdate:modelValue={(v: boolean) => {
                     state.protocol = v
+                    persistLegalAgreementAcceptance(v)
                   }}
                 />
                 <div class="mobile-login__footer-agreement">
