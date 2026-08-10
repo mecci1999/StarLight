@@ -66,6 +66,16 @@ describe('authSession', () => {
     expect(getStoredUserInfo()).toBeNull()
   })
 
+  it('keeps the refresh token in persistent storage for cold-start session recovery', () => {
+    persistAuthTokens({ accessToken: 'access-1', refreshToken: 'refresh-1' })
+
+    expect(storage.get('ACCESS_TOKEN')).toBe('access-1')
+    expect(storage.get('REFRESH_TOKEN')).toBe('refresh-1')
+    expect(getStoredAuthTokens().refreshToken).toBe('refresh-1')
+    expect(documentMock.cookie).toContain('REFRESH_TOKEN=refresh-1')
+    expect(documentMock.cookie).toContain('expires=')
+  })
+
   it('broadcasts user info changes when local session user is persisted', () => {
     persistStoredUserInfo({ userId: 'u-1', avatar: '/uploads/avatar.webp' })
 

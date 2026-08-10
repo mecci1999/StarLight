@@ -24,6 +24,8 @@ mod mobiles;
 #[cfg(mobile)]
 use init::CustomInit;
 #[cfg(mobile)]
+use mobiles::auth_cmd::ios_auth_post;
+#[cfg(mobile)]
 use mobiles::init;
 
 pub fn run() {
@@ -247,6 +249,7 @@ mod micro_app_tests {
 fn setup_mobile() {
     tauri::Builder::default()
         .init_plugin()
+        .invoke_handler(tauri::generate_handler![ios_auth_post])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

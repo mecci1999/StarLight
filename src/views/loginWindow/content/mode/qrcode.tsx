@@ -22,9 +22,11 @@ import { type } from '@tauri-apps/plugin-os'
 import { useRouter } from 'vue-router'
 import type { UserInfoType } from '@/types/userInfo'
 // 在文件顶部添加导入语句
-import RefreshIcon from '@/assets/icons/refresh.svg'
 import { useTauriListener } from '@/hooks/useTauriListener'
 import './qrcode.scss'
+
+const QR_CODE_RASTER_SIZE = 168
+const QR_CODE_INTRINSIC_PADDING = 12
 
 export default defineComponent({
   name: 'LoginWindowContentQRCode',
@@ -66,12 +68,17 @@ export default defineComponent({
       pollingTimer: null as NodeJS.Timeout | null, // 轮询定时器
       retryCount: 0, // 重试次数
       maxRetryCount: 3, // 最大重试次数
+      statusFailureCount: 0,
       expirationTimer: null as NodeJS.Timeout | null, // 添加过期定时器引用
       retryTimer: null as NodeJS.Timeout | null // 添加重试定时器引用
     })
+    let qrSession = 0
+    let pollRequestSession: number | null = null
 
     // 生成二维码
     const generateQRCode = async () => {
+      clearAllTimers()
+      const session = ++qrSession
       try {
         state.loading = true
         state.qrStatus = 'loading'
@@ -79,21 +86,24 @@ export default defineComponent({
 
         // 调用API获取二维码key
         const response = (await api.getQRCodeKey()) as any
+        if (session !== qrSession) return
 
-        if (response) {
+        if (response?.code) {
           // 生成二维码内容，这里使用key作为二维码内容
           state.QRCode = response.code
           state.qrCodeKey = response.code
           state.qrStatus = 'waiting'
           state.statusText = ''
           state.retryCount = 0
+          state.statusFailureCount = 0
 
           // 开始轮询检查扫码状态
-          startPolling()
+          startPolling(session)
         } else {
           throw new Error('获取二维码失败')
         }
       } catch (error) {
+        if (session !== qrSession) return
         console.error('生成二维码失败:', error)
         state.qrStatus = 'error'
         state.statusText = '生成二维码失败，请重试'
@@ -108,7 +118,7 @@ export default defineComponent({
           }
 
           state.retryTimer = setTimeout(() => {
-            generateQRCode()
+            if (session === qrSession) generateQRCode()
           }, 3000)
         }
       } finally {
@@ -117,13 +127,16 @@ export default defineComponent({
     }
 
     // 检查扫码状态
-    const checkQRStatus = async () => {
-      if (!state.qrCodeKey) return
+    const checkQRStatus = async (session: number) => {
+      if (session !== qrSession || !state.qrCodeKey || pollRequestSession === session) return
 
+      pollRequestSession = session
       try {
-        const response = (await api.getQRCodeStatus({ key: state.qrCodeKey })) as any
+        const response = (await api.getQRCodeStatus({ code: state.qrCodeKey })) as any
+        if (session !== qrSession) return
 
         if (response) {
+          state.statusFailureCount = 0
           const status = response.status
 
           switch (status) {
@@ -163,7 +176,7 @@ export default defineComponent({
               let resolvedUserInfo =
                 (response.userInfo as Partial<UserInfoType> | undefined) ||
                 (cachedUserInfo?.userId === loginUserId ? cachedUserInfo : undefined)
-              if (!resolvedUserInfo?.userId && loginUserId) {
+              if (loginUserId) {
                 try {
                   resolvedUserInfo = (await api.getUserInfo(loginUserId)) as Partial<UserInfoType>
                 } catch (error) {
@@ -222,15 +235,26 @@ export default defineComponent({
           }
         }
       } catch (error) {
+        if (session !== qrSession) return
         console.error('检查扫码状态失败:', error)
+        state.statusFailureCount += 1
+        if (state.statusFailureCount >= state.maxRetryCount) {
+          state.qrStatus = 'error'
+          state.statusText = '二维码状态更新失败，请刷新后重试'
+          stopPolling()
+        } else {
+          state.statusText = '状态更新失败，正在重试…'
+        }
+      } finally {
+        if (pollRequestSession === session) pollRequestSession = null
       }
     }
 
     // 开始轮询
-    const startPolling = () => {
+    const startPolling = (session: number) => {
       stopPolling() // 先清除之前的定时器
       state.pollingTimer = setInterval(() => {
-        checkQRStatus()
+        void checkQRStatus(session)
       }, 2000) // 每2秒检查一次
 
       // 清除之前的过期定时器
@@ -243,6 +267,7 @@ export default defineComponent({
       state.expirationTimer = setTimeout(
         () => {
           if (state.qrStatus === 'waiting' || state.qrStatus === 'scanned') {
+            if (session !== qrSession) return
             state.qrStatus = 'expired'
             state.statusText = '二维码已过期，点击刷新'
             stopPolling()
@@ -283,6 +308,7 @@ export default defineComponent({
 
     // 组件卸载时清除所有定时器
     onUnmounted(() => {
+      qrSession += 1
       clearAllTimers()
     })
 
@@ -291,6 +317,8 @@ export default defineComponent({
       stopPolling()
       generateQRCode()
     }
+
+    const isRefreshableStatus = () => state.qrStatus === 'expired' || state.qrStatus === 'error'
 
     // 获取状态图标
     const getStatusIcon = () => {
@@ -332,7 +360,7 @@ export default defineComponent({
           )
         case 'expired':
           return (
-            <div class="login-qrcode__status-icon login-qrcode__status-icon--expired" onClick={refreshQRCode}>
+            <div class="login-qrcode__status-icon login-qrcode__status-icon--expired">
               <svg viewBox="0 0 24 24" fill="currentColor">
                 <path d="M12 6v3l4-4-4-4v3c-4.42 0-8 3.58-8 8 0 1.57.46 3.03 1.24 4.26L6.7 14.8c-.45-.83-.7-1.79-.7-2.8 0-3.31 2.69-6 6-6zm6.76 1.74L17.3 9.2c.44.84.7 1.79.7 2.8 0 3.31-2.69 6-6 6v-3l-4 4 4 4v-3c4.42 0 8-3.58 8-8 0-1.57-.46-3.03-1.24-4.26z" />
               </svg>
@@ -340,7 +368,7 @@ export default defineComponent({
           )
         case 'error':
           return (
-            <div class="login-qrcode__status-icon login-qrcode__status-icon--error" onClick={refreshQRCode}>
+            <div class="login-qrcode__status-icon login-qrcode__status-icon--error">
               <svg viewBox="0 0 24 24" fill="currentColor">
                 <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm5 11H7v-2h10v2z" />
               </svg>
@@ -359,39 +387,20 @@ export default defineComponent({
       }
     }
 
-    // 获取状态样式类
     const getStatusClass = () => {
       switch (state.qrStatus) {
         case 'loading':
-          return 'login-qrcode__overlay--loading'
+          return 'login-qrcode__status--loading'
         case 'scanned':
-          return 'login-qrcode__overlay--scanned'
+          return 'login-qrcode__status--scanned'
         case 'expired':
-          return 'login-qrcode__overlay--expired'
+          return 'login-qrcode__status--expired'
         case 'error':
-          return 'login-qrcode__overlay--error'
+          return 'login-qrcode__status--error'
         case 'success':
-          return 'login-qrcode__overlay--success'
+          return 'login-qrcode__status--success'
         default:
-          return 'login-qrcode__overlay--waiting'
-      }
-    }
-
-    // 获取状态文本颜色
-    const getStatusTextColor = () => {
-      switch (state.qrStatus) {
-        case 'loading':
-          return 'login-qrcode__overlay-text--loading'
-        case 'scanned':
-          return 'login-qrcode__overlay-text--scanned'
-        case 'expired':
-          return 'login-qrcode__overlay-text--expired'
-        case 'error':
-          return 'login-qrcode__overlay-text--error'
-        case 'success':
-          return 'login-qrcode__overlay-text--success'
-        default:
-          return 'login-qrcode__overlay-text--waiting'
+          return 'login-qrcode__status--waiting'
       }
     }
 
@@ -421,84 +430,54 @@ export default defineComponent({
     })
 
     return () => (
-      <NFlex class="login-qrcode" size={0} vertical={true} data-tauri-drag-region>
+      <NFlex class="login-qrcode" size={0} vertical={true}>
         {/* 二维码 */}
         <div class="title login-qrcode__title">
           请打开
           <span class="login-qrcode__title-link">星光 App</span>
           扫一扫
         </div>
-        {/* 二维码容器 */}
-        <NFlex justify={'center'} class={'qrcode login-qrcode__panel'}>
-          <div class="login-qrcode__panel-inner">
-            {state.loading ? (
-              // 占位图
-              <div class="login-qrcode__placeholder">
-                <div class="login-qrcode__placeholder-content">
-                  <div class="login-qrcode__placeholder-spinner">
-                    <svg class="login-qrcode__placeholder-spinner-icon" viewBox="0 0 24 24" fill="none">
-                      <circle
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        stroke-width="2"
-                        stroke-dasharray="31.416"
-                        stroke-dashoffset="31.416"
-                        opacity="0.3"
-                      />
-                      <circle
-                        cx="12"
-                        cy="12"
-                        r="10"
-                        stroke="currentColor"
-                        stroke-width="2"
-                        stroke-dasharray="31.416"
-                        stroke-dashoffset="23.562"
-                        stroke-linecap="round"
-                      />
-                    </svg>
-                  </div>
-                  <span class="login-qrcode__placeholder-text">正在生成二维码...</span>
-                </div>
+        <div class="login-qrcode__stage" aria-label="登录二维码区域">
+          {state.loading ? (
+            <div class="login-qrcode__placeholder" role="status" aria-label="正在生成二维码">
+              <div class="login-qrcode__placeholder-spinner">
+                <svg class="login-qrcode__placeholder-spinner-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" opacity="0.3" />
+                  <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                </svg>
               </div>
-            ) : (
-              // 二维码
-              <div
-                class={[
-                  'login-qrcode__canvas',
-                  state.qrStatus === 'expired' || state.qrStatus === 'error' ? 'is-dimmed' : ''
-                ]}>
-                <NQrCode
-                  size={200}
-                  value={state.QRCode}
-                  iconSrc="/logo.png"
-                  errorCorrectionLevel={'H'}
-                  class="login-qrcode__qr"
-                />
-                {/* 二维码边框装饰 */}
-                <div class="login-qrcode__canvas-frame"></div>
+            </div>
+          ) : state.QRCode ? (
+            <div class={['login-qrcode__qr-slot', { 'login-qrcode__qr-slot--obscured': isRefreshableStatus() }]}>
+              <NQrCode
+                size={QR_CODE_RASTER_SIZE}
+                padding={QR_CODE_INTRINSIC_PADDING}
+                value={state.QRCode}
+                iconSrc="/logo.png"
+                errorCorrectionLevel={'H'}
+                class="login-qrcode__qr"
+              />
+            </div>
+          ) : (
+            <div class="login-qrcode__placeholder" aria-hidden="true" />
+          )}
+          {isRefreshableStatus() && (
+            <div class="login-qrcode__refresh-overlay" role="group" aria-label="二维码已失效">
+              <div class="login-qrcode__refresh-copy">
+                <strong>{state.qrStatus === 'expired' ? '二维码已过期' : '二维码状态异常'}</strong>
+                <span>请刷新后重新扫码</span>
               </div>
-            )}
+              <NButton class="login-qrcode__refresh" type="primary" size="small" onClick={refreshQRCode}>
+                重新生成二维码
+              </NButton>
+            </div>
+          )}
+        </div>
 
-            {/* 二维码状态覆盖层 */}
-            {state.qrStatus !== 'waiting' && !state.loading && (
-              <div class={['login-qrcode__overlay', getStatusClass()]}>
-                <div class="login-qrcode__overlay-content">
-                  {getStatusIcon()}
-                  {state.statusText && (
-                    <div class={['login-qrcode__overlay-text', getStatusTextColor()]}>{state.statusText}</div>
-                  )}
-                  {(state.qrStatus === 'expired' || state.qrStatus === 'error') && (
-                    <div onClick={refreshQRCode} class="login-qrcode__refresh">
-                      <img src={RefreshIcon} class="login-qrcode__refresh-icon" />
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-        </NFlex>
+        <div class={['login-qrcode__status', getStatusClass()]} role="status" aria-live="polite">
+          {state.qrStatus !== 'waiting' && getStatusIcon()}
+          <div class="login-qrcode__status-copy">{state.statusText || '请使用星光 App 扫描二维码登录'}</div>
+        </div>
 
         {/* 网络状态提示 */}
         {!isOnline.value && (

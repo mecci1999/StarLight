@@ -1,4 +1,5 @@
-import { defineComponent, ref, onActivated, onDeactivated, onUnmounted, computed, h } from 'vue'
+import { defineComponent, ref, onActivated, onDeactivated, onUnmounted, computed, h, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { Tab } from 'vant'
 import {
   MobileButton,
@@ -27,7 +28,8 @@ import { getDebugDiagnosticsState, setDebugDiagnosticsState } from '@/api/logs'
 import type { LogEntry, LogOriginType, LogSearchParams } from '@/types/logs'
 import { LogLevelEnum } from '@/types/logs'
 import dayjs from 'dayjs'
-import { getStoredUserInfo } from '@/services/authSession'
+import { getPreferredMetricsDatasetScope, getStoredUserInfo } from '@/services/authSession'
+import { parseInvestigationContext, resolveInvestigationWindow } from '@/mobile/hooks/investigationContext'
 import './MobileLogCenter.scss'
 
 const LOG_LEVELS: Array<{ key: LogLevelEnum; label: string }> = [
@@ -44,6 +46,13 @@ const TIME_RANGES = [
   { key: '1d', label: '1天' }
 ]
 
+const TIME_RANGE_HOURS: Record<string, number> = {
+  '15m': 0.25,
+  '1h': 1,
+  '4h': 4,
+  '1d': 24
+}
+
 const levelTagTypeMap: Record<string, 'danger' | 'warning' | 'info' | 'default'> = {
   ERROR: 'danger',
   WARN: 'warning',
@@ -54,6 +63,7 @@ const levelTagTypeMap: Record<string, 'danger' | 'warning' | 'info' | 'default'>
 export default defineComponent({
   name: 'MobileLogCenter',
   setup() {
+    const route = useRoute()
     // ── Common state ──
     const activeTab = ref('overview')
     const isAdminUser = Boolean(getStoredUserInfo()?.isAdmin)
@@ -97,6 +107,7 @@ export default defineComponent({
 
     // ── Stream tab state ──
     const streamLoading = ref(false)
+    const streamError = ref(false)
     const streamPaused = ref(false)
     const streamFreq = ref<number | null>(null)
     let streamGeneration = 0
@@ -111,10 +122,16 @@ export default defineComponent({
 
     // ── Service tab state ──
     const serviceLoading = ref(false)
+    const serviceOptionsError = ref(false)
+    const serviceLogsError = ref(false)
+    const serviceLogsLoadingMore = ref(false)
+    const serviceLogsLoadMoreError = ref(false)
     const serviceServices = ref<Array<{ label: string; value: string }>>([])
     const selectedService = ref<string | null>(null)
     const serviceLogs = ref<LogEntry[]>([])
     const serviceLogsTotal = ref(0)
+    const serviceLogsPage = ref(1)
+    const serviceLogsHasMore = ref(false)
 
     // ── Exception tab state ──
     const exceptionLoading = ref(false)
@@ -196,16 +213,23 @@ export default defineComponent({
     }
 
     const buildSearchParams = (page = 1): LogSearchParams => {
+      const context = parseInvestigationContext(route.query)
+      const window = resolveInvestigationWindow(context)
+      const endTime = window ? dayjs(window.end) : dayjs()
+      const rangeHours = TIME_RANGE_HOURS[timeRange.value] ?? TIME_RANGE_HOURS['1h']
       const params: LogSearchParams = {
         page,
         pageSize: logsPageSize,
         sortBy: 'timestamp',
         sortOrder: 'desc',
-        originType: overviewOriginType.value
+        originType: overviewOriginType.value,
+        startTime: (window ? dayjs(window.start) : endTime.subtract(rangeHours, 'hour')).toISOString(),
+        endTime: endTime.toISOString()
       }
       if (searchKeyword.value.trim()) {
         params.keyword = searchKeyword.value.trim()
       }
+      if (context.serviceName) params.service = context.serviceName
       if (activeLevels.value.length > 0) {
         params.levels = activeLevels.value
       }
@@ -369,6 +393,7 @@ export default defineComponent({
       const generation = ++streamGeneration
       isStreamActive = true
       streamLoading.value = true
+      streamError.value = false
       try {
         const params: LogSearchParams = {
           page: 1,
@@ -383,8 +408,10 @@ export default defineComponent({
         streamLogsTotal.value = Number(res?.total || streamLogs.value.length)
       } catch (err) {
         console.error('Stream load error:', err)
+        if (generation === streamGeneration && activeTab.value === 'stream') streamError.value = true
+        return
       } finally {
-        streamLoading.value = false
+        if (generation === streamGeneration) streamLoading.value = false
       }
 
       if (generation !== streamGeneration || !isStreamActive || activeTab.value !== 'stream') return
@@ -405,7 +432,7 @@ export default defineComponent({
               streamLogs.value = res?.logs || []
               streamLogsTotal.value = Number(res?.total || streamLogs.value.length)
             } catch {
-              /* silent */
+              if (generation === streamGeneration && activeTab.value === 'stream') streamError.value = true
             }
           }
         }, 5000)
@@ -459,16 +486,18 @@ export default defineComponent({
 
     const loadServiceOptions = async () => {
       serviceLoading.value = true
+      serviceOptionsError.value = false
       try {
-        const res = await fetchCatalogServices({ page: 1, pageSize: 200 })
+        const res = await fetchCatalogServices({ page: 1, pageSize: 200, scope: getPreferredMetricsDatasetScope() })
         const items = res?.items || []
         serviceServices.value = items.map((item: any) => ({
           label: item.identity?.name || item.identity?.id,
-          value: item.identity?.id || ''
+          value: item.identity?.name || ''
         }))
       } catch (err) {
         console.error('Failed to load service options:', err)
         serviceServices.value = []
+        serviceOptionsError.value = true
       } finally {
         serviceLoading.value = false
       }
@@ -477,6 +506,8 @@ export default defineComponent({
     const loadServiceLogs = async () => {
       if (!selectedService.value) return
       serviceLoading.value = true
+      serviceLogsError.value = false
+      serviceLogsLoadMoreError.value = false
       try {
         const params: LogSearchParams = {
           page: 1,
@@ -489,10 +520,42 @@ export default defineComponent({
         const res = await searchLogs(params)
         serviceLogs.value = res?.logs || []
         serviceLogsTotal.value = Number(res?.total || serviceLogs.value.length)
+        serviceLogsPage.value = 1
+        serviceLogsHasMore.value = Boolean(res?.hasMore)
       } catch (err) {
         console.error('Service logs load error:', err)
+        serviceLogs.value = []
+        serviceLogsTotal.value = 0
+        serviceLogsHasMore.value = false
+        serviceLogsError.value = true
       } finally {
         serviceLoading.value = false
+      }
+    }
+
+    const loadMoreServiceLogs = async () => {
+      if (!selectedService.value || serviceLogsLoadingMore.value || !serviceLogsHasMore.value) return
+      serviceLogsLoadingMore.value = true
+      serviceLogsLoadMoreError.value = false
+      try {
+        const nextPage = serviceLogsPage.value + 1
+        const res = await searchLogs({
+          page: nextPage,
+          pageSize: 30,
+          sortBy: 'timestamp',
+          sortOrder: 'desc',
+          service: selectedService.value,
+          originType: overviewOriginType.value
+        })
+        serviceLogs.value = dedupeLogs(serviceLogs.value, res?.logs || [])
+        serviceLogsTotal.value = Number(res?.total || serviceLogs.value.length)
+        serviceLogsPage.value = nextPage
+        serviceLogsHasMore.value = Boolean(res?.hasMore)
+      } catch (loadError) {
+        console.error('Load more service logs error:', loadError)
+        serviceLogsLoadMoreError.value = true
+      } finally {
+        serviceLogsLoadingMore.value = false
       }
     }
 
@@ -552,11 +615,35 @@ export default defineComponent({
     }
 
     onActivated(() => {
+      const context = parseInvestigationContext(route.query)
+      if (context.tab) activeTab.value = context.tab
+      if (context.keyword !== undefined) searchKeyword.value = context.keyword
+      if (context.serviceName) selectedService.value = context.serviceName
+      if (context.range && TIME_RANGE_HOURS[context.range]) timeRange.value = context.range
       loadLogs(1)
       if (isAdminUser) loadDebugState()
       startRefreshTimer()
       if (activeTab.value === 'stream') startStream()
     })
+
+    watch(
+      () => route.query,
+      () => {
+        const context = parseInvestigationContext(route.query)
+        if (context.tab !== undefined) activeTab.value = context.tab
+        if (context.keyword !== undefined) searchKeyword.value = context.keyword
+        if (context.serviceName !== undefined) selectedService.value = context.serviceName
+        if (context.range && TIME_RANGE_HOURS[context.range]) timeRange.value = context.range
+        if (
+          context.tab !== undefined ||
+          context.keyword !== undefined ||
+          context.serviceName !== undefined ||
+          context.range !== undefined ||
+          context.start !== undefined
+        )
+          refreshData()
+      }
+    )
 
     const stopRefreshTimer = () => {
       if (refreshTimer.value) {
@@ -863,6 +950,14 @@ export default defineComponent({
           <div class="mobile-log-center__loading">
             <MobileLoading loading={true} size="24px" />
           </div>
+        ) : streamError.value && streamLogs.value.length === 0 ? (
+          <div class="mobile-log-center__error">
+            <MobileEmpty description="实时日志加载失败，请检查网络后重试">
+              <MobileButton type="primary" size="small" onClick={startStream}>
+                重新开始
+              </MobileButton>
+            </MobileEmpty>
+          </div>
         ) : streamLogs.value.length === 0 ? (
           <div class="mobile-log-center__empty-state">
             <MobileEmpty description="暂无日志" />
@@ -974,21 +1069,57 @@ export default defineComponent({
               if (value) loadServiceLogs()
             }}
           />
+          {serviceOptionsError.value && (
+            <div class="mobile-log-center__selector-error" role="alert">
+              <span>服务列表加载失败</span>
+              <MobileButton size="small" type="ghost" onClick={loadServiceOptions}>
+                重试
+              </MobileButton>
+            </div>
+          )}
         </div>
         {serviceLoading.value ? (
           <div class="mobile-log-center__loading">
             <MobileLoading loading={true} size="24px" />
           </div>
+        ) : serviceOptionsError.value ? (
+          <div class="mobile-log-center__error">
+            <MobileEmpty description="服务列表加载失败，请重试" />
+          </div>
         ) : !selectedService.value ? (
           <div class="mobile-log-center__empty-state">
             <MobileEmpty description="请选择一个服务" />
+          </div>
+        ) : serviceLogsError.value ? (
+          <div class="mobile-log-center__error">
+            <MobileEmpty description="服务日志加载失败，请检查网络后重试">
+              <MobileButton type="primary" size="small" onClick={loadServiceLogs}>
+                重新加载
+              </MobileButton>
+            </MobileEmpty>
           </div>
         ) : serviceLogs.value.length === 0 ? (
           <div class="mobile-log-center__empty-state">
             <MobileEmpty description={`${selectedService.value} 暂无日志`} />
           </div>
         ) : (
-          <div class="mobile-log-center__list">{serviceLogs.value.map((log, idx) => renderLogEntry(log, idx))}</div>
+          <div class="mobile-log-center__list">
+            {serviceLogs.value.map((log, idx) => renderLogEntry(log, idx))}
+            {serviceLogsHasMore.value && (
+              <div class="mobile-log-center__load-more">
+                <MobileButton
+                  size="small"
+                  type="primary"
+                  loading={serviceLogsLoadingMore.value}
+                  onClick={loadMoreServiceLogs}>
+                  加载更多 ({serviceLogs.value.length}/{serviceLogsTotal.value})
+                </MobileButton>
+                {serviceLogsLoadMoreError.value && (
+                  <p class="mobile-log-center__load-more-error">加载更多日志失败，请重试。</p>
+                )}
+              </div>
+            )}
+          </div>
         )}
       </div>
     )

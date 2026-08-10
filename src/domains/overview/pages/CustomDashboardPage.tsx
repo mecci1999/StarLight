@@ -1060,6 +1060,7 @@ export default defineComponent({
             height="220px"
             area={activeVisualization === 'line'}
             variant="monitor"
+            mutedGrid
             showLegend
             yAxisMin={display.min}
             yAxisMax={display.max}
@@ -1234,6 +1235,7 @@ export default defineComponent({
             title=""
             height="240px"
             variant="monitor"
+            mutedGrid
             showLegend
             area={widget.visualization === 'line'}
             yAxisMin={display.min}

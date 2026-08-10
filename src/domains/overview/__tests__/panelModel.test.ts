@@ -22,6 +22,16 @@ describe('overview panel model', () => {
     )
   })
 
+  it('labels default incident widgets as system events while retaining both event sources', () => {
+    const panels = buildShippedOverviewPanels()
+    const systemPanel = panels.find((panel) => panel.id === 'system-overview')
+    const incidentWidget = systemPanel?.widgets.find((widget) => widget.id === 'system-incidents')
+
+    expect(incidentWidget?.title).toBe('系统事件')
+    expect(incidentWidget?.description).toContain('系统健康事件不等同于告警规则')
+    expect((incidentWidget?.config as { source?: string[] } | undefined)?.source).toEqual(['metrics', 'alerts'])
+  })
+
   it('creates isolated user panels from an existing widget list', () => {
     const sourcePanel = buildShippedOverviewPanels()[0]
     const userPanel = createUserPanelDefinition('我的值班面板', sourcePanel.widgets)

@@ -1,0 +1,1042 @@
+import { P as e } from './PageHeader-OtleDOO-.js'
+import { B as a } from './BaseChart-FGf3lmW3.js'
+import {
+  d as l,
+  e as t,
+  g as n,
+  f as i,
+  h as u,
+  a as r,
+  r as s,
+  u as o,
+  s as c,
+  i as d,
+  q as v,
+  b as p,
+  c as b
+} from './subscription-C610hAN0.js'
+import { r as m } from './billingErrorState-CSlzjph-.js'
+import {
+  p as y,
+  a0 as g,
+  a1 as _,
+  a3 as f,
+  w as h,
+  ci as w,
+  a6 as k,
+  am as x,
+  ac as A,
+  aS as N,
+  cc as S,
+  r as $,
+  cM as q,
+  cN as P,
+  ao as C,
+  ap as I,
+  ar as M,
+  cp as j,
+  ag as U,
+  $ as B,
+  ba as E,
+  ai as R,
+  a2 as L,
+  cO as T,
+  ch as O,
+  aA as z,
+  aB as K
+} from './invariable-DewVS0br.js'
+import { R as F } from './ResultTable-B_9U75PU.js'
+import { b as G } from './index-DFkcx8xz.js'
+import './request-BiInMBwl.js'
+const D = { maxMetricsPerMonth: '月度指标写入', maxCustomSchemas: '自定义 Schema', maxAppKeys: '活跃 API Key' },
+  X = (e) => ('number' == typeof e ? e.toLocaleString() : '未知'),
+  Y = y({
+    name: 'BillingUsage',
+    setup() {
+      const e = g(!1),
+        n = g(!1),
+        i = g(!1),
+        u = g(null),
+        r = g(null),
+        s = _(() => {
+          var e
+          return (null == (e = u.value) ? void 0 : e.quotas) || []
+        }),
+        o = _(() => s.value.find((e) => 'maxMetricsPerMonth' === e.type)),
+        c = _(() => s.value.find((e) => 'maxCustomSchemas' === e.type)),
+        d = _(() => s.value.find((e) => 'maxAppKeys' === e.type)),
+        v = _(() => {
+          var e
+          return (null == (e = u.value) ? void 0 : e.summary) || null
+        }),
+        p = _(() => {
+          var e
+          return 'admin-global' === (null == (e = v.value) ? void 0 : e.planName)
+        })
+      f(async () => {
+        ;(e.value = !0), (n.value = !1), (i.value = !1)
+        try {
+          const e = await l()
+          u.value = e
+          const a = await t({ quotaType: 'maxMetricsPerMonth', timeRange: '7d', limit: 100 }).catch(
+              (e) => (m('Quota history unavailable:', e), (i.value = !0), { history: [] })
+            ),
+            n = (null == a ? void 0 : a.history) || [],
+            s = n.map((e) => {
+              var a
+              return (null == (a = e.timestamp) ? void 0 : a.slice(5, 16)) || e.timestamp
+            }),
+            o = n.map((e) => e.current)
+          r.value = {
+            color: ['#165dff'],
+            tooltip: { trigger: 'axis' },
+            grid: { left: 36, right: 20, top: 28, bottom: 28 },
+            xAxis: {
+              type: 'category',
+              boundaryGap: !1,
+              data: s,
+              axisLine: { lineStyle: { color: '#e5e6eb' } },
+              axisTick: { show: !1 }
+            },
+            yAxis: { type: 'value', splitLine: { lineStyle: { color: '#f2f3f5' } } },
+            series: [
+              {
+                name: '月度指标写入',
+                type: 'line',
+                smooth: !0,
+                lineStyle: { width: 2 },
+                showSymbol: !1,
+                areaStyle: { opacity: 0.08, color: '#165dff' },
+                emphasis: { focus: 'series' },
+                data: o
+              }
+            ]
+          }
+        } catch (a) {
+          m('Usage summary unavailable:', a), (u.value = null), (n.value = !0)
+        } finally {
+          e.value = !1
+        }
+      })
+      const b = (e, a) => {
+        const l = D[(null == e ? void 0 : e.type) || a] || (null == e ? void 0 : e.type) || a,
+          t = (n = e) && n.total ? Math.min(Math.round((n.current / n.total) * 100), 100) : 0
+        var n
+        return h(
+          x,
+          { bordered: !1, class: 'billing-usage-tab__quota-card' },
+          {
+            default: () => [
+              h('div', { class: 'billing-usage-tab__quota-head' }, [
+                h('span', null, [l]),
+                h(
+                  w,
+                  { size: 'small', bordered: !1, type: t >= 85 ? 'warning' : 'success' },
+                  { default: () => [t, A('%')] }
+                )
+              ]),
+              h('strong', null, [e ? `${X(e.current)} / ${X(e.total)}` : '未知']),
+              h(S, { percentage: t, showIndicator: !1, status: t >= 85 ? 'warning' : 'success' }, null)
+            ]
+          }
+        )
+      }
+      return () =>
+        h('div', { class: 'billing-usage-tab' }, [
+          h('div', { class: 'billing-usage-tab__section-head' }, [
+            h('div', null, [
+              h('h3', null, [p.value ? '全局订阅概览' : '使用概览']),
+              h('p', null, [
+                p.value
+                  ? '管理员视角展示全局活跃订阅、试用用户和最高套餐配额，用于判断整体订阅容量。'
+                  : '确认当前套餐、核心配额和最近 7 天指标写入趋势。'
+              ])
+            ]),
+            h(
+              w,
+              { bordered: !1, type: 'info' },
+              {
+                default: () => {
+                  var e, a
+                  return [
+                    (null == (e = v.value) ? void 0 : e.planDisplayName) ||
+                      (null == (a = v.value) ? void 0 : a.planName) ||
+                      '当前套餐'
+                  ]
+                }
+              }
+            )
+          ]),
+          e.value && !u.value
+            ? h('div', { class: 'billing-usage-tab__loading' }, [h(k, null, null)])
+            : n.value
+              ? h(
+                  x,
+                  { bordered: !1, class: 'billing-usage-tab__chart-card' },
+                  {
+                    default: () => [
+                      h('div', { class: 'billing-usage-tab__chart-empty' }, [
+                        A(
+                          '当前还没有可用订阅或配额数据。普通用户可先在“套餐与订阅”选择套餐，管理员可查看上方经营概览。'
+                        )
+                      ])
+                    ]
+                  }
+                )
+              : h(N, null, [
+                  h('div', { class: 'billing-usage-tab__quota-grid' }, [
+                    b(o.value, 'maxMetricsPerMonth'),
+                    b(c.value, 'maxCustomSchemas'),
+                    b(d.value, 'maxAppKeys')
+                  ]),
+                  h(
+                    x,
+                    { bordered: !1, class: 'billing-usage-tab__chart-card' },
+                    {
+                      default: () => {
+                        var e
+                        return [
+                          h(
+                            'div',
+                            { class: 'billing-usage-tab__section-head billing-usage-tab__section-head--compact' },
+                            [
+                              h('div', null, [
+                                h('h3', null, [p.value ? '管理员视角说明' : '最近 7 天趋势']),
+                                h('p', null, [
+                                  p.value
+                                    ? '个人订阅趋势不适用于管理员全局视角；请结合上方经营概览查看收益与订阅分布。'
+                                    : '用于判断是否需要升级套餐或调整采集策略。'
+                                ])
+                              ]),
+                              h('span', null, [
+                                p.value
+                                  ? '范围：全部用户'
+                                  : `到期时间：${(null == (e = v.value) ? void 0 : e.expiresAt) || '—'}`
+                              ])
+                            ]
+                          ),
+                          h('div', { class: 'billing-usage-tab__chart' }, [
+                            p.value
+                              ? h('div', { class: 'billing-usage-tab__chart-empty' }, [
+                                  A('管理员全局视角不依赖个人订阅，因此不会再因为管理员本人未订阅而报错。')
+                                ])
+                              : i.value
+                                ? h('div', { class: 'billing-usage-tab__chart-empty' }, [
+                                    A('趋势数据暂时不可用，配额概览仍可正常查看。')
+                                  ])
+                                : r.value && h(a, { option: r.value }, null)
+                          ])
+                        ]
+                      }
+                    }
+                  )
+                ])
+        ])
+    }
+  })
+function H(e) {
+  return 'function' == typeof e || ('[object Object]' === Object.prototype.toString.call(e) && !R(e))
+}
+const Q = [
+    {
+      name: 'Free',
+      price: 'CNY0',
+      period: '/month',
+      features: ['基础指标接入', '1 个 API Key', '社区支持'],
+      value: 'free',
+      color: 'gray'
+    },
+    {
+      name: 'Pro',
+      price: 'CNY99',
+      period: '/month',
+      features: ['更高指标写入额度', '多 API Key 管理', '告警与趋势分析'],
+      value: 'pro',
+      color: 'blue'
+    },
+    {
+      name: 'Team',
+      price: 'CNY299',
+      period: '/month',
+      features: ['团队级配额', '更长数据保留', '优先支持'],
+      value: 'team',
+      color: 'purple'
+    }
+  ],
+  V = y({
+    name: 'BillingPlans',
+    setup() {
+      const e = $(),
+        a = B(),
+        l = E(),
+        t = g(''),
+        v = g('unknown'),
+        p = g(!1),
+        b = g(!1),
+        m = g([]),
+        y = g(''),
+        _ = g([]),
+        w = g({}),
+        k = (e) => {
+          if (!e) return !1
+          try {
+            const a = new URL(e, window.location.origin)
+            return (
+              !!['http:', 'https:'].includes(a.protocol) &&
+              (window.open(a.toString(), '_blank', 'noopener,noreferrer'), !0)
+            )
+          } catch {
+            return !1
+          }
+        },
+        N = (e) =>
+          Array.isArray(e.features)
+            ? e.features
+            : e.features && 'object' == typeof e.features
+              ? Object.entries(e.features)
+                  .filter(([, e]) => Boolean(e))
+                  .map(([e, a]) => ('string' == typeof a ? a : e))
+              : [],
+        S = async () => {
+          var e, a, l, s, o, c, d
+          const [p, g, f, h] = await Promise.allSettled([n(), i({ limit: 5, offset: 0 }), u(), r()])
+          if (
+            ('fulfilled' === p.status && (null == (a = null == (e = p.value) ? void 0 : e.plan) ? void 0 : a.name)
+              ? ((t.value = p.value.plan.name),
+                (v.value = (null == (l = p.value.subscription) ? void 0 : l.status) || 'unknown'))
+              : ((t.value = ''), (v.value = 'unknown')),
+            'fulfilled' === g.status)
+          ) {
+            const e = ((null == (s = g.value) ? void 0 : s.subscriptions) || []).find((e) => 'cancelled' === e.status)
+            ;(y.value = (null == e ? void 0 : e.planName) || ''),
+              e && 'unknown' === v.value && ((t.value = e.planName), (v.value = 'cancelled'))
+          } else y.value = ''
+          ;(m.value = ('fulfilled' === f.status && (null == (o = f.value) ? void 0 : o.methods)) || []),
+            (b.value = 'fulfilled' !== h.status),
+            (_.value =
+              'fulfilled' === h.status && (null == (d = null == (c = h.value) ? void 0 : c.plans) ? void 0 : d.length)
+                ? ((e) => {
+                    const a = [...e].sort((e, a) => {
+                      const l = 'number' == typeof e.sortOrder ? e.sortOrder : Number.MAX_SAFE_INTEGER,
+                        t = 'number' == typeof a.sortOrder ? a.sortOrder : Number.MAX_SAFE_INTEGER
+                      return l !== t
+                        ? l - t
+                        : ('number' == typeof e.price ? e.price : Number.MAX_SAFE_INTEGER) -
+                            ('number' == typeof a.price ? a.price : Number.MAX_SAFE_INTEGER)
+                    })
+                    w.value = a.reduce((e, a, l) => ((e[a.name] = l), e), {})
+                    const l = ['gray', 'green', 'purple', 'blue', 'orange'],
+                      t = (e) =>
+                        'number' != typeof e.price
+                          ? '未知'
+                          : 0 === e.price
+                            ? e.currency
+                              ? `${e.currency}0`
+                              : '未知币种 0'
+                            : e.currency
+                              ? `${e.currency}${e.price}`
+                              : `未知币种 ${e.price}`
+                    return a.map((e, a) => ({
+                      name: e.displayName || e.name.toUpperCase(),
+                      price: t(e),
+                      period: e.billingCycle ? '/' + ('yearly' === e.billingCycle ? 'year' : 'month') : '',
+                      features: N(e),
+                      value: e.name,
+                      color: l[a % l.length]
+                    }))
+                  })(h.value.plans)
+                : Q)
+        },
+        R = async () => {
+          p.value = !0
+          try {
+            await d({ cancelType: 'end_of_period' }), await S(), e.success('已提交取消订阅申请')
+          } catch (a) {
+            e.error('取消订阅失败')
+          } finally {
+            p.value = !1
+          }
+        },
+        L = (e) => {
+          if ('active' === v.value && t.value === e) return !0
+          const a = w.value[t.value] ?? -1,
+            l = w.value[e] ?? -1
+          return 'active' === v.value && a >= 0 && l >= 0 && l <= a
+        }
+      return (
+        f(async () => {
+          try {
+            await S()
+          } catch (e) {}
+        }),
+        () => {
+          let n
+          return h('div', { class: 'billing-plans-tab' }, [
+            h('div', { class: 'billing-plans-tab__section-head' }, [
+              h('div', null, [
+                h('h3', null, [A('套餐与订阅')]),
+                h('p', null, [
+                  A('当前状态：'),
+                  'active' === v.value ? '订阅中' : 'cancelled' === v.value ? '已取消' : '未订阅',
+                  A('。只展示可执行的下一步操作。')
+                ])
+              ])
+            ]),
+            b.value
+              ? h(
+                  x,
+                  { class: 'billing-plans-tab__hint-card' },
+                  {
+                    default: () => [
+                      h('div', { class: 'billing-plans-tab__hint' }, [
+                        A('后端套餐表暂时不可用，当前展示默认套餐结构；订阅提交仍需后端计划数据可用。')
+                      ])
+                    ]
+                  }
+                )
+              : null,
+            h(
+              q,
+              { 'x-gap': 16, 'y-gap': 16, cols: '1 s:1 m:3 l:3', responsive: 'screen' },
+              H(
+                (n = _.value.map((n) => {
+                  let i, u
+                  return h(P, null, {
+                    default: () => [
+                      h(
+                        x,
+                        {
+                          class: [
+                            'billing-plans-tab__plan-card',
+                            t.value === n.value ? 'billing-plans-tab__plan-card--current' : ''
+                          ],
+                          hoverable: !0
+                        },
+                        {
+                          default: () => {
+                            return [
+                              h('div', { class: 'billing-plans-tab__plan-header' }, [
+                                h('div', null, [
+                                  h('h3', { class: 'billing-plans-tab__plan-title' }, [n.name]),
+                                  t.value === n.value
+                                    ? h('span', { class: 'billing-plans-tab__current-badge' }, [A('当前套餐')])
+                                    : null
+                                ]),
+                                h('div', { class: 'billing-plans-tab__price-row' }, [
+                                  h('span', { class: 'billing-plans-tab__price' }, [n.price]),
+                                  h('span', { class: 'billing-plans-tab__period' }, [n.period])
+                                ])
+                              ]),
+                              h(
+                                C,
+                                null,
+                                H(
+                                  (i = n.features.map((e) =>
+                                    h(I, null, {
+                                      default: () => [
+                                        h('div', { class: 'billing-plans-tab__feature-row' }, [
+                                          h(M, { color: 'var(--color-success)', size: 20, component: j }, null),
+                                          h('span', { class: 'billing-plans-tab__feature-text' }, [e])
+                                        ])
+                                      ]
+                                    })
+                                  ))
+                                )
+                                  ? i
+                                  : { default: () => [i] }
+                              ),
+                              h('div', { class: 'billing-plans-tab__actions' }, [
+                                h(
+                                  U,
+                                  {
+                                    block: !0,
+                                    type: t.value === n.value ? 'default' : 'primary',
+                                    secondary: t.value === n.value,
+                                    disabled: L(n.value),
+                                    loading: p.value,
+                                    onClick: () =>
+                                      (async (n) => {
+                                        p.value = !0
+                                        try {
+                                          if ('cancelled' === v.value && y.value === n)
+                                            return await s(), await S(), void e.success(`已恢复 ${n} 套餐订阅`)
+                                          const i = w.value[t.value] ?? -1,
+                                            u = w.value[n] ?? -1
+                                          if ('active' === v.value && i >= 0 && u >= 0 && u <= i)
+                                            return void e.warning('当前版本仅支持升级到更高套餐')
+                                          if ('active' === v.value && t.value !== n) {
+                                            const t = m.value.find((e) => e.enabled),
+                                              i = await o({
+                                                targetPlan: n,
+                                                paymentMethodId: null == t ? void 0 : t.id,
+                                                upgradeType: 'immediate'
+                                              })
+                                            return void ((null == i ? void 0 : i.requiresPayment) && i.paymentUrl
+                                              ? (await a.replace({
+                                                  query: { ...l.query, tab: 'payment', orderId: i.orderId }
+                                                }),
+                                                k(i.paymentUrl)
+                                                  ? e.success(`已创建升级订单，请继续完成 ${n} 套餐支付`)
+                                                  : e.error('支付链接不可用，请检查后端支付配置'))
+                                              : (await S(), e.success(`已升级到 ${n} 套餐`)))
+                                          }
+                                          const r = m.value.find((e) => e.enabled)
+                                          if ('free' !== n && !r)
+                                            return void e.error('当前没有可用支付方式，请先检查支付渠道配置')
+                                          const d = await c({ planName: n, paymentMethodId: null == r ? void 0 : r.id })
+                                          if ((null == d ? void 0 : d.requiresPayment) && d.paymentUrl)
+                                            return (
+                                              await a.replace({
+                                                query: { ...l.query, tab: 'payment', orderId: d.orderId }
+                                              }),
+                                              void (k(d.paymentUrl)
+                                                ? e.success(`已创建 ${n} 套餐支付订单，请继续完成支付`)
+                                                : e.error('支付链接不可用，请检查后端支付配置'))
+                                            )
+                                          await S(), e.success(`已发起 ${n} 套餐订阅申请，请刷新页面确认当前订阅状态`)
+                                        } catch (i) {
+                                          e.error('订阅更新失败')
+                                        } finally {
+                                          p.value = !1
+                                        }
+                                      })(n.value)
+                                  },
+                                  H(
+                                    ((r = n.value),
+                                    (u =
+                                      'cancelled' === v.value && y.value === r
+                                        ? '恢复订阅'
+                                        : 'active' === v.value && t.value === r
+                                          ? '当前套餐'
+                                          : 'active' === v.value
+                                            ? '升级套餐'
+                                            : '发起订阅'))
+                                  )
+                                    ? u
+                                    : { default: () => [u] }
+                                ),
+                                'active' === v.value &&
+                                  t.value === n.value &&
+                                  'free' !== t.value &&
+                                  h(
+                                    U,
+                                    {
+                                      class: 'billing-plans-tab__cancel',
+                                      block: !0,
+                                      secondary: !0,
+                                      loading: p.value,
+                                      onClick: R
+                                    },
+                                    { default: () => [A('取消订阅')] }
+                                  )
+                              ])
+                            ]
+                            var r
+                          }
+                        }
+                      )
+                    ]
+                  })
+                }))
+              )
+                ? n
+                : { default: () => [n] }
+            )
+          ])
+        }
+      )
+    }
+  }),
+  J = y({
+    name: 'BillingPayment',
+    setup() {
+      const e = g(!1),
+        a = g(!1),
+        l = g(!1),
+        t = g([]),
+        n = g(!1),
+        i = g(!1),
+        r = g(null),
+        s = E(),
+        o = (e, a) => ('number' != typeof a ? '未知金额' : `${e || '未知币种 '}${a}`),
+        c = (e) => {
+          if (!e) return !1
+          try {
+            const a = new URL(e, window.location.origin)
+            return ['http:', 'https:'].includes(a.protocol)
+          } catch {
+            return !1
+          }
+        },
+        d = [
+          { title: '日期', key: 'date' },
+          { title: '说明', key: 'description' },
+          { title: '金额', key: 'amount' },
+          {
+            title: '状态',
+            key: 'status',
+            render: (e) => h(w, { type: 'paid' === e.status ? 'success' : 'warning' }, { default: () => [e.status] })
+          },
+          {
+            title: '发票',
+            key: 'invoice',
+            render: (e) =>
+              c(e.downloadUrl)
+                ? h(
+                    'a',
+                    {
+                      href: e.downloadUrl,
+                      target: '_blank',
+                      rel: 'noopener noreferrer',
+                      class: 'billing-payment-tab__link'
+                    },
+                    [A('下载')]
+                  )
+                : h('span', { class: 'billing-payment-tab__empty-text' }, [A('暂无')])
+          }
+        ],
+        b = g([]),
+        y = async () => {
+          const e = 'string' == typeof s.query.orderId ? s.query.orderId : ''
+          if (e) {
+            n.value = !0
+            try {
+              r.value = await v({ orderId: e })
+            } catch (a) {
+              m('Payment order unavailable:', a), (r.value = null)
+            } finally {
+              n.value = !1
+            }
+          } else r.value = null
+        },
+        _ = async () => {
+          a.value = !0
+          try {
+            const e = await u()
+            ;(t.value = (null == e ? void 0 : e.methods) || []), (l.value = !1)
+          } catch (e) {
+            m('Payment methods unavailable:', e), (t.value = []), (l.value = !0)
+          } finally {
+            a.value = !1
+          }
+        },
+        k = async () => {
+          e.value = !0
+          try {
+            const e = await p({ limit: 20, offset: 0 })
+            ;(b.value = ((null == e ? void 0 : e.bills) || []).map((e) => {
+              var a
+              return {
+                key: e.id,
+                date: (null == (a = e.createdAt) ? void 0 : a.slice(0, 10)) || '-',
+                description: e.planName || e.billNumber,
+                amount: o(e.currency, e.amount),
+                status: e.status,
+                downloadUrl: e.downloadUrl
+              }
+            })),
+              (i.value = !1)
+          } catch (a) {
+            m('Billing history unavailable:', a), (b.value = []), (i.value = !0)
+          } finally {
+            e.value = !1
+          }
+        }
+      return (
+        f(async () => {
+          await Promise.all([_(), k(), y()])
+        }),
+        L(
+          () => s.query.orderId,
+          async () => {
+            await y()
+          }
+        ),
+        () =>
+          h('div', { class: 'billing-payment-tab' }, [
+            h('div', { class: 'billing-payment-tab__section-head' }, [
+              h('div', null, [
+                h('h3', null, [A('支付与账单')]),
+                h('p', null, [A('先处理待支付订单，再确认可用支付方式，最后查看历史账单。')])
+              ]),
+              h(
+                U,
+                { type: 'primary', secondary: !0, loading: a.value, onClick: _ },
+                { default: () => [A('刷新支付方式')] }
+              )
+            ]),
+            r.value &&
+              h(
+                x,
+                { class: 'billing-payment-tab__card' },
+                {
+                  default: () => {
+                    var e
+                    return [
+                      h('div', { class: 'billing-payment-tab__order-header' }, [
+                        h('div', null, [
+                          h('div', { class: 'billing-payment-tab__order-title' }, [A('待处理支付订单')]),
+                          h('div', { class: 'billing-payment-tab__order-meta' }, [
+                            r.value.order.planName,
+                            A(' / '),
+                            r.value.order.orderNumber
+                          ])
+                        ]),
+                        h(
+                          w,
+                          { type: 'paid' === r.value.order.status ? 'success' : 'warning' },
+                          { default: () => [r.value.statusDescription] }
+                        )
+                      ]),
+                      h(
+                        T,
+                        { vertical: !0, size: 8, class: 'billing-payment-tab__order-actions' },
+                        {
+                          default: () => [
+                            h('div', null, [A('支付方式：'), r.value.order.paymentMethod]),
+                            h('div', null, [A('金额：'), o(r.value.order.currency, r.value.order.amount)]),
+                            h('div', null, [A('过期时间：'), r.value.order.expiresAt || '—'])
+                          ]
+                        }
+                      ),
+                      (null == (e = r.value.nextAction) ? void 0 : e.target) &&
+                        h('div', { class: 'billing-payment-tab__order-actions' }, [
+                          h(
+                            U,
+                            {
+                              type: 'primary',
+                              loading: n.value,
+                              onClick: () => {
+                                var e, a, l
+                                ;(l = null == (a = null == (e = r.value) ? void 0 : e.nextAction) ? void 0 : a.target),
+                                  !c(l) ||
+                                    window.open(
+                                      new URL(l, window.location.origin).toString(),
+                                      '_blank',
+                                      'noopener,noreferrer'
+                                    )
+                              }
+                            },
+                            { default: () => [r.value.nextAction.label] }
+                          )
+                        ])
+                    ]
+                  }
+                }
+              ),
+            h('div', { class: 'billing-payment-tab__block-title' }, [
+              h('h4', null, [A('可用支付方式')]),
+              h('span', null, [t.value.length, A(' 个渠道')])
+            ]),
+            h('div', { class: 'billing-payment-tab__methods-grid' }, [
+              (t.value.length ? t.value : []).map((e) =>
+                h(x, null, {
+                  default: () => [
+                    h('div', { class: 'billing-payment-tab__method-header' }, [
+                      h('div', null, [
+                        h('div', { class: 'billing-payment-tab__method-title' }, [e.displayName]),
+                        h('div', { class: 'billing-payment-tab__method-desc' }, [e.description || '暂无说明'])
+                      ]),
+                      h(
+                        w,
+                        { type: e.enabled ? 'success' : 'warning' },
+                        { default: () => [e.enabled ? '已启用' : '未启用'] }
+                      )
+                    ]),
+                    h(
+                      T,
+                      { vertical: !0, size: 8, class: 'billing-payment-tab__order-actions' },
+                      {
+                        default: () => {
+                          var a, l
+                          return [
+                            h('div', null, [A('渠道标识：'), e.name]),
+                            h('div', null, [
+                              A('支持币种：'),
+                              (null == (a = e.supportedCurrencies) ? void 0 : a.join(' / ')) || '—'
+                            ]),
+                            h('div', null, [
+                              A('手续费：'),
+                              'number' == typeof (null == (l = e.fees) ? void 0 : l.value)
+                                ? `${e.fees.value}%${e.fees.fixed ? ` + ${e.fees.fixed}` : ''}`
+                                : '按渠道配置'
+                            ])
+                          ]
+                        }
+                      }
+                    )
+                  ]
+                })
+              ),
+              !a.value &&
+                l.value &&
+                h(
+                  x,
+                  { class: 'billing-payment-tab__hint-card billing-payment-tab__hint-card--wide' },
+                  {
+                    default: () => [
+                      h('div', { class: 'billing-payment-tab__hint' }, [
+                        A('支付方式暂时不可用，请稍后重试或检查后端支付渠道服务。')
+                      ])
+                    ]
+                  }
+                ),
+              !a.value &&
+                !l.value &&
+                0 === t.value.length &&
+                h(
+                  x,
+                  { class: 'billing-payment-tab__hint-card billing-payment-tab__hint-card--wide' },
+                  {
+                    default: () => [
+                      h('div', { class: 'billing-payment-tab__hint' }, [
+                        A('当前没有可展示的支付方式，请检查后端支付渠道配置。')
+                      ])
+                    ]
+                  }
+                )
+            ]),
+            h('div', { class: 'billing-payment-tab__block-title billing-payment-tab__history-title' }, [
+              h('h4', null, [A('账单历史')]),
+              h('span', null, [A('最近 20 条记录')])
+            ]),
+            i.value
+              ? h(
+                  x,
+                  { class: 'billing-payment-tab__history-alert' },
+                  {
+                    default: () => [
+                      h('div', { class: 'billing-payment-tab__hint' }, [A('账单历史暂时不可用，请稍后重试。')])
+                    ]
+                  }
+                )
+              : null,
+            h(F, { columns: d, data: b.value, loading: e.value, rowKey: 'key' }, null)
+          ])
+      )
+    }
+  }),
+  W = [
+    { key: 'usage', title: '使用概览', description: '先确认当前配额、消耗趋势和是否接近上限。' },
+    { key: 'plans', title: '套餐与订阅', description: '对比套餐能力，选择升级、恢复或取消订阅。' },
+    { key: 'payment', title: '支付与账单', description: '查看支付渠道、待处理订单和历史账单。' }
+  ],
+  Z = [
+    { label: '当前套餐', value: '个人订阅', description: '确认套餐状态、到期时间与是否自动续费。' },
+    { label: '配额健康度', value: '用量优先', description: '先看核心配额是否接近上限，再决定是否升级。' },
+    { label: '支付账单', value: '自助处理', description: '处理待支付订单，查看支付方式与历史账单。' }
+  ],
+  ee = ['订阅用户规模', '收益与待收款', '逾期风险', '套餐分布'],
+  ae = y({
+    name: 'AdminBillingPage',
+    setup() {
+      const a = E(),
+        l = B(),
+        t = g(('string' == typeof a.query.tab && a.query.tab) || 'usage'),
+        n = g(null),
+        i = g(!1),
+        u = g(!1),
+        r = _(() => {
+          var e
+          return Boolean(null == (e = G()) ? void 0 : e.isAdmin)
+        }),
+        s = _(() => W.find((e) => e.key === t.value) || W[0]),
+        o = _(() => (r.value ? '计费运营' : '我的订阅')),
+        c = _(() =>
+          r.value
+            ? '集中查看订阅规模、收入状态、套餐结构和用户账单风险。'
+            : '查看当前套餐、配额使用、支付方式和历史账单。'
+        ),
+        d = (e, a) => `${a || 'CNY'} ${Number(e || 0).toLocaleString()}`,
+        v = _(() => {
+          var e
+          return (null == (e = n.value) ? void 0 : e.generatedAt)
+            ? n.value.generatedAt.replace('T', ' ').slice(0, 16)
+            : '未同步'
+        }),
+        p = _(() =>
+          r.value
+            ? n.value
+              ? [
+                  {
+                    label: '活跃订阅',
+                    value: n.value.summary.activeSubscriptions.toLocaleString(),
+                    description: `试用用户 ${n.value.summary.trialUsers.toLocaleString()}`
+                  },
+                  {
+                    label: '已确认收入',
+                    value: d(n.value.summary.paidRevenue, n.value.currency),
+                    description: `已支付账单 ${n.value.summary.paidBills.toLocaleString()} 笔`
+                  },
+                  {
+                    label: '待收款',
+                    value: d(n.value.summary.pendingRevenue, n.value.currency),
+                    description: `待处理账单 ${n.value.summary.pendingBills.toLocaleString()} 笔`
+                  },
+                  {
+                    label: '逾期风险',
+                    value: d(n.value.summary.overdueRevenue, n.value.currency),
+                    description: `逾期账单 ${n.value.summary.overdueBills.toLocaleString()} 笔`
+                  }
+                ]
+              : []
+            : Z
+        ),
+        y = async () => {
+          if (r.value) {
+            ;(i.value = !0), (u.value = !1)
+            try {
+              n.value = await b()
+            } catch (e) {
+              m('Billing analytics unavailable:', e), (n.value = null), (u.value = !0)
+            } finally {
+              i.value = !1
+            }
+          }
+        }
+      L(
+        () => a.query.tab,
+        (e) => {
+          t.value = ('string' == typeof e && e) || 'usage'
+        },
+        { immediate: !0 }
+      )
+      const N = async (e) => {
+        ;(t.value = e), await l.replace({ query: { ...a.query, tab: e } })
+      }
+      return (
+        f(y),
+        () => {
+          var a, l
+          return h('div', { class: 'billing-page' }, [
+            h(e, { title: o.value, subtitle: c.value }, null),
+            h('section', { class: 'billing-page__overview' }, [
+              h('div', { class: 'billing-page__overview-main' }, [
+                h(
+                  w,
+                  { bordered: !1, type: r.value ? 'warning' : 'info', class: 'billing-page__overview-main-tag' },
+                  { default: () => [r.value ? '管理员经营视角' : '普通用户订阅中心'] }
+                ),
+                h('h2', { class: 'billing-page__overview-main-title' }, [
+                  r.value ? '从经营结果反推订阅策略。' : '从用量开始判断是否需要升级。'
+                ]),
+                h('p', null, [s.value.description]),
+                h('div', { class: 'billing-page__overview-actions' }, [
+                  h(
+                    U,
+                    { size: 'small', type: 'primary', secondary: !0, onClick: () => N(s.value.key) },
+                    { default: () => [A('继续查看'), s.value.title] }
+                  ),
+                  r.value
+                    ? h(
+                        U,
+                        { size: 'small', quaternary: !0, loading: i.value, onClick: y },
+                        { default: () => [A('刷新经营数据')] }
+                      )
+                    : null
+                ])
+              ])
+            ]),
+            h('section', { class: 'billing-page__metric-grid' }, [
+              i.value && r.value
+                ? h(
+                    x,
+                    { bordered: !1, class: 'billing-page__metric-card billing-page__metric-card--loading' },
+                    { default: () => [h(k, { size: 'small' }, null)] }
+                  )
+                : p.value.length
+                  ? p.value.map((e) =>
+                      h(
+                        x,
+                        { bordered: !1, class: 'billing-page__metric-card', key: e.label },
+                        {
+                          default: () => [
+                            h('span', null, [e.label]),
+                            h('strong', null, [e.value]),
+                            h('em', null, [e.description])
+                          ]
+                        }
+                      )
+                    )
+                  : h(
+                      x,
+                      { bordered: !1, class: 'billing-page__metric-card billing-page__metric-card--empty' },
+                      {
+                        default: () => [
+                          h(
+                            O,
+                            {
+                              description: u.value
+                                ? '经营概览接口暂不可用，订阅、套餐和账单仍可继续查看。'
+                                : '暂无经营概览数据'
+                            },
+                            null
+                          )
+                        ]
+                      }
+                    )
+            ]),
+            h('section', { class: 'billing-page__role-note' }, [
+              h('div', null, [
+                h('strong', null, [r.value ? '管理员能看到什么？' : '普通用户能看到什么？']),
+                h('span', null, [
+                  r.value
+                    ? '除个人订阅操作外，还展示全局订阅用户数、收益、待收款、逾期风险和套餐分布。'
+                    : '只展示自己的套餐权益、用量配额、支付方式和账单记录；全局收益与订阅用户统计仅管理员可见。'
+                ])
+              ]),
+              h('div', { class: 'billing-page__role-chip-list' }, [
+                (r.value ? ee : W.map((e) => e.title)).map((e) => {
+                  return h(
+                    w,
+                    { key: e, bordered: !1, type: r.value ? 'warning' : 'info' },
+                    'function' == typeof (a = e) || ('[object Object]' === Object.prototype.toString.call(a) && !R(a))
+                      ? e
+                      : { default: () => [e] }
+                  )
+                  var a
+                })
+              ])
+            ]),
+            r.value && (null == (l = null == (a = n.value) ? void 0 : a.planDistribution) ? void 0 : l.length)
+              ? h('section', { class: 'billing-page__plan-strip' }, [
+                  h('div', null, [
+                    h('strong', null, [A('套餐订阅分布')]),
+                    h('span', null, [A('帮助判断免费用户转化、Pro/Team 套餐占比和升级策略。同步时间：'), v.value])
+                  ]),
+                  h('div', { class: 'billing-page__plan-strip-list' }, [
+                    n.value.planDistribution.map((e) =>
+                      h(
+                        w,
+                        { key: e.planName, bordered: !1, type: 'info' },
+                        { default: () => [e.planName, A(': '), e.count] }
+                      )
+                    )
+                  ])
+                ])
+              : null,
+            h(
+              x,
+              { class: 'billing-page__card', bordered: !1 },
+              {
+                default: () => [
+                  h(
+                    z,
+                    { type: 'line', animated: !1, value: t.value, onUpdateValue: N, paneClass: 'billing-page__pane' },
+                    {
+                      default: () => [
+                        h(K, { name: 'usage', tab: '使用概览' }, { default: () => [h(Y, null, null)] }),
+                        h(K, { name: 'plans', tab: '套餐与订阅' }, { default: () => [h(V, null, null)] }),
+                        h(K, { name: 'payment', tab: '支付与账单' }, { default: () => [h(J, null, null)] })
+                      ]
+                    }
+                  )
+                ]
+              }
+            )
+          ])
+        }
+      )
+    }
+  })
+export { ae as default }

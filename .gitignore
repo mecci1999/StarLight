@@ -21,6 +21,8 @@ dist-ssr
 .idea
 
 src-tauri/target
+src-tauri/gen/apple/*
+src-tauri/gen/android/*
 
 .history/
 

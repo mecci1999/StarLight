@@ -1,0 +1,52 @@
+import { o as a, a0 as e, by as u } from './invariable-DewVS0br.js'
+const l = a('time', () => {
+  const a = e('1h'),
+    l = e(u().subtract(1, 'hour').valueOf()),
+    t = e(u().valueOf()),
+    v = e(!0),
+    s = (e) => {
+      ;(a.value = e), (v.value = !0)
+      const s = u()
+      switch (((t.value = s.valueOf()), e)) {
+        case '15m':
+          l.value = s.subtract(15, 'minute').valueOf()
+          break
+        case '1h':
+          l.value = s.subtract(1, 'hour').valueOf()
+          break
+        case '4h':
+          l.value = s.subtract(4, 'hour').valueOf()
+          break
+        case '1d':
+          l.value = s.subtract(1, 'day').valueOf()
+          break
+        case '2d':
+          l.value = s.subtract(2, 'day').valueOf()
+          break
+        case '7d':
+          l.value = s.subtract(7, 'day').valueOf()
+      }
+    }
+  return {
+    timeRange: a,
+    startTime: l,
+    endTime: t,
+    isLive: v,
+    timeOptions: [
+      { label: '最近 15 分钟', value: '15m' },
+      { label: '最近 1 小时', value: '1h' },
+      { label: '最近 4 小时', value: '4h' },
+      { label: '最近 1 天', value: '1d' },
+      { label: '最近 2 天', value: '2d' },
+      { label: '最近 7 天', value: '7d' }
+    ],
+    setTimeRange: s,
+    setCustomTime: (e, u) => {
+      ;(a.value = 'custom'), (v.value = !1), (l.value = e), (t.value = u)
+    },
+    refreshTime: () => {
+      v.value && 'custom' !== a.value && s(a.value)
+    }
+  }
+})
+export { l as u }

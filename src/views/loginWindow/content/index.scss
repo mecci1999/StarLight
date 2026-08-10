@@ -38,6 +38,10 @@
     position: relative;
     min-height: 276px;
 
+    &:has(.login-qrcode) {
+      min-height: 358px;
+    }
+
     .account-box {
       border: 1px solid hsla(70deg, 70%, 70%, 0.1);
     }
@@ -90,6 +94,13 @@
           border-radius: var(--radius-sm);
         }
       }
+    }
+
+    .footer-version {
+      margin-top: var(--spacing-3);
+      color: var(--color-text-3);
+      font-size: var(--font-size-caption);
+      text-align: center;
     }
   }
 

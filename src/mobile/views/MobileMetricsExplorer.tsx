@@ -1,9 +1,12 @@
-import { defineComponent, ref, onActivated, computed, h } from 'vue'
+import { defineComponent, ref, onActivated, computed, h, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { MobileButton, MobileCard, MobileEmpty, MobileLoading, MobileSelect } from '@/mobile/ui'
 import { PhArrowsClockwise, PhClock } from '@phosphor-icons/vue'
 import { fetchMetricsExplorer, fetchCatalogServices } from '@/api'
+import { getPreferredMetricsDatasetScope } from '@/services/authSession'
 import LineChart from '@/components/charts/LineChart'
 import type { MetricsAnalysisData } from '@/types/monitor'
+import { parseInvestigationContext } from '@/mobile/hooks/investigationContext'
 import './MobileMetricsExplorer.scss'
 
 type TimeRangeKey = '15m' | '1h' | '4h' | '1d' | '7d'
@@ -22,6 +25,9 @@ const TIME_RANGE_CHIPS: TimeRangeChip[] = [
   { key: '1d', label: '1天', value: '-1d' },
   { key: '7d', label: '7天', value: '-7d' }
 ]
+
+const isMetricTimeRange = (value: string | undefined): value is TimeRangeKey =>
+  TIME_RANGE_CHIPS.some((chip) => chip.key === value)
 
 const METRIC_OPTIONS: { key: MetricKey; label: string; color: string; dotClass: string; unit: string }[] = [
   {
@@ -57,17 +63,20 @@ const METRIC_OPTIONS: { key: MetricKey; label: string; color: string; dotClass: 
 export default defineComponent({
   name: 'MobileMetricsExplorer',
   setup() {
+    const route = useRoute()
     const loading = ref(false)
     const error = ref(false)
     const data = ref<MetricsAnalysisData | null>(null)
     const services = ref<{ label: string; value: string }[]>([])
+    const servicesError = ref(false)
     const selectedServiceId = ref<string | null>(null)
     const timeRange = ref<TimeRangeKey>('1h')
     const selectedMetrics = ref<MetricKey[]>(['cpu', 'memory', 'qps', 'responseTime'])
 
     const loadServices = async () => {
+      servicesError.value = false
       try {
-        const res = await fetchCatalogServices({ page: 1, pageSize: 200 })
+        const res = await fetchCatalogServices({ page: 1, pageSize: 200, scope: getPreferredMetricsDatasetScope() })
         const items = res?.items || []
         services.value = items.map((item: Record<string, unknown>) => ({
           label: (item.identity as Record<string, string>)?.name || '-',
@@ -75,6 +84,7 @@ export default defineComponent({
         }))
       } catch {
         services.value = []
+        servicesError.value = true
       }
     }
 
@@ -86,10 +96,14 @@ export default defineComponent({
           data.value = null
           return
         }
+        const context = parseInvestigationContext(route.query)
         const chip = TIME_RANGE_CHIPS.find((c) => c.key === timeRange.value)
         const res = await fetchMetricsExplorer({
           serviceId: selectedServiceId.value,
-          timeRange: chip?.value
+          ...(context.start !== undefined && context.end !== undefined
+            ? { startTime: context.start, endTime: context.end }
+            : { timeRange: context.range ? `-${context.range}` : chip?.value }),
+          scope: getPreferredMetricsDatasetScope()
         })
         data.value = res as MetricsAnalysisData
       } catch {
@@ -101,9 +115,23 @@ export default defineComponent({
     }
 
     onActivated(async () => {
+      const context = parseInvestigationContext(route.query)
+      if (context.serviceId) selectedServiceId.value = context.serviceId
+      if (isMetricTimeRange(context.range)) timeRange.value = context.range
       await loadServices()
       if (selectedServiceId.value) await loadMetrics()
     })
+
+    watch(
+      () => route.query,
+      () => {
+        const context = parseInvestigationContext(route.query)
+        if (context.serviceId !== undefined) selectedServiceId.value = context.serviceId
+        if (isMetricTimeRange(context.range)) timeRange.value = context.range
+        if (context.serviceId !== undefined || context.range !== undefined || context.start !== undefined)
+          void loadMetrics()
+      }
+    )
 
     // ── KPI latest values ──
 
@@ -183,6 +211,14 @@ export default defineComponent({
             placeholder="选择服务"
             clearable
           />
+          {servicesError.value && (
+            <div class="mobile-metrics-explorer__selector-error" role="alert">
+              <span>服务列表加载失败</span>
+              <MobileButton size="small" type="ghost" onClick={loadServices}>
+                重试
+              </MobileButton>
+            </div>
+          )}
         </div>
 
         <div class="mobile-metrics-explorer__time-chips">

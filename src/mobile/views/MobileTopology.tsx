@@ -1,5 +1,5 @@
-import { defineComponent, ref, onActivated, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { defineComponent, ref, onActivated, computed, watch } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import {
   MobileCard,
   MobileButton,
@@ -14,12 +14,14 @@ import { fetchTopology } from '@/api'
 import ServiceHealthBadge from '@/shared/components/ServiceHealthBadge'
 import { PhArrowsClockwise } from '@phosphor-icons/vue'
 import type { TopologyData, TopologyNode, TopologyEdge } from '@/types/monitor'
+import { investigationQuery, parseInvestigationContext } from '@/mobile/hooks/investigationContext'
 import './MobileTopology.scss'
 
 export default defineComponent({
   name: 'MobileTopology',
   setup() {
     const router = useRouter()
+    const route = useRoute()
     const loading = ref(false)
     const error = ref(false)
     const topologyData = ref<TopologyData>({ nodes: [], edges: [] })
@@ -46,7 +48,19 @@ export default defineComponent({
       }
     }
 
-    onActivated(loadTopology)
+    onActivated(() => {
+      const context = parseInvestigationContext(route.query)
+      if (context.serviceId) selectedServiceId.value = context.serviceId
+      void loadTopology()
+    })
+
+    watch(
+      () => route.query,
+      () => {
+        const context = parseInvestigationContext(route.query)
+        if (context.serviceId !== undefined) selectedServiceId.value = context.serviceId
+      }
+    )
 
     const serviceOptions = computed(() =>
       topologyData.value.nodes
@@ -134,7 +148,10 @@ export default defineComponent({
 
     const navigateToServiceDetail = (serviceId: string) => {
       if (!serviceId || serviceId === selectedServiceId.value) return
-      router.push(`/mobile/service-detail-v2/${serviceId}`)
+      router.push({
+        path: `/mobile/service-detail-v2/${serviceId}`,
+        query: investigationQuery(parseInvestigationContext(route.query))
+      })
     }
 
     const displayMetric = (value: number | null | undefined, suffix = '') => {

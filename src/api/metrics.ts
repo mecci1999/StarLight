@@ -151,7 +151,13 @@ export function fetchMetricsAnalysis(params: { serviceId?: string }) {
   return request.get<MetricsAnalysisData>(url.metricsAnalysis, params || {})
 }
 
-export function fetchMetricsExplorer(params: { serviceId?: string; timeRange?: string; scope?: MetricsDatasetScope }) {
+export function fetchMetricsExplorer(params: {
+  serviceId?: string
+  timeRange?: string
+  startTime?: number
+  endTime?: number
+  scope?: MetricsDatasetScope
+}) {
   return request.get<MetricsAnalysisData>(url.metricsExplorer, params || {})
 }
 

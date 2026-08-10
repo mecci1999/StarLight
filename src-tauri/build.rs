@@ -1,6 +1,11 @@
 use std::{env, fs, io};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    println!("cargo:rerun-if-changed=capabilities/mobile.json");
+    println!("cargo:rerun-if-changed=capabilities/default.json");
+    println!("cargo:rerun-if-changed=capabilities/desktop.json");
+    println!("cargo:rerun-if-changed=tauri.conf.json");
+    println!("cargo:rerun-if-changed=tauri.ios.conf.json");
     ensure_frontend_dist()?;
     tauri_build::build();
 

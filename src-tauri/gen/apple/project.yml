@@ -41,6 +41,7 @@ targets:
       properties:
         LSRequiresIPhoneOS: true
         UILaunchStoryboardName: LaunchScreen
+        NSCameraUsageDescription: 星光需要使用相机扫描桌面端登录二维码。
         UIRequiredDeviceCapabilities: [arm64, metal]
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
@@ -51,8 +52,8 @@ targets:
           - UIInterfaceOrientationPortraitUpsideDown
           - UIInterfaceOrientationLandscapeLeft
           - UIInterfaceOrientationLandscapeRight
-        CFBundleShortVersionString: 0.1.6
-        CFBundleVersion: 0.1.6
+  CFBundleShortVersionString: 0.1.14
+  CFBundleVersion: 0.1.14
     entitlements:
       path: tauri-app_iOS/tauri-app_iOS.entitlements
     scheme:

@@ -430,12 +430,26 @@ export default defineComponent({
               <NGrid cols={2} xGap={16} yGap={16}>
                 <NGridItem>
                   <NCard title="CPU 实时趋势" bordered={false}>
-                    <LineChart data={realtimeSeries.value.cpu} title="" height="240px" area variant="monitor" />
+                    <LineChart
+                      data={realtimeSeries.value.cpu}
+                      title=""
+                      height="240px"
+                      area
+                      variant="monitor"
+                      mutedGrid
+                    />
                   </NCard>
                 </NGridItem>
                 <NGridItem>
                   <NCard title="内存实时趋势" bordered={false}>
-                    <LineChart data={realtimeSeries.value.memory} title="" height="240px" area variant="monitor" />
+                    <LineChart
+                      data={realtimeSeries.value.memory}
+                      title=""
+                      height="240px"
+                      area
+                      variant="monitor"
+                      mutedGrid
+                    />
                   </NCard>
                 </NGridItem>
                 <NGridItem>
@@ -452,7 +466,13 @@ export default defineComponent({
                 </NGridItem>
                 <NGridItem>
                   <NCard title="响应时间趋势" bordered={false}>
-                    <LineChart data={realtimeSeries.value.responseTime} title="" height="240px" variant="monitor" />
+                    <LineChart
+                      data={realtimeSeries.value.responseTime}
+                      title=""
+                      height="240px"
+                      variant="monitor"
+                      mutedGrid
+                    />
                   </NCard>
                 </NGridItem>
               </NGrid>

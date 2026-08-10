@@ -1,4 +1,5 @@
 import { defineComponent, ref, onActivated, computed, watch, h } from 'vue'
+import { useRoute } from 'vue-router'
 import { MobileButton, MobileCard, MobileTag, MobileInput, MobileLoading, MobileEmpty } from '@/mobile/ui'
 import { mobileFeedback } from '@/mobile/services/mobileFeedback'
 import { PhEnvelope, PhGlobe, PhDeviceMobile, PhArrowsClockwise, PhCaretDown } from '@phosphor-icons/vue'
@@ -7,6 +8,7 @@ import type { MetricsDatasetScope } from '@/api/metrics'
 import type { NotificationItem } from '@/types/monitor'
 import type { MobileTagType } from '@/mobile/ui/MobileTag'
 import { getPreferredMetricsDatasetScope } from '@/services/authSession'
+import { parseInvestigationContext, resolveInvestigationWindow } from '@/mobile/hooks/investigationContext'
 import {
   didResendNotificationSucceed,
   getNextRetryCount,
@@ -82,6 +84,7 @@ const statusLabelMap: Record<string, string> = {
 export default defineComponent({
   name: 'MobileNotificationCenter',
   setup() {
+    const route = useRoute()
     const message = mobileFeedback
     const datasetScope = computed<MetricsDatasetScope>(() => getPreferredMetricsDatasetScope())
 
@@ -134,10 +137,14 @@ export default defineComponent({
       loading.value = true
       loadError.value = ''
       try {
+        const context = parseInvestigationContext(route.query)
+        const window = resolveInvestigationWindow(context)
         const res = await fetchNotifications({
-          keyword: '',
+          keyword: context.keyword || '',
           channel: '',
           status: '',
+          ...(context.serviceId ? { serviceId: context.serviceId } : {}),
+          ...(window ? { startTime: window.start, endTime: window.end } : {}),
           scope: datasetScope.value
         })
         allNotifications.value = (res || []).map((item: any, index: number) => ({
@@ -205,8 +212,25 @@ export default defineComponent({
 
     // ── Lifecycle ───────────────────────────────
     onActivated(() => {
+      const context = parseInvestigationContext(route.query)
+      if (context.keyword !== undefined) searchText.value = context.keyword
       void loadNotifications()
     })
+
+    watch(
+      () => route.query,
+      () => {
+        const context = parseInvestigationContext(route.query)
+        if (context.keyword !== undefined) searchText.value = context.keyword
+        if (
+          context.keyword !== undefined ||
+          context.serviceId !== undefined ||
+          context.range !== undefined ||
+          context.start !== undefined
+        )
+          void loadNotifications()
+      }
+    )
 
     watch(
       () => [searchText.value, selectedChannel.value, selectedStatus.value],

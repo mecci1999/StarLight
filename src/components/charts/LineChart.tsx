@@ -172,6 +172,10 @@ export default defineComponent({
     thresholdLines: {
       type: Array as () => ThresholdGuideLine[],
       default: () => []
+    },
+    mutedGrid: {
+      type: Boolean,
+      default: false
     }
   },
   setup(props) {
@@ -421,7 +425,7 @@ export default defineComponent({
         },
         splitLine: {
           lineStyle: {
-            color: toRgba(softBorderColor.value, isMonitor.value ? 0.4 : 0.58),
+            color: toRgba(softBorderColor.value, props.mutedGrid ? 0.22 : isMonitor.value ? 0.4 : 0.58),
             width: 1,
             type: 'dashed',
             dashOffset: 1.5

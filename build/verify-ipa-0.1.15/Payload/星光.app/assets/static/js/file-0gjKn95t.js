@@ -1,0 +1,22 @@
+import { r as e } from './request-BiInMBwl.js'
+import { l as t } from './index-DFkcx8xz.js'
+const a = { 'user-avatar': 'avatar', 'micro-app-icon': 'general', general: 'general' },
+  r = (r) =>
+    e.post(t.fileUpload, {
+      file: r.fileBase64,
+      filename: r.fileName,
+      mimetype: r.mimeType,
+      category: a[r.scene],
+      userId: r.bizId,
+      metadata: { ...r.metadata, scene: r.scene, bizType: r.bizType, bizId: r.bizId }
+    }),
+  s = (e, t) =>
+    ((e, t = 'https://api.starlight.host') => {
+      return !e || /^(https?:)?\/\//.test((a = e)) || a.startsWith('data:') || a.startsWith('blob:')
+        ? e
+        : t
+          ? new URL(e.startsWith('/') ? e : `/${e}`, t).toString()
+          : e
+      var a
+    })(e.url || e.fileUrl || e.path || e.objectKey || '', t)
+export { s as r, r as u }

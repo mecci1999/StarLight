@@ -199,7 +199,6 @@ export default defineComponent({
             key={notification.id}
             role="status"
             style={{ '--client-notification-duration': `${notification.durationMs}ms` }}>
-            <div class="client-notification__level-strip" />
             <div class="client-notification__inner">
               <div class="client-notification__icon" aria-hidden="true">
                 <NIcon size={18} component={levelIconMap[notification.level]} />

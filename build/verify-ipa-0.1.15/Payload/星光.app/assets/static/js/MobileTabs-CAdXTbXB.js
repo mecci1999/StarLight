@@ -1,0 +1,43 @@
+import './MobileToast-CIN42EDh.js'
+import { p as e, w as t, bA as a } from './invariable-DewVS0br.js'
+const o = e({
+  name: 'MobileTabs',
+  props: {
+    active: { type: [String, Number], default: 0 },
+    type: { type: String, default: 'line' },
+    sticky: { type: Boolean, default: !1 },
+    offsetTop: { type: Number, default: 0 },
+    swipeable: { type: Boolean, default: !1 },
+    animated: { type: Boolean, default: !1 },
+    color: { type: String, default: '' }
+  },
+  emits: ['update:active', 'change'],
+  setup(e, { slots: o, emit: i }) {
+    const l = (e) => {
+      i('update:active', e), i('change', e)
+    }
+    return () =>
+      t('div', { class: 'mobile-tabs' }, [
+        t(
+          a,
+          {
+            active: e.active,
+            onChange: l,
+            type: e.type,
+            sticky: e.sticky,
+            offsetTop: e.offsetTop,
+            swipeable: e.swipeable,
+            animated: e.animated,
+            color: e.color || 'var(--color-primary-6)'
+          },
+          {
+            default: () => {
+              var e
+              return [null == (e = o.default) ? void 0 : e.call(o)]
+            }
+          }
+        )
+      ])
+  }
+})
+export { o as M }

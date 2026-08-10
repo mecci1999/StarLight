@@ -5,7 +5,7 @@ import { getPreferredMetricsDatasetScope, getStoredUserInfo } from '@/services/a
 import { fetchAlerts } from '@/api/alerts'
 import { useTimeStore } from '@/store/useTimeStore'
 import type { MetricsDatasetScope } from '@/api/metrics'
-import { h, onErrorCaptured, provide, inject, type Component, type InjectionKey, type Ref } from 'vue'
+import { h, KeepAlive, onErrorCaptured, provide, inject, type Component, type InjectionKey, type Ref } from 'vue'
 import MobileVantProvider from '@/mobile/providers/MobileVantProvider'
 import './MobileLayout.scss'
 
@@ -102,7 +102,7 @@ export default defineComponent({
     }
 
     const navigateTo = (path: string) => {
-      router.push(path)
+      router.replace(path)
       drawerOpen.value = false
     }
 
@@ -122,7 +122,12 @@ export default defineComponent({
               </section>
             ) : (
               h(RouterView, null, {
-                default: ({ Component }: { Component: Component | undefined }) => (Component ? h(Component) : null)
+                default: ({ Component }: { Component: Component | undefined }) =>
+                  Component
+                    ? h(KeepAlive, null, {
+                        default: () => h(Component)
+                      })
+                    : null
               })
             )}
           </main>
@@ -135,7 +140,7 @@ export default defineComponent({
                 class={['mobile-layout__tab', isActive(tab.path) && 'mobile-layout__tab--active']}
                 aria-label={tab.label}
                 aria-current={isActive(tab.path) ? 'page' : undefined}
-                onClick={() => router.push(tab.path)}>
+                onClick={() => router.replace(tab.path)}>
                 {tab.path === '/mobile/alerts-inbox' ? (
                   <Badge content={activeAlertCount.value || undefined} max={99} class="mobile-layout__tab-badge">
                     <tab.icon size={24} />

@@ -19,7 +19,7 @@ export default defineComponent({
     })
 
     return () => (
-      <main class="login-window" data-tauri-drag-region>
+      <main class="login-window">
         {/* 窗口顶部操作栏 */}
         <WindowActionBar maxW={false} shrink={false} plain />
         {/*  登录窗口主体 */}

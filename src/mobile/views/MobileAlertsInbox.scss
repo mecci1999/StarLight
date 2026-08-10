@@ -245,8 +245,7 @@
   }
 
   &__card {
-    position: relative;
-    padding: var(--spacing-3) var(--spacing-3) var(--spacing-3) calc(var(--spacing-3) + var(--spacing-1));
+    padding: var(--spacing-3);
     border-radius: var(--radius-lg);
     background: var(--color-bg-2);
     border: 1px solid var(--color-border-1);
@@ -262,33 +261,6 @@
       border-color: var(--color-border-2);
     }
 
-    &--critical {
-      background: var(--color-danger-1);
-      border-color: var(--color-danger-2);
-    }
-
-    &--warning {
-      background: var(--color-warning-1);
-      border-color: var(--color-warning-2);
-    }
-  }
-
-  &__card-accent {
-    position: absolute;
-    left: 0;
-    top: 0;
-    bottom: 0;
-    width: var(--spacing-1);
-
-    &--critical {
-      background: var(--color-danger-6);
-    }
-    &--warning {
-      background: var(--color-warning-6);
-    }
-    &--info {
-      background: var(--color-primary-6);
-    }
   }
 
   &__card-header {

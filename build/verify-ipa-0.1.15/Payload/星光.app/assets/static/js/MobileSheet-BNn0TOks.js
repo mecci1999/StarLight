@@ -1,0 +1,51 @@
+import './MobileToast-CIN42EDh.js'
+import { p as e, a1 as o, w as t, bi as l, aS as a, ac as s } from './invariable-DewVS0br.js'
+const i = e({
+  name: 'MobileSheet',
+  props: {
+    show: { type: Boolean, default: !1 },
+    position: { type: String, default: 'bottom' },
+    title: { type: String, default: '' },
+    round: { type: Boolean, default: !0 },
+    closeable: { type: Boolean, default: !0 },
+    closeOnClickOverlay: { type: Boolean, default: !0 },
+    safeAreaInsetBottom: { type: Boolean, default: !0 }
+  },
+  emits: ['update:show'],
+  setup(e, { slots: i, emit: n }) {
+    const r = (e) => {
+        n('update:show', e)
+      },
+      d = o(() => ['mobile-sheet', `mobile-sheet--${e.position}`, e.round && 'mobile-sheet--round'])
+    return () =>
+      t(
+        l,
+        {
+          show: e.show,
+          'onUpdate:show': r,
+          position: e.position,
+          round: e.round,
+          closeable: !1,
+          closeOnClickOverlay: e.closeOnClickOverlay,
+          safeAreaInsetBottom: e.safeAreaInsetBottom,
+          overlayClass: 'mobile-sheet__overlay',
+          class: d.value
+        },
+        {
+          default: () => {
+            var o
+            return t(a, null, [
+              (e.title || i.header) &&
+                t('div', { class: 'mobile-sheet__header' }, [
+                  i.header ? i.header() : t('span', { class: 'mobile-sheet__title' }, [e.title]),
+                  e.closeable &&
+                    t('button', { class: 'mobile-sheet__close', onClick: () => r(!1), 'aria-label': '关闭' }, [s('✕')])
+                ]),
+              t('div', { class: 'mobile-sheet__body' }, [null == (o = i.default) ? void 0 : o.call(i)])
+            ])
+          }
+        }
+      )
+  }
+})
+export { i as M }

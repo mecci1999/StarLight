@@ -4,7 +4,6 @@ import { PhCaretDown, PhCaretUp } from '@phosphor-icons/vue'
 import { encryptPassword } from '@/utils/Crypto'
 import * as api from '@/api'
 import {
-  getStoredAuthTokens,
   persistAuthTokens,
   syncAuthTokensToTauri,
   getStoredUserInfo,
@@ -14,6 +13,7 @@ import {
 import { useLoginHistoriesStore } from '@/store/loginHistory'
 import { useSettingStore } from '@/store/setting'
 import { useKeyboardAvoid } from '@/mobile/hooks/useKeyboardAvoid'
+import { mobileFeedback } from '@/mobile/services/mobileFeedback'
 import MobileVantProvider from '@/mobile/providers/MobileVantProvider'
 import LegalDocumentContent from '@/shared/legal/LegalDocumentContent'
 import type { LegalDocumentKind } from '@/shared/legal/agreements'
@@ -98,7 +98,9 @@ export default defineComponent({
       confirmPasswordValid: false,
       confirmPasswordErrorMsg: '',
       validCodeValid: false,
-      validCodeErrorMsg: ''
+      validCodeErrorMsg: '',
+      validCodeRequestError: '',
+      loginDiagnostic: ''
     })
 
     const emailReg = /^[a-zA-Z0-9_.-]+@[a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)*\.[a-zA-Z0-9]{2,6}$/
@@ -151,13 +153,31 @@ export default defineComponent({
     })
     const activeLegalDocument = ref<LegalDocumentKind | null>(null)
 
+    const showMobileFeedback = (type: 'success' | 'error' | 'warning' | 'info', message: string) => {
+      const messageApi = window.$message
+      if (messageApi) {
+        try {
+          messageApi[type](message)
+          return
+        } catch (error) {
+          console.warn(`Naive ${type} feedback failed; falling back to Vant.`, error)
+        }
+      }
+
+      try {
+        mobileFeedback[type](message)
+      } catch (error) {
+        console.error(`Mobile ${type} feedback failed.`, error)
+      }
+    }
+
     const showLegalDocument = (kind: LegalDocumentKind) => {
       activeLegalDocument.value = kind
     }
 
     const ensureProtocolAccepted = () => {
       if (state.protocol) return true
-      window.$message.warning('请先阅读并同意《星光服务协议》和《星光隐私保护指引》')
+      showMobileFeedback('warning', '请先阅读并同意《星光服务协议》和《星光隐私保护指引》')
       return false
     }
 
@@ -180,7 +200,7 @@ export default defineComponent({
         negativeText: '取消',
         onPositiveClick: () => {
           removeLoginHistory(item)
-          window.$message.success('删除成功')
+          showMobileFeedback('success', '删除成功')
         }
       })
     }
@@ -218,9 +238,10 @@ export default defineComponent({
       if (state.countdown > 0) return
       if (!emailReg.test(state.email)) {
         state.emailValid = true
-        window.$message.error('请填写正确的邮箱帐号')
+        showMobileFeedback('error', '请填写正确的邮箱帐号')
         return
       }
+      state.validCodeRequestError = ''
       state.countdown = 60
       state.countdownTimer = setInterval(() => {
         state.countdown--
@@ -229,15 +250,32 @@ export default defineComponent({
           state.countdownTimer = null
         }
       }, 1000)
-      api.verifyCode({ email: state.email, type: getVerifyCodeType() }).catch((err) => {
-        if (state.countdownTimer) {
-          clearInterval(state.countdownTimer)
-          state.countdownTimer = null
-        }
-        state.countdown = 0
-        console.warn('发送验证码失败:', err)
-        window.$message.error('发送验证码失败，请检查网络连接')
-      })
+      api
+        .verifyCode({ email: state.email, type: getVerifyCodeType() }, { suppressSuccessMessage: true })
+        .then(() => {
+          mobileFeedback.success('验证码已发送，请查收邮箱')
+        })
+        .catch((err) => {
+          const timedOut = err instanceof Error && err.message === '请求超时，请稍后重试'
+          const errorMessage = getErrorMessage(err, '发送验证码失败，请检查网络连接')
+          if (state.countdownTimer) {
+            clearInterval(state.countdownTimer)
+            state.countdownTimer = null
+          }
+          state.countdown = timedOut ? 60 : 0
+          if (timedOut) {
+            state.countdownTimer = setInterval(() => {
+              state.countdown--
+              if (state.countdown <= 0 && state.countdownTimer) {
+                clearInterval(state.countdownTimer)
+                state.countdownTimer = null
+              }
+            }, 1000)
+          }
+          console.warn('发送验证码失败:', err)
+          state.validCodeRequestError = timedOut ? '请求超时，邮件可能已发送，请先查收验证码' : errorMessage
+          showMobileFeedback('error', state.validCodeRequestError)
+        })
     }
 
     // ── 通用校验 ──────────────────────────────────────────
@@ -279,25 +317,36 @@ export default defineComponent({
       if (!validateCommon()) return
       try {
         state.loading = true
+        state.loginDiagnostic = 'LOGIN_REQUEST_STARTED'
         const hash = encryptPassword(state.password, import.meta.env.VITE_PASSWORD_SECRET_KEY)
         const response = await api.login({ email: state.email, hash, code: state.validCode })
         const res = toLoginResponse(response)
         const token = res.token || res.accessToken || res.access_token
         const refreshTokenVal = res.refreshToken || res.refresh_token
-        persistAuthTokens({
-          accessToken: token,
-          refreshToken: refreshTokenVal
-        })
-        syncAuthTokensToTauri().catch(() => {})
-        const loginUserId = res.userId || ''
-        const cached = getStoredUserInfo()
-        let resolved: Partial<UserInfoType> | undefined =
-          toPartialUserInfo(res.userInfo) || (cached?.userId === loginUserId ? cached : undefined)
-        if (!resolved?.userId && loginUserId) {
-          try {
-            resolved = await api.getUserInfo(loginUserId)
-          } catch {}
+        state.loginDiagnostic = `API_OK userId=${res.userId ? 'present' : 'missing'} token=${token ? 'present' : 'missing'}`
+        try {
+          persistAuthTokens({
+            accessToken: token,
+            refreshToken: refreshTokenVal
+          })
+        } catch (error) {
+          console.error('登录成功后保存令牌失败:', error)
+          state.loginDiagnostic = `TOKEN_PERSIST_FAILED error=${getErrorMessage(error, 'unknown')}`
+          showMobileFeedback('error', '登录成功，但无法保存登录状态，请重试')
+          return
         }
+        state.loginDiagnostic = 'TOKENS_PERSISTED'
+        syncAuthTokensToTauri().catch(() => {})
+        state.loginDiagnostic = 'TAURI_SYNC_STARTED'
+        const loginUserId = res.userId || ''
+        let cached: Partial<UserInfoType> | null = null
+        try {
+          cached = getStoredUserInfo()
+        } catch (error) {
+          console.warn('读取已缓存的用户信息失败，将使用登录响应中的资料。', error)
+        }
+        const resolved: Partial<UserInfoType> | undefined =
+          toPartialUserInfo(res.userInfo) || (cached?.userId === loginUserId ? cached : undefined)
         const userInfo: UserInfoType = {
           userId: resolved?.userId || loginUserId,
           email: state.email,
@@ -310,14 +359,59 @@ export default defineComponent({
           lastActiveAt: resolved?.lastActiveAt || new Date().toISOString(),
           isOnboardingCompleted: resolved?.isOnboardingCompleted
         }
-        persistStoredUserInfo(userInfo)
-        if (state.remember) addLoginHistory(userInfo)
-        settingStore.login.autoLogin = state.remember
-        router.push({ name: resolveAuthLandingRoute(false, userInfo) })
+        const targetRoute = resolveAuthLandingRoute(false, userInfo)
+        state.loginDiagnostic = `USER_INFO_BUILT admin=${String(userInfo.isAdmin)} onboarding=${String(
+          Boolean(userInfo.isOnboardingCompleted)
+        )} target=${targetRoute}`
+        try {
+          persistStoredUserInfo(userInfo)
+          if (state.remember) addLoginHistory(userInfo)
+          settingStore.login.autoLogin = state.remember
+        } catch (error) {
+          console.warn('登录成功后保存用户偏好失败，不影响本次登录。', error)
+          state.loginDiagnostic = `USER_INFO_PERSIST_WARN target=${targetRoute}`
+        }
+        if (!state.loginDiagnostic.startsWith('USER_INFO_PERSIST_WARN'))
+          state.loginDiagnostic = `USER_INFO_PERSISTED target=${targetRoute}`
+        showMobileFeedback('success', '登录成功')
+        state.loginDiagnostic = `NAVIGATION_START target=${targetRoute}`
+        try {
+          await router.push({ name: targetRoute })
+          state.loginDiagnostic = `NAVIGATION_RESOLVED target=${targetRoute}`
+        } catch (error: unknown) {
+          console.error('登录成功后跳转页面失败:', error)
+          state.loginDiagnostic = `NAVIGATION_FAILED target=${targetRoute} error=${getErrorMessage(error, 'unknown')}`
+          showMobileFeedback('error', '登录成功，但页面跳转失败，请重试')
+          return
+        }
+
+        if (!resolved?.userId && loginUserId) {
+          void api
+            .getUserInfo(loginUserId)
+            .then((freshUser) => {
+              const fresh = toPartialUserInfo(freshUser)
+              if (!fresh?.userId) return
+              persistStoredUserInfo({
+                ...userInfo,
+                ...fresh,
+                email: fresh.email || userInfo.email,
+                nickName: fresh.nickName || userInfo.nickName,
+                avatar: fresh.avatar || userInfo.avatar,
+                lastActiveAt: fresh.lastActiveAt || userInfo.lastActiveAt
+              })
+            })
+            .catch((error: unknown) => {
+              console.warn('登录成功后刷新用户信息失败，将保留登录响应中的资料。', error)
+            })
+        }
       } catch (error: unknown) {
         console.error('登录失败:', error)
+        state.loginDiagnostic = `LOGIN_FLOW_FAILED stage=${state.loginDiagnostic || 'unknown'} error=${getErrorMessage(
+          error,
+          'unknown'
+        )}`
         state.validCode = ''
-        window.$message.error(getErrorMessage(error, '登录失败，请检查邮箱和密码'))
+        showMobileFeedback('error', getErrorMessage(error, '登录失败，请检查邮箱和密码'))
       } finally {
         state.loading = false
       }
@@ -332,12 +426,12 @@ export default defineComponent({
         state.loading = true
         const hash = encryptPassword(state.password, import.meta.env.VITE_PASSWORD_SECRET_KEY)
         await api.registerUser({ email: state.email, hash, code: state.validCode })
-        window.$message.success('注册成功，跳转到登录页面')
+        showMobileFeedback('success', '注册成功，跳转到登录页面')
         switchMode('login')
       } catch (error: unknown) {
         console.error('注册失败:', error)
         state.validCode = ''
-        window.$message.error(getErrorMessage(error, '注册失败，请稍后重试'))
+        showMobileFeedback('error', getErrorMessage(error, '注册失败，请稍后重试'))
       } finally {
         state.loading = false
       }
@@ -352,12 +446,12 @@ export default defineComponent({
         state.loading = true
         const hash = encryptPassword(state.password, import.meta.env.VITE_PASSWORD_SECRET_KEY)
         await api.forgetPassword({ email: state.email, hash, code: state.validCode })
-        window.$message.success('密码重置成功，跳转到登录页面')
+        showMobileFeedback('success', '密码重置成功，跳转到登录页面')
         switchMode('login')
       } catch (error: unknown) {
         console.error('重置密码失败:', error)
         state.validCode = ''
-        window.$message.error(getErrorMessage(error, '重置密码失败，请稍后重试'))
+        showMobileFeedback('error', getErrorMessage(error, '重置密码失败，请稍后重试'))
       } finally {
         state.loading = false
       }
@@ -512,6 +606,9 @@ export default defineComponent({
                 />
               </div>
               {state.validCodeValid && <div class="mobile-login__error">{state.validCodeErrorMsg}</div>}
+              {state.validCodeRequestError && (
+                <div class="mobile-login__request-error">{state.validCodeRequestError}</div>
+              )}
 
               {/* 记住密码 / 忘记密码 — 仅登录模式显示 */}
               {isLoginMode.value && (

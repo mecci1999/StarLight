@@ -1,5 +1,7 @@
 import { useSettingStore } from '@/store/setting'
 import { useNetwork } from '@vueuse/core'
+import { getVersion } from '@tauri-apps/api/app'
+import { isTauri } from '@tauri-apps/api/core'
 import { NButton, NCheckbox, NFlex, NModal } from 'naive-ui'
 import LegalDocumentContent from '@/shared/legal/LegalDocumentContent'
 import type { LegalDocumentKind } from '@/shared/legal/agreements'
@@ -17,6 +19,7 @@ export default defineComponent({
     const { isOnline } = useNetwork()
     const settingStore = useSettingStore()
     const { login } = storeToRefs(settingStore)
+    const appVersion = ref<string | null>(null)
 
     const state = reactive({
       mode: 'login', // 页面模式 login 账号登录 scan 扫码登录 forget 忘记密码 register 注册账号
@@ -43,7 +46,13 @@ export default defineComponent({
       state.loginDisabled = !value
     })
 
-    onMounted(async () => {})
+    onMounted(async () => {
+      try {
+        if (isTauri()) appVersion.value = await getVersion()
+      } catch {
+        appVersion.value = null
+      }
+    })
 
     // 组件卸载时清除定时器
     onUnmounted(() => {})
@@ -133,6 +142,7 @@ export default defineComponent({
               </button>
             </div>
           </NFlex>
+          {appVersion.value && <div class="footer-version">版本 v{appVersion.value}</div>}
         </div>
         <NModal
           show={state.activeLegalDocument !== null}

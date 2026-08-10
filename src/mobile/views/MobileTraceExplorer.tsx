@@ -1,4 +1,5 @@
-import { defineComponent, ref, onActivated, computed, h } from 'vue'
+import { defineComponent, ref, onActivated, computed, h, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import {
   MobileButton,
   MobileCard,
@@ -21,11 +22,13 @@ import {
 import { searchTraces, getTraceDetails } from '@/api/trace'
 import { fetchCatalogServices, type MetricsDatasetScope } from '@/api/metrics'
 import type { TraceSpan } from '@/types/monitor'
+import { parseInvestigationContext, resolveInvestigationWindow } from '@/mobile/hooks/investigationContext'
 import './MobileTraceExplorer.scss'
 
 export default defineComponent({
   name: 'MobileTraceExplorer',
   setup() {
+    const route = useRoute()
     const loading = ref(false)
     const error = ref(false)
     const allTraces = ref<TraceSpan[]>([])
@@ -42,6 +45,7 @@ export default defineComponent({
     // ---- Span detail drawer state ----
     const showDrawer = ref(false)
     const drawerLoading = ref(false)
+    const drawerError = ref(false)
     const drawerTraces = ref<TraceSpan[]>([])
     const selectedSpan = ref<TraceSpan | null>(null)
     const selectedTraceId = ref('')
@@ -89,6 +93,7 @@ export default defineComponent({
       typeof value === 'object' && value !== null && !Array.isArray(value)
 
     const buildSearchParams = () => {
+      const context = parseInvestigationContext(route.query)
       const params: Record<string, unknown> = {
         limit: 100
       }
@@ -102,6 +107,12 @@ export default defineComponent({
       }
       if (selectedService.value) {
         params.service = normalizeServiceName(selectedService.value)
+      }
+      if (context.serviceName) params.service = context.serviceName
+      const window = resolveInvestigationWindow(context)
+      if (window) {
+        params.startTime = window.start
+        params.endTime = window.end
       }
       return params
     }
@@ -128,9 +139,21 @@ export default defineComponent({
     }
 
     onActivated(() => {
+      const context = parseInvestigationContext(route.query)
+      if (context.serviceName) selectedService.value = context.serviceName
       loadServiceOptions()
       loadTraces()
     })
+
+    watch(
+      () => route.query,
+      () => {
+        const context = parseInvestigationContext(route.query)
+        if (context.serviceName !== undefined) selectedService.value = context.serviceName
+        if (context.serviceName !== undefined || context.range !== undefined || context.start !== undefined)
+          void loadTraces()
+      }
+    )
 
     const filteredTraces = computed(() => {
       let result = allTraces.value
@@ -210,11 +233,17 @@ export default defineComponent({
       showDrawer.value = true
       selectedSpan.value = null
       drawerLoading.value = true
+      drawerError.value = false
       try {
-        const spans = await getTraceDetails(traceId)
+        const window = resolveInvestigationWindow(parseInvestigationContext(route.query))
+        const spans = await getTraceDetails(
+          traceId,
+          window ? { startTime: window.start, endTime: window.end } : undefined
+        )
         drawerTraces.value = spans.sort((a: TraceSpan, b: TraceSpan) => (a.startTime ?? 0) - (b.startTime ?? 0))
       } catch {
         drawerTraces.value = []
+        drawerError.value = true
       } finally {
         drawerLoading.value = false
       }
@@ -606,6 +635,16 @@ export default defineComponent({
                     ))}
                   </div>
                 </div>
+              ) : drawerError.value ? (
+                <MobileEmpty description="链路详情加载失败" class="mobile-trace-explorer__drawer-empty">
+                  {{
+                    action: () => (
+                      <MobileButton type="primary" size="small" onClick={() => openTrace(selectedTraceId.value)}>
+                        重试
+                      </MobileButton>
+                    )
+                  }}
+                </MobileEmpty>
               ) : (
                 <MobileEmpty description="暂无链路详情" class="mobile-trace-explorer__drawer-empty" />
               )}

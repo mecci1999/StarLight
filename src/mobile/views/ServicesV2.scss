@@ -88,6 +88,20 @@
     margin-top: 16px;
   }
 
+  &__load-more {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--spacing-2);
+    margin-top: var(--spacing-4);
+  }
+
+  &__load-more-error {
+    margin: 0;
+    color: var(--color-danger-6);
+    font-size: var(--font-size-body-1);
+  }
+
   &__refresh,
   &__detail-button {
     min-height: var(--size-default);

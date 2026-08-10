@@ -3,6 +3,7 @@ import { Button, Empty, Loading, Tag } from 'vant'
 import { PhArrowsClockwise, PhCaretDown, PhCaretUp } from '@phosphor-icons/vue'
 import { listExceptions } from '@/api'
 import type { ExceptionGroup } from '@/types/logs'
+import dayjs from 'dayjs'
 import './MobileExceptionAnalysis.scss'
 
 type TimeRange = '1h' | '4h' | '1d' | '7d'
@@ -14,6 +15,13 @@ const TIME_RANGES: { key: TimeRange; label: string }[] = [
   { key: '1d', label: '1d' },
   { key: '7d', label: '7d' }
 ]
+
+const TIME_RANGE_HOURS: Record<TimeRange, number> = {
+  '1h': 1,
+  '4h': 4,
+  '1d': 24,
+  '7d': 168
+}
 
 const SEVERITIES: { key: Severity; label: string }[] = [
   { key: 'critical', label: 'Critical' },
@@ -60,7 +68,11 @@ export default defineComponent({
       loading.value = true
       error.value = false
       try {
-        const res = await listExceptions({})
+        const endTime = dayjs()
+        const res = await listExceptions({
+          startTime: endTime.subtract(TIME_RANGE_HOURS[timeRange.value], 'hour').format('YYYY-MM-DD HH:mm:ss'),
+          endTime: endTime.format('YYYY-MM-DD HH:mm:ss')
+        })
         const items = res?.items || []
         exceptions.value = Array.isArray(items) ? items : []
       } catch {
@@ -83,7 +95,9 @@ export default defineComponent({
     }
 
     const selectTimeRange = (r: TimeRange) => {
+      if (timeRange.value === r) return
       timeRange.value = r
+      void loadExceptions()
     }
 
     const toggleSeverity = (s: Severity) => {

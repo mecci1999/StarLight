@@ -604,11 +604,17 @@ const severityOptions = [
   { label: 'Critical', value: 'critical' }
 ]
 const incidentSourceOptions = [
-  { label: 'Metrics', value: 'metrics' },
-  { label: 'Logs', value: 'logs' },
-  { label: 'Traces', value: 'traces' },
-  { label: 'Alerts', value: 'alerts' }
+  { label: '系统健康事件', value: 'metrics' },
+  { label: '日志事件', value: 'logs' },
+  { label: '链路事件', value: 'traces' },
+  { label: '规则告警', value: 'alerts' }
 ]
+const incidentSourceMeta: Record<OverviewIncidentSource, { label: string; tagType: 'default' | 'info' | 'warning' }> = {
+  metrics: { label: '系统健康事件', tagType: 'info' },
+  logs: { label: '日志事件', tagType: 'default' },
+  traces: { label: '链路事件', tagType: 'default' },
+  alerts: { label: '规则告警', tagType: 'warning' }
+}
 const ingestSourceOptions = [
   { label: 'Metrics', value: 'metrics' },
   { label: 'Logs', value: 'logs' },
@@ -3650,6 +3656,7 @@ export default defineComponent({
               height={widget.size === 'L' ? '260px' : '220px'}
               area={widget.editor?.visualization === 'line'}
               variant="monitor"
+              mutedGrid
               showLegend
               yAxisMin={display.min}
               yAxisMax={display.max}
@@ -4066,37 +4073,56 @@ export default defineComponent({
       const items = filteredIncidents(widget)
       return items.length ? (
         <div class="overview-page__stack-list">
-          {items.map((incident) => (
-            <div
-              key={incident.id}
-              class="overview-page__incident-card"
-              onClick={() =>
-                router.push({
-                  path: `/home/alerts/inbox/${incident.id}`,
-                  query: {
-                    serviceId: incident.serviceId || undefined,
-                    timeRange: timeStore.timeRange
-                  }
-                })
-              }>
-              <div class="overview-page__incident-header">
-                <div>
-                  <div class="overview-page__incident-title">{incident.title}</div>
-                  <div class="overview-page__incident-meta">{incident.summary || '暂无摘要'}</div>
+          {items.map((incident) => {
+            const source =
+              typeof incident.source === 'string' && incident.source in incidentSourceMeta
+                ? (incident.source as OverviewIncidentSource)
+                : 'metrics'
+            const sourceMeta = incidentSourceMeta[source]
+            const path =
+              source === 'alerts'
+                ? `/home/alerts/inbox/${incident.id}`
+                : incident.serviceId
+                  ? `/home/services/${incident.serviceId}`
+                  : '/home/overview'
+            return (
+              <div
+                key={incident.id}
+                class="overview-page__incident-card"
+                onClick={() =>
+                  router.push({
+                    path,
+                    query: {
+                      ...(source === 'alerts' ? { incidentId: incident.id } : {}),
+                      serviceId: incident.serviceId || undefined,
+                      timeRange: timeStore.timeRange
+                    }
+                  })
+                }>
+                <div class="overview-page__incident-header">
+                  <div>
+                    <div class="overview-page__incident-title-row">
+                      <div class="overview-page__incident-title">{incident.title}</div>
+                      <NTag size="small" bordered={false} type={sourceMeta.tagType}>
+                        {sourceMeta.label}
+                      </NTag>
+                    </div>
+                    <div class="overview-page__incident-meta">{incident.summary || '暂无摘要'}</div>
+                  </div>
+                  <ServiceHealthBadge
+                    status={
+                      incident.severity === 'critical'
+                        ? 'critical'
+                        : incident.severity === 'warning'
+                          ? 'degraded'
+                          : 'unknown'
+                    }
+                    size="sm"
+                  />
                 </div>
-                <ServiceHealthBadge
-                  status={
-                    incident.severity === 'critical'
-                      ? 'critical'
-                      : incident.severity === 'warning'
-                        ? 'degraded'
-                        : 'unknown'
-                  }
-                  size="sm"
-                />
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       ) : (
         <NEmpty description="暂无符合筛选条件的事件" class="overview-page__list-empty" />
@@ -5185,6 +5211,7 @@ export default defineComponent({
             height="220px"
             area={currentEditorQuerySupport.value.query?.visualizationHint === 'line'}
             variant="monitor"
+            mutedGrid
             showLegend
             yAxisMin={display.min}
             yAxisMax={display.max}

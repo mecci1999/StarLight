@@ -217,6 +217,14 @@ export const HOME_SIDEBAR_MODULES: HomeSidebarModule[] = [
     visibility: 'sidebar',
     sidebarKey: 'admin-ingestion'
   }),
+  createSidebarModule('admin-onboarding', '/home/admin-onboarding-v2', undefined, {
+    title: 'SDK 接入向导',
+    group: 'admin',
+    icon: icons.ingestion,
+    order: 152,
+    visibility: 'sidebar',
+    sidebarKey: 'admin-onboarding'
+  }),
   createSidebarModule('micro-apps', '/home/micro-apps', undefined, {
     title: '微应用',
     group: 'admin',
@@ -263,14 +271,7 @@ export const HOME_ROUTE_META_BY_NAME: Record<string, HomeRouteMeta> = {
   'admin-ingestion-v2': routeMeta('admin-ingestion', { visibility: 'hidden' }),
   'micro-apps': routeMeta('micro-apps'),
   'micro-app-runtime': routeMeta('micro-apps', { title: '微应用运行', visibility: 'hidden' }),
-  'admin-onboarding-v2': {
-    title: '接入引导',
-    group: 'admin',
-    icon: icons.ingestion,
-    order: 160,
-    visibility: 'hidden',
-    sidebarKey: 'billing'
-  },
+  'admin-onboarding-v2': routeMeta('admin-onboarding'),
   'investigate-traces': routeMeta('trace-explorer'),
   'trace-v2': routeMeta('trace-explorer'),
   'service-overview': routeMeta('service-overview', { visibility: 'hidden' }),

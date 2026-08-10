@@ -1,0 +1,175 @@
+import {
+  x as e,
+  a1 as o,
+  p as t,
+  w as a,
+  cU as r,
+  cV as i,
+  cW as l,
+  cX as n,
+  cY as s,
+  cZ as c,
+  c_ as d,
+  c$ as p,
+  d0 as f,
+  d1 as g,
+  d2 as h,
+  d3 as u,
+  d4 as b,
+  d5 as x,
+  d6 as m,
+  d7 as y,
+  d8 as S,
+  d9 as w,
+  da as C
+} from './invariable-DewVS0br.js'
+import { u as k } from './index-DFkcx8xz.js'
+const v = (e) =>
+    'undefined' == typeof window ? '' : getComputedStyle(document.documentElement).getPropertyValue(e).trim(),
+  $ = (e, o) => {
+    if (!e) return `rgba(0, 0, 0, ${o})`
+    if (e.startsWith('rgba(')) return e.replace(/rgba\(([^)]+),\s*[^,]+\)$/u, `rgba($1, ${o})`)
+    if (e.startsWith('rgb('))
+      return `rgba(${e
+        .replace('rgb(', '')
+        .replace(')', '')
+        .split(',')
+        .map((e) => e.trim())
+        .join(', ')}, ${o})`
+    const t = e.replace('#', ''),
+      a = 3 === t.length,
+      r = 6 === t.length
+    if (!a && !r) return e
+    const i = a
+      ? t
+          .split('')
+          .map((e) => `${e}${e}`)
+          .join('')
+      : t
+    return `rgba(${Number.parseInt(i.slice(0, 2), 16)}, ${Number.parseInt(i.slice(2, 4), 16)}, ${Number.parseInt(i.slice(4, 6), 16)}, ${o})`
+  }
+function z() {
+  const t = k(),
+    { themes: a } = e(t),
+    r = o(() => 'dark' === a.value.content)
+  return {
+    themeOptions: o(() => {
+      const e = r.value,
+        o = v('--color-text-1') || (e ? '#f5f5f5' : '#1d2129'),
+        t = v('--color-text-3') || (e ? '#a3a3a3' : '#86909c'),
+        a = v('--color-text-4') || (e ? '#737373' : '#c9cdd4'),
+        i = v('--color-border-2') || (e ? '#404040' : '#e5e6eb'),
+        l = v('--color-border-1') || (e ? '#2a2a2a' : '#f2f3f5'),
+        n = v('--color-bg-5') || (e ? '#2a2a2a' : '#ffffff')
+      return {
+        color: [
+          v('--color-primary-5') || v('--color-primary-6') || (e ? '#60a5fa' : '#4080ff'),
+          v('--color-success-6') || (e ? '#4ade80' : '#16a34a'),
+          v('--color-warning-6') || (e ? '#fbbf24' : '#d97706'),
+          v('--color-danger-5') || v('--color-danger-6') || (e ? '#f87171' : '#ef4444'),
+          v('--color-link-4') || v('--color-link-5') || (e ? '#2563eb' : '#60a5fa'),
+          a
+        ],
+        backgroundColor: 'transparent',
+        textStyle: { fontFamily: 'PingFang, sans-serif' },
+        title: { textStyle: { color: o, fontWeight: 500, fontSize: 12, lineHeight: 20 }, subtextStyle: { color: t } },
+        legend: {
+          icon: 'circle',
+          itemWidth: 6,
+          itemHeight: 6,
+          itemGap: 12,
+          textStyle: { color: t, fontSize: 11, padding: [0, 0, 0, 4] },
+          pageIconColor: t,
+          pageIconInactiveColor: a,
+          pageIconSize: 8,
+          pageTextStyle: { color: t, fontSize: 11 }
+        },
+        grid: { containLabel: !0, top: 20, bottom: 8, left: 8, right: 8 },
+        tooltip: {
+          backgroundColor: $(n, e ? 0.92 : 0.94),
+          borderColor: $(i, e ? 0.44 : 0.58),
+          borderWidth: 1,
+          textStyle: { color: o, fontSize: 11, lineHeight: 18 },
+          padding: [8, 10],
+          extraCssText: `box-shadow: ${e ? '0 12px 24px rgba(0, 0, 0, 0.22)' : '0 8px 20px rgba(15, 23, 42, 0.06)'}; border-radius: 10px; backdrop-filter: blur(16px);`
+        },
+        categoryAxis: {
+          axisLine: { show: !0, lineStyle: { color: l } },
+          axisTick: { show: !1, alignWithLabel: !0 },
+          axisLabel: { show: !0, color: t, fontSize: 11, margin: 8, hideOverlap: !0 },
+          axisPointer: { lineStyle: { color: $(t, e ? 0.32 : 0.18), width: 1 } },
+          splitLine: { show: !1, lineStyle: { color: l } }
+        },
+        valueAxis: {
+          axisLine: { show: !1, lineStyle: { color: t } },
+          axisTick: { show: !1 },
+          axisLabel: { show: !0, color: t, fontSize: 11, margin: 8 },
+          splitLine: { show: !0, lineStyle: { color: $(l, e ? 0.72 : 0.92), width: 1, type: 'solid' } }
+        }
+      }
+    }),
+    loadingOptions: o(() => {
+      const e = r.value
+      return {
+        color: v('--color-primary-6') || (e ? '#60a5fa' : '#165dff'),
+        maskColor: $(v('--color-bg-2') || (e ? '#1e1e1e' : '#ffffff'), e ? 0.28 : 0.42),
+        textColor: v('--color-text-3') || (e ? '#a3a3a3' : '#86909c'),
+        fontSize: 12,
+        lineWidth: 2
+      }
+    }),
+    isDark: r
+  }
+}
+i([n, s, c, d, p, f, g, h, u, b, x, m, y, S, w, C])
+const W = t({
+  name: 'BaseChart',
+  props: {
+    option: { type: Object, required: !0 },
+    loading: { type: Boolean, default: !1 },
+    height: { type: String, default: '300px' },
+    onChartClick: { type: Function, default: void 0 },
+    onChartDblclick: { type: Function, default: void 0 }
+  },
+  setup(e) {
+    const { themeOptions: t, loadingOptions: i } = z(),
+      n = { notMerge: !0, replaceMerge: ['xAxis', 'yAxis', 'series'] },
+      s = (e) => {
+        e.ctrlKey || e.metaKey || e.stopPropagation()
+      },
+      c = (e) => {
+        e.stopPropagation()
+      },
+      d = o(() => l({}, t.value, e.option))
+    return () =>
+      a(
+        'div',
+        {
+          class: 'chart-shell',
+          style: { height: e.height, width: '100%', overflow: 'hidden' },
+          onWheel: s,
+          onPointerdown: c,
+          onPointermove: c,
+          onPointerup: c
+        },
+        [
+          a(
+            r,
+            {
+              class: 'chart',
+              option: d.value,
+              updateOptions: n,
+              loading: e.loading,
+              loadingOptions: i.value,
+              autoresize: { throttle: 100 },
+              style: { width: '100%', height: '100%' },
+              onClick: e.onChartClick,
+              onDblclick: e.onChartDblclick
+            },
+            null
+          )
+        ]
+      )
+  }
+})
+export { W as B, z as u }

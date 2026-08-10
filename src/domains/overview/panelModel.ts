@@ -260,7 +260,7 @@ export const overviewWidgetCatalog: OverviewWidgetCatalogItem[] = [
     kind: 'incident',
     label: '事件列表',
     capability: 'alerts',
-    description: '展示最近事件，支持 severity/source 过滤。',
+    description: '展示规则告警与系统健康事件，并明确标注各自来源。',
     defaultSize: 'M',
     frontendReady: true
   },
@@ -356,7 +356,7 @@ const incidentWidget = (id: string, title: string, limit = 5): OverviewPanelWidg
   kind: 'incident',
   size: 'M',
   capability: 'alerts',
-  description: '保留当前 overview incidents read model 作为默认模板的数据来源。',
+  description: '规则告警与系统健康事件会分别标注来源，系统健康事件不等同于告警规则。',
   config: {
     limit,
     severity: ['warning', 'critical'],
@@ -468,7 +468,7 @@ export const buildShippedOverviewPanels = (): OverviewPanelDefinition[] => [
       trendWidget('system-trend', '趋势概览', 'requests', 'overall'),
       darwinInfraTrendWidget('system-darwin-cpu-trend', 'Darwin CPU 趋势', 'cpu'),
       ingestWidget('system-ingest', '接入状态'),
-      incidentWidget('system-incidents', '最近事件', 5),
+      incidentWidget('system-incidents', '系统事件', 5),
       quickPivotWidget('system-quick-pivot', '快捷入口')
     ]
   },
@@ -504,7 +504,7 @@ export const buildShippedOverviewPanels = (): OverviewPanelDefinition[] => [
       metricSummaryWidget('preset-ingestion-health-service-count', '服务总数', 'service-count'),
       metricSummaryWidget('preset-ingestion-health-ingest-success', 'ingest 成功率', 'ingest-success-rate'),
       ingestWidget('preset-ingestion-health-ingest', '采集状态'),
-      incidentWidget('preset-ingestion-health-incidents', '接入相关事件', 6),
+      incidentWidget('preset-ingestion-health-incidents', '接入系统事件', 6),
       quickPivotWidget('preset-ingestion-health-quick-pivot', '接入排查入口', [
         'services',
         'logs',
@@ -523,7 +523,7 @@ export const buildShippedOverviewPanels = (): OverviewPanelDefinition[] => [
       metricSummaryWidget('preset-alert-duty-active', '活跃告警', 'active-alerts'),
       metricSummaryWidget('preset-alert-duty-healthy', '健康服务数', 'healthy-services'),
       riskServiceWidget('preset-alert-duty-risk', '值班关注服务', 10, 'high-risk'),
-      incidentWidget('preset-alert-duty-incidents', '值班事件流', 8),
+      incidentWidget('preset-alert-duty-incidents', '值班系统事件', 8),
       quickPivotWidget('preset-alert-duty-quick-pivot', '值班跳转', ['alerts', 'services', 'logs', 'traces'])
     ]
   }

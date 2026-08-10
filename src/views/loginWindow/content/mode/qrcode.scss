@@ -1,9 +1,11 @@
 .login-qrcode {
   margin: auto;
-  height: 100%;
+  height: auto;
   text-align: center;
+  align-items: center;
 
   &__title {
+    flex: 0 0 auto;
     margin-top: 4px;
     color: var(--color-text-1);
     font-size: 14px;
@@ -19,259 +21,225 @@
     }
   }
 
-  &__panel {
-    position: relative;
-    margin-top: 20px;
-  }
-
-  &__panel-inner {
-    position: relative;
-  }
-
   &__placeholder,
-  &__status-icon,
-  &__refresh {
+  &__status-icon {
     display: flex;
     align-items: center;
     justify-content: center;
   }
 
-  &__placeholder {
-    width: 224px;
-    height: 224px;
+  &__stage {
+    display: grid;
+    flex: 0 0 242px;
+    width: 242px;
+    height: 242px;
+    margin-top: var(--spacing-5);
+    padding: 24px;
+    position: relative;
+    box-sizing: border-box;
+    border: var(--border-width-1) solid var(--color-border-2);
     border-radius: var(--radius-lg);
-    background: var(--color-fill-2);
+    background: var(--color-bg-white);
+    box-shadow: var(--shadow-sm);
   }
 
-  &__placeholder-content,
-  &__overlay-content {
-    text-align: center;
+  &__placeholder {
+    width: 100%;
+    height: 100%;
+    background: var(--color-fill-1);
+  }
+
+  &__qr-slot {
+    display: grid;
+    width: 100%;
+    height: 100%;
+    min-width: 0;
+    min-height: 0;
+    place-items: center;
+    box-sizing: border-box;
+    border-radius: var(--radius-md);
+    background: var(--color-bg-white);
+    transition: filter var(--transition-normal), opacity var(--transition-normal);
+
+    &--obscured {
+      filter: blur(5px);
+      opacity: 0.35;
+      pointer-events: none;
+    }
   }
 
   &__placeholder-spinner {
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 48px;
-    height: 48px;
-    margin: 0 auto 12px;
-    border-radius: 999px;
-    background: #eff6ff;
+    width: var(--size-large);
+    height: var(--size-large);
+    border-radius: var(--radius-full);
+    background: var(--color-primary-1);
   }
 
   &__placeholder-spinner-icon {
     width: 24px;
     height: 24px;
-    color: #3b82f6;
+    color: var(--color-primary-6);
     animation: spin 1s linear infinite;
   }
 
-  &__placeholder-text {
-    color: #6b7280;
-    font-size: 14px;
+  &__qr {
+    display: block;
+    max-width: 100%;
+    max-height: 100%;
+    box-sizing: content-box !important;
+    line-height: 0;
   }
 
-  &__canvas {
-    position: relative;
-    width: 224px;
-    height: 224px;
-    overflow: hidden;
-    border: 2px solid var(--color-border-2);
-    border-radius: var(--radius-lg);
-    transition: all var(--duration-normal) var(--ease-default);
+  &__status {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-2);
+    min-height: var(--size-large);
+    margin-top: var(--spacing-3);
+    color: var(--color-text-3);
+    font-size: var(--font-size-body-2);
+    line-height: 1.5;
 
-    &.is-dimmed {
-      filter: blur(4px);
-      opacity: 0.6;
+    &--loading {
+      color: var(--color-primary-6);
+    }
+
+    &--scanned,
+    &--success {
+      color: var(--color-success-6);
+    }
+
+    &--expired {
+      color: var(--color-warning-6);
+    }
+
+    &--error {
+      color: var(--color-danger-6);
     }
   }
 
-  &__qr {
-    border-radius: var(--radius-lg);
-  }
-
-  &__canvas-frame {
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    border: 2px solid white;
-    border-radius: var(--radius-lg);
-    box-shadow: var(--shadow-lg);
-  }
-
-  &__overlay {
+  &__refresh-overlay {
     position: absolute;
     inset: 0;
     display: flex;
     align-items: center;
     justify-content: center;
-    border: 2px solid;
-    border-radius: var(--radius-lg);
-    backdrop-filter: blur(8px);
-    transition: all var(--duration-normal) var(--ease-default);
-
-    &--loading {
-      border-color: #bfdbfe;
-      background: linear-gradient(135deg, #eff6ff, #dbeafe);
-    }
-
-    &--scanned,
-    &--success {
-      border-color: #bbf7d0;
-      background: linear-gradient(135deg, #f0fdf4, #dcfce7);
-    }
-
-    &--expired {
-      border-color: #fed7aa;
-      background: linear-gradient(135deg, #fff7ed, #ffedd5);
-    }
-
-    &--error {
-      border-color: #fecaca;
-      background: linear-gradient(135deg, #fef2f2, #fee2e2);
-    }
-
-    &--waiting {
-      border-color: transparent;
-      background: transparent;
-    }
+    flex-direction: column;
+    gap: var(--spacing-4);
+    padding: var(--spacing-4);
+    z-index: 1;
+    text-align: center;
   }
 
-  &__overlay-text {
-    margin-bottom: 12px;
-    font-size: 14px;
-    font-weight: var(--font-weight-medium);
+  &__refresh-copy {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-1);
+    color: var(--color-text-1);
 
-    &--loading {
-      color: #2563eb;
+    strong {
+      font-size: var(--font-size-body-2);
+      font-weight: var(--font-weight-semibold);
     }
 
-    &--scanned,
-    &--success {
-      color: #16a34a;
-    }
-
-    &--expired {
-      color: #ea580c;
-    }
-
-    &--error {
-      color: #dc2626;
-    }
-
-    &--waiting {
-      color: #6b7280;
+    span {
+      color: var(--color-text-3);
+      font-size: 11px;
     }
   }
 
   &__status-icon {
-    width: 64px;
-    height: 64px;
-    margin-bottom: 12px;
-    border-radius: 999px;
+    flex: 0 0 auto;
+    width: var(--size-default);
+    height: var(--size-default);
+    border-radius: var(--radius-full);
 
     svg {
-      width: 32px;
-      height: 32px;
+      width: var(--size-small);
+      height: var(--size-small);
     }
 
     &--loading {
-      background: #eff6ff;
+      background: var(--color-primary-1);
 
       svg {
-        color: #3b82f6;
+        color: var(--color-primary-6);
         animation: spin 1s linear infinite;
       }
     }
 
     &--scanned {
-      background: #f0fdf4;
+      background: var(--color-success-1);
       animation: pulse 1.5s ease-in-out infinite;
 
       svg {
-        color: #22c55e;
+        color: var(--color-success-6);
       }
     }
 
     &--expired {
-      background: #fff7ed;
-      cursor: pointer;
-      transition: background var(--duration-fast) var(--ease-default);
-
-      &:hover {
-        background: #ffedd5;
-      }
+      background: var(--color-warning-1);
 
       svg {
-        color: #f97316;
+        color: var(--color-warning-6);
       }
     }
 
     &--error {
-      background: #fef2f2;
-      cursor: pointer;
-      transition: background var(--duration-fast) var(--ease-default);
-
-      &:hover {
-        background: #fee2e2;
-      }
+      background: var(--color-danger-1);
 
       svg {
-        color: #ef4444;
+        color: var(--color-danger-6);
       }
     }
 
     &--success {
-      background: #f0fdf4;
-      animation: bounce 1s ease-in-out infinite;
+      background: var(--color-success-1);
 
       svg {
-        color: #22c55e;
+        color: var(--color-success-6);
       }
     }
   }
 
   &__refresh {
-    border-radius: 999px;
-    background: var(--color-primary-6);
-    cursor: pointer;
-    transition: background var(--duration-fast) var(--ease-default);
+    flex: 0 0 auto;
+    min-height: var(--size-default);
+    box-shadow: var(--shadow-sm);
 
-    &:hover {
-      background: var(--color-primary-5);
+    &:focus-visible {
+      outline: var(--border-width-2) solid var(--color-primary-5);
+      outline-offset: var(--spacing-1);
     }
   }
 
-  &__refresh-icon {
-    width: 32px;
-    height: 32px;
-    filter: invert(1) brightness(2);
-    animation: pulse 1.5s ease-in-out infinite;
-  }
-
   &__network-error {
-    margin-top: 16px;
-    padding: 8px 16px;
-    border: 1px solid #fecaca;
+    margin-top: var(--spacing-3);
+    padding: var(--spacing-2) var(--spacing-4);
+    border: var(--border-width-1) solid var(--color-danger-2);
     border-radius: var(--radius-md);
-    background: #fef2f2;
+    background: var(--color-danger-1);
   }
 
   &__network-error-content {
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #dc2626;
+    color: var(--color-danger-6);
   }
 
   &__network-error-icon {
-    width: 16px;
-    height: 16px;
-    margin-right: 8px;
+    width: var(--size-small);
+    height: var(--size-small);
+    margin-right: var(--spacing-2);
   }
 
   &__network-error-text {
-    font-size: 14px;
+    font-size: var(--font-size-body-2);
   }
 }
 
@@ -281,27 +249,5 @@
   }
   to {
     transform: rotate(360deg);
-  }
-}
-
-@keyframes pulse {
-  0%,
-  100% {
-    transform: scale(1);
-    opacity: 1;
-  }
-  50% {
-    transform: scale(1.03);
-    opacity: 0.85;
-  }
-}
-
-@keyframes bounce {
-  0%,
-  100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-4px);
   }
 }

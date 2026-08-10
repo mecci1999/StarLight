@@ -75,7 +75,7 @@ describe('Mobile onboarding notice', () => {
     })
   })
 
-  it('routes to mobile home after refreshed completed onboarding state', async () => {
+  it('routes to the declared mobile overview after refreshed completed onboarding state', async () => {
     apiMocks.getUserInfo.mockResolvedValue({
       isOnboardingCompleted: true,
       isAdmin: false,
@@ -98,7 +98,7 @@ describe('Mobile onboarding notice', () => {
         nickName: 'Demo'
       })
     )
-    expect(routerPush).toHaveBeenCalledWith('/mobile/home')
+    expect(routerPush).toHaveBeenCalledWith({ name: 'mobile-overview-v2' })
   })
 
   it('falls back to login when onboarding remains incomplete', async () => {

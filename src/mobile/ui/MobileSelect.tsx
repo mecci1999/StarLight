@@ -76,7 +76,8 @@ export default defineComponent({
           onUpdate:show={(v: boolean) => (showPicker.value = v)}
           position="bottom"
           round
-          safeAreaInsetBottom>
+          safeAreaInsetBottom
+          class="mobile-select__popup">
           <Picker
             columns={pickerColumns.value}
             onConfirm={handleConfirm}

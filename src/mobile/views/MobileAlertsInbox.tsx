@@ -36,6 +36,11 @@ import type { AlertItem } from '@/types/monitor'
 import type { MobileTagType } from '@/mobile/ui/MobileTag'
 import type { TimeRangeKey } from '@/store/useTimeStore'
 import { MOBILE_ALERT_BADGE_REFRESH_KEY } from '@/mobile/layout/MobileLayout'
+import {
+  investigationQuery,
+  parseInvestigationContext,
+  resolveInvestigationWindow
+} from '@/mobile/hooks/investigationContext'
 import './MobileAlertsInbox.scss'
 
 function relativeTime(dateStr: string): string {
@@ -83,6 +88,7 @@ export default defineComponent({
   name: 'MobileAlertsInbox',
   setup() {
     const route = useRoute()
+    const router = useRouter()
     const timeStore = useTimeStore()
     const datasetScope = computed<MetricsDatasetScope>(() => getPreferredMetricsDatasetScope())
     const refreshAlertBadge = inject(MOBILE_ALERT_BADGE_REFRESH_KEY)
@@ -332,8 +338,10 @@ export default defineComponent({
     const loadAlerts = async () => {
       const requestId = ++alertRequestId
       const scope = datasetScope.value
-      const startTime = timeStore.startTime
-      const endTime = timeStore.endTime
+      const context = parseInvestigationContext(route.query)
+      const window = resolveInvestigationWindow(context)
+      const startTime = window?.start ?? timeStore.startTime
+      const endTime = window?.end ?? timeStore.endTime
       loading.value = true
       error.value = false
       try {
@@ -495,11 +503,30 @@ export default defineComponent({
       mobileFeedback.success('告警数据已导出')
     }
 
+    const investigateAlert = (alert: AlertItem, path: string, requiresServiceId = false) => {
+      if (requiresServiceId && !alert.serviceId) return
+      const alertTime = new Date(alert.time).getTime()
+      const investigationWindowMs = 15 * 60_000
+      router.push({
+        path,
+        query: investigationQuery({
+          ...(alert.serviceId ? { serviceId: alert.serviceId } : {}),
+          ...(alert.service ? { serviceName: alert.service } : {}),
+          ...(Number.isFinite(alertTime)
+            ? { start: Math.max(1, alertTime - investigationWindowMs), end: alertTime + investigationWindowMs }
+            : {}),
+          ...(alert.message ? { keyword: alert.message } : {}),
+          incidentId: alert.id
+        })
+      })
+    }
+
     // ── Lifecycle ───────────────────────────────
     onActivated(() => {
       const queryValue = (value: unknown) => (typeof value === 'string' ? value : '')
-      keyword.value = queryValue(route.query.keyword)
-      pendingIncidentId.value = queryValue(route.query.incidentId) || null
+      const context = parseInvestigationContext(route.query)
+      keyword.value = context.keyword ?? queryValue(route.query.keyword)
+      pendingIncidentId.value = context.incidentId ?? queryValue(route.query.incidentId) ?? null
       loadServiceOptions()
       loadAssignees()
       loadAlerts()
@@ -521,9 +548,28 @@ export default defineComponent({
     watch(
       () => [route.query.keyword, route.query.incidentId],
       ([nextKeyword, nextIncidentId]) => {
-        keyword.value = typeof nextKeyword === 'string' ? nextKeyword : ''
-        pendingIncidentId.value = typeof nextIncidentId === 'string' ? nextIncidentId : null
+        const context = parseInvestigationContext(route.query)
+        keyword.value = context.keyword ?? (typeof nextKeyword === 'string' ? nextKeyword : '')
+        pendingIncidentId.value = context.incidentId ?? (typeof nextIncidentId === 'string' ? nextIncidentId : null)
         expandIncidentFromRoute()
+      }
+    )
+
+    watch(
+      () => route.query,
+      () => {
+        const context = parseInvestigationContext(route.query)
+        if (context.serviceId !== undefined) selectedService.value = context.serviceId
+        if (context.keyword !== undefined) keyword.value = context.keyword
+        if (context.incidentId !== undefined) pendingIncidentId.value = context.incidentId
+        if (
+          context.serviceId !== undefined ||
+          context.keyword !== undefined ||
+          context.incidentId !== undefined ||
+          context.range !== undefined ||
+          context.start !== undefined
+        )
+          void loadAlerts()
       }
     )
 
@@ -754,15 +800,7 @@ export default defineComponent({
                   const isExpanded = expandingAlertId.value === alert.id
                   return (
                     <MobileListItem key={alert.id}>
-                      <div
-                        class={['mobile-alerts-inbox__card', `mobile-alerts-inbox__card--${alert.level}`]}
-                        onClick={() => toggleExpand(alert.id)}>
-                        <div
-                          class={[
-                            'mobile-alerts-inbox__card-accent',
-                            `mobile-alerts-inbox__card-accent--${alert.level}`
-                          ]}
-                        />
+                      <div class="mobile-alerts-inbox__card" onClick={() => toggleExpand(alert.id)}>
                         <div class="mobile-alerts-inbox__card-header">
                           <span class="mobile-alerts-inbox__card-service">{alert.service}</span>
                           <div class="mobile-alerts-inbox__card-tags">
@@ -875,6 +913,39 @@ export default defineComponent({
                                 }}>
                                 指派
                               </MobileButton>
+                              {alert.service && (
+                                <MobileButton
+                                  size="small"
+                                  type="ghost"
+                                  onClick={(event: MouseEvent) => {
+                                    event.stopPropagation()
+                                    investigateAlert(alert, '/mobile/log-center')
+                                  }}>
+                                  查日志
+                                </MobileButton>
+                              )}
+                              {alert.service && (
+                                <MobileButton
+                                  size="small"
+                                  type="ghost"
+                                  onClick={(event: MouseEvent) => {
+                                    event.stopPropagation()
+                                    investigateAlert(alert, '/mobile/trace-explorer')
+                                  }}>
+                                  查链路
+                                </MobileButton>
+                              )}
+                              {alert.serviceId && (
+                                <MobileButton
+                                  size="small"
+                                  type="ghost"
+                                  onClick={(event: MouseEvent) => {
+                                    event.stopPropagation()
+                                    investigateAlert(alert, `/mobile/service-detail-v2/${alert.serviceId}`, true)
+                                  }}>
+                                  服务详情
+                                </MobileButton>
+                              )}
                             </div>
                           </div>
                         )}

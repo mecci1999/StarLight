@@ -1,6 +1,6 @@
 [package]
 name = "tauri-app"
-version = "0.1.6"
+version = "0.1.15"
 description = "app"
 authors = ["chandler_chen"]
 license = ""
@@ -24,10 +24,10 @@ name = "tauri_app_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
-tauri-build = { version = "2.1.0", features = [] }
+tauri-build = { version = "2.6.3", features = [] }
 
 [dependencies]
-tauri = { version = "2.4.0", features = [ "unstable", "macos-private-api",
+tauri = { version = "2.11.5", features = [ "unstable", "macos-private-api",
     "tray-icon",
     "image-png",
 ] }
@@ -47,17 +47,21 @@ tauri-plugin-updater = "2.6.1"
 tauri-plugin-sql = { version = "2", features = ["sqlite"] }
 tauri-plugin-single-instance = "2.2.2"
 tauri-plugin-notification = "2.2.2"
+reqwest = { version = "0.11", features = [
+    "json",
+    "socks",
+    "rustls-tls",
+] }
+
+[target.'cfg(any(target_os = "android", target_os = "ios"))'.dependencies]
+tauri-plugin-barcode-scanner = "2.4.5"
+
 [target."cfg(not(any(target_os = \"android\", target_os = \"ios\")))".dependencies]
 tauri-plugin-autostart = "2.2.0"
 lazy_static = "1.4"
 screenshots = "0.5.4"
 base64 = "0.22.1"
 rodio = "0.17.3"
-reqwest = { version = "0.11", features = [
-    "json",
-    "socks",
-    "native-tls-vendored",
-] }
 
 
 [features]

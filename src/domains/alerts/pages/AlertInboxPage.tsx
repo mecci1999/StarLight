@@ -32,7 +32,6 @@ import TimeRangeBar from '@/shared/components/TimeRangeBar'
 import { useTimeStore } from '@/store/useTimeStore'
 import { getPreferredMetricsDatasetScope } from '@/services/authSession'
 import './AlertInboxPage.scss'
-import './AlertInboxPage.scss'
 
 const formatDateTime = (raw: string | undefined): string => {
   if (!raw) return '-'

@@ -69,28 +69,6 @@
   z-index: 1;
 }
 
-.client-notification__level-strip {
-  position: absolute;
-  top: var(--spacing-3);
-  bottom: var(--spacing-3);
-  left: 0;
-  width: 3px;
-  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-  background: var(--color-primary-6);
-}
-
-.client-notification.is-critical .client-notification__level-strip {
-  background: var(--color-danger-6);
-}
-
-.client-notification.is-warning .client-notification__level-strip {
-  background: var(--color-warning-6);
-}
-
-.client-notification.is-info .client-notification__level-strip {
-  background: var(--color-primary-6);
-}
-
 .client-notification__icon {
   display: flex;
   width: 40px;

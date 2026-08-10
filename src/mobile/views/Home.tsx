@@ -1,4 +1,4 @@
-import { defineComponent, ref, onMounted, h } from 'vue'
+import { defineComponent, ref, onActivated, h } from 'vue'
 import {
   MobileButton,
   MobileCard,
@@ -45,7 +45,7 @@ export default defineComponent({
 
     const displayMetric = (v: number | null | undefined, s = '') => (typeof v === 'number' ? `${v}${s}` : '--')
 
-    onMounted(() => loadData())
+    onActivated(() => loadData())
 
     return () => (
       <div class="mobile-home">

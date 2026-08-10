@@ -10,6 +10,7 @@
   position: relative;
   isolation: isolate;
   overflow: hidden;
+  background: var(--color-bg-1);
 
   &::before {
     content: '';
@@ -24,6 +25,13 @@
     background-position: center;
     z-index: 0;
     animation: mobile-login-bg 30s ease-in-out infinite alternate;
+  }
+
+  html[data-theme='dark'] &::before {
+    background-color: var(--color-bg-1);
+    background-blend-mode: luminosity;
+    filter: brightness(0.42) saturate(0.72) hue-rotate(180deg);
+    opacity: 0.72;
   }
 
   &__content {
@@ -110,9 +118,37 @@
     padding-left: 4px;
   }
 
+  &__request-error {
+    margin-top: -12px;
+    margin-bottom: 12px;
+    padding: var(--spacing-2) var(--spacing-3);
+    border: 1px solid color-mix(in srgb, var(--color-danger-6) 40%, transparent);
+    border-radius: var(--radius-md);
+    background: color-mix(in srgb, var(--color-danger-6) 8%, transparent);
+    color: var(--color-danger-6);
+    font-size: clamp(11px, 3.2vw, 13px);
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+  }
+
   &__submit {
     width: 100%;
     height: clamp(40px, 11vw, 48px);
+  }
+
+  &__diagnostic {
+    margin: var(--spacing-3) 0 0;
+    padding: var(--spacing-2) var(--spacing-3);
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+    border: 1px solid var(--color-border-1);
+    border-radius: var(--radius-md);
+    background: var(--color-fill-2);
+    color: var(--color-text-2);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 11px;
+    line-height: 1.45;
+    user-select: text;
   }
 
   &__form-actions {

@@ -28,7 +28,7 @@ export default defineComponent({
           }
           persistStoredUserInfo(nextUser)
           if (nextUser.isOnboardingCompleted) {
-            router.push('/mobile/home')
+            router.push({ name: 'mobile-overview-v2' })
             return
           }
         }

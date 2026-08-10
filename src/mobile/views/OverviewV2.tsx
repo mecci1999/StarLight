@@ -50,7 +50,8 @@ import type {
   QuickPivotConfig,
   DarwinInfraSummaryConfig,
   DarwinInfraTrendConfig,
-  OverviewTrendMetricKey
+  OverviewTrendMetricKey,
+  OverviewIncidentSource
 } from '@/domains/overview/panelModel'
 import { normalizeWidgetTags } from '@/domains/overview/panelModel'
 import { buildOverviewCardsQueryRequest, mapQueryResultsByWidgetId } from '@/domains/overview/overviewRuntimeQueryModel'
@@ -59,6 +60,7 @@ import { formatQueryNumberDisplay } from '@/domains/overview/queryNumberDisplay'
 import ServiceHealthBadge from '@/shared/components/ServiceHealthBadge'
 import './OverviewV2.scss'
 import MobileHeaderToolbar from '@/mobile/components/MobileHeaderToolbar'
+import { resolveMobileOverviewPanels } from './overviewPanels'
 
 const PANEL_STATE_STORAGE_KEY = 'starlight_overview_panel_state_v5'
 const AUTO_REFRESH_STORAGE_KEY = 'starlight_overview_mobile_auto_refresh_v1'
@@ -108,6 +110,12 @@ const capabilityFilterTags: Record<OverviewCapabilityKey, string> = {
   alerts: '告警',
   serviceCatalog: '服务',
   ingestion: '接入'
+}
+const incidentSourceLabels: Record<OverviewIncidentSource, string> = {
+  metrics: '系统健康事件',
+  logs: '日志事件',
+  traces: '链路事件',
+  alerts: '规则告警'
 }
 
 const widgetKindLabels: Record<OverviewWidgetKind, string> = {
@@ -173,6 +181,7 @@ export default defineComponent({
     const pullRefreshing = ref(false)
     let pullStartY = 0
     let pullTracking = false
+    const pullRefreshRegion = ref<HTMLElement | null>(null)
 
     // ── Control panel state ──
     const activeTimeRange = ref<TimeRangeKey>(timeStore.timeRange)
@@ -461,9 +470,9 @@ export default defineComponent({
         const saved = await getDashboardState<{ panels: OverviewPanelDefinition[] }>(PANEL_STATE_STORAGE_KEY, {
           panels: []
         })
-        panels.value = saved?.panels || []
+        panels.value = resolveMobileOverviewPanels(saved?.panels)
       } catch {
-        panels.value = []
+        panels.value = resolveMobileOverviewPanels(undefined)
       }
     }
 
@@ -590,6 +599,7 @@ export default defineComponent({
     onActivated(() => {
       restoreAutoRefreshSetting()
       loadData()
+      if (refreshTimer) clearInterval(refreshTimer)
       refreshTimer = setInterval(() => {
         timeAgo.value = formatTimeAgo()
       }, 30000)
@@ -597,6 +607,10 @@ export default defineComponent({
     })
 
     onDeactivated(() => {
+      if (refreshTimer) {
+        clearInterval(refreshTimer)
+        refreshTimer = null
+      }
       stopAutoRefresh()
     })
 
@@ -626,7 +640,10 @@ export default defineComponent({
     )
 
     const handleTouchStart = (e: TouchEvent) => {
-      if (window.scrollY > 0) return
+      const target = e.target instanceof Element ? e.target : null
+      if (target?.closest('button, input, textarea, select, a, [role="button"]')) return
+      const scrollContainer = pullRefreshRegion.value?.closest<HTMLElement>('.mobile-layout__content')
+      if (scrollContainer?.scrollTop) return
       pullStartY = e.touches[0].clientY
       pullTracking = true
     }
@@ -985,38 +1002,66 @@ export default defineComponent({
       )
     }
 
-    const renderIncidentList = (_widget: OverviewPanelWidget<'incident'>) => {
-      const items = incidents.value.slice(0, 5)
+    const renderIncidentList = (widget: OverviewPanelWidget<'incident'>) => {
+      const items = incidents.value
+        .filter((incident) => {
+          const source = typeof incident.source === 'string' ? incident.source : 'metrics'
+          if (widget.config.source?.length && !widget.config.source.includes(source as OverviewIncidentSource))
+            return false
+          if (widget.config.severity?.length && !widget.config.severity.includes(incident.severity || incident.level))
+            return false
+          if (widget.config.env && incident.env && incident.env !== widget.config.env) return false
+          return true
+        })
+        .slice(0, widget.config.limit || 5)
       return items.length ? (
         <div class="mobile-overview-v2__stack-list">
-          {items.map((inc: any, idx: number) => (
-            <div
-              class={[
-                'mobile-overview-v2__incident-card',
-                inc.level === 'critical' || inc.severity === 'critical'
-                  ? 'mobile-overview-v2__incident-card--critical'
-                  : 'mobile-overview-v2__incident-card--warning'
-              ]}
-              key={inc.id || idx}
-              onClick={() => router.push({ path: '/mobile/alerts-inbox', query: { incidentId: String(inc.id) } })}
-              onKeydown={(event: KeyboardEvent) =>
-                onNavigateByKeyboard(event, `/mobile/alerts-inbox?incidentId=${encodeURIComponent(String(inc.id))}`)
-              }
-              role="button"
-              tabindex="0"
-              aria-label={`查看事件 ${inc.service || inc.title || '未知服务'}`}>
-              <div class="mobile-overview-v2__incident-header">
-                <div>
-                  <div class="mobile-overview-v2__risk-title">{inc.service || inc.title}</div>
-                  <div class="mobile-overview-v2__risk-meta">{inc.message || inc.summary || '暂无摘要'}</div>
+          {items.map((inc: any, idx: number) => {
+            const source =
+              typeof inc.source === 'string' && inc.source in incidentSourceLabels
+                ? (inc.source as OverviewIncidentSource)
+                : 'metrics'
+            const targetPath =
+              source === 'alerts'
+                ? '/mobile/alerts-inbox'
+                : inc.serviceId
+                  ? `/mobile/service-detail-v2/${inc.serviceId}`
+                  : '/mobile/overview'
+            const targetQuery = source === 'alerts' ? { incidentId: String(inc.id) } : {}
+            return (
+              <div
+                class="mobile-overview-v2__incident-card"
+                key={inc.id || idx}
+                onClick={() => router.push({ path: targetPath, query: targetQuery })}
+                onKeydown={(event: KeyboardEvent) =>
+                  onNavigateByKeyboard(
+                    event,
+                    source === 'alerts'
+                      ? `/mobile/alerts-inbox?incidentId=${encodeURIComponent(String(inc.id))}`
+                      : targetPath
+                  )
+                }
+                role="button"
+                tabindex="0"
+                aria-label={`查看${incidentSourceLabels[source]} ${inc.service || inc.title || '未知服务'}`}>
+                <div class="mobile-overview-v2__incident-header">
+                  <div>
+                    <div class="mobile-overview-v2__incident-title-row">
+                      <div class="mobile-overview-v2__risk-title">{inc.service || inc.title}</div>
+                      <MobileTag size="small" type={source === 'alerts' ? 'warning' : 'info'}>
+                        {incidentSourceLabels[source]}
+                      </MobileTag>
+                    </div>
+                    <div class="mobile-overview-v2__risk-meta">{inc.message || inc.summary || '暂无摘要'}</div>
+                  </div>
+                  <ServiceHealthBadge
+                    status={inc.level === 'critical' || inc.severity === 'critical' ? 'critical' : 'degraded'}
+                    size="sm"
+                  />
                 </div>
-                <ServiceHealthBadge
-                  status={inc.level === 'critical' || inc.severity === 'critical' ? 'critical' : 'degraded'}
-                  size="sm"
-                />
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       ) : (
         <MobileEmpty description="暂无活跃事件" class="mobile-overview-v2__empty-state" />
@@ -1140,23 +1185,8 @@ export default defineComponent({
     // ── Render ──
 
     return () => (
-      <div
-        class="mobile-overview-v2"
-        onTouchstart={handleTouchStart}
-        onTouchmove={handleTouchMove}
-        onTouchend={handleTouchEnd}>
+      <div class="mobile-overview-v2">
         <MobileHeaderToolbar />
-        <div
-          class="mobile-overview-v2__pull-indicator"
-          style={{
-            height: `${pullDistance.value}px`,
-            opacity: pullDistance.value / 60
-          }}>
-          <MobileLoading loading={pullRefreshing.value || pullDistance.value > 10} />
-          <span class="mobile-overview-v2__pull-text">
-            {pullRefreshing.value ? '刷新中…' : pullDistance.value >= 60 ? '松开刷新' : '下拉刷新'}
-          </span>
-        </div>
         <div class="mobile-overview-v2__header">
           <h2 class="mobile-overview-v2__title">看板</h2>
           <div class="mobile-overview-v2__header-right">
@@ -1175,360 +1205,409 @@ export default defineComponent({
           </div>
         </div>
 
-        {loading.value && !refreshing.value ? (
-          <div class="mobile-overview-v2__loading">
-            <MobileLoading loading={loading.value} />
+        <section
+          ref={pullRefreshRegion}
+          class="mobile-overview-v2__refresh-region"
+          onTouchstart={handleTouchStart}
+          onTouchmove={handleTouchMove}
+          onTouchend={handleTouchEnd}>
+          <div
+            class="mobile-overview-v2__pull-indicator"
+            style={{
+              height: `${pullDistance.value}px`,
+              opacity: pullDistance.value / 60
+            }}>
+            <MobileLoading loading={pullRefreshing.value || pullDistance.value > 10} />
+            <span class="mobile-overview-v2__pull-text">
+              {pullRefreshing.value ? '刷新中…' : pullDistance.value >= 60 ? '松开刷新' : '下拉刷新'}
+            </span>
           </div>
-        ) : error.value ? (
-          <MobileEmpty description="数据加载失败，请检查网络连接后重试" class="mobile-overview-v2__error">
-            {{
-              default: () => (
-                <MobileButton
-                  type="primary"
-                  size="small"
-                  onClick={() => {
-                    refreshing.value = true
-                    loadData()
-                  }}>
-                  重新加载
-                </MobileButton>
-              )
-            }}
-          </MobileEmpty>
-        ) : (
-          <>
-            <div class="mobile-overview-v2__status-summary" aria-label="系统状态摘要">
-              <div class="mobile-overview-v2__status-summary-heading">
-                <div>
-                  <span class="mobile-overview-v2__eyebrow">SYSTEM STATUS</span>
-                  <strong>当前系统状态</strong>
-                </div>
-                <MobileTag size="small" type={summary.value.activeAlerts ? 'warning' : 'success'}>
-                  {summary.value.activeAlerts ? '需要关注' : '运行良好'}
-                </MobileTag>
-              </div>
-              <div class="mobile-overview-v2__status-summary-grid">
-                <div>
-                  <span>服务健康度</span>
-                  <strong>
-                    {displayMetric(summary.value.healthyServices)} / {displayMetric(summary.value.serviceCount)}
-                  </strong>
-                </div>
-                <div>
-                  <span>活跃告警</span>
-                  <strong>{displayMetric(summary.value.activeAlerts)}</strong>
-                </div>
-                <div>
-                  <span>错误率</span>
-                  <strong>{displayMetric(summary.value.errorRate, '%')}</strong>
-                </div>
-                <div>
-                  <span>P95 延迟</span>
-                  <strong>{displayMetric(summary.value.p95Latency, 'ms')}</strong>
-                </div>
-              </div>
+          {loading.value && !refreshing.value ? (
+            <div class="mobile-overview-v2__loading">
+              <MobileLoading loading={loading.value} />
             </div>
-
-            {/* ── Control Panel ── */}
-            <div class="mobile-overview-v2__control-panel">
-              <button
-                type="button"
-                class={['mobile-overview-v2__control-toggle', showControlPanel.value && 'is-active']}
-                aria-expanded={showControlPanel.value}
-                aria-controls="overview-filter-controls"
-                onClick={() => (showControlPanel.value = !showControlPanel.value)}>
-                {h(PhClock, { size: 16 })}
-                <span>筛选控制</span>
-                <span class={['mobile-overview-v2__control-arrow', showControlPanel.value && 'is-open']}>▾</span>
-              </button>
-
-              {showControlPanel.value && (
-                <div id="overview-filter-controls" class="mobile-overview-v2__control-body">
-                  {/* Time Range Selector */}
-                  <div class="mobile-overview-v2__control-section">
-                    <div class="mobile-overview-v2__control-label">时间范围</div>
-                    <div class="mobile-overview-v2__time-range-row">
-                      {(['15m', '1h', '4h', '1d', '2d', '7d'] as TimeRangeKey[]).map((range) => (
-                        <MobileButton
-                          key={range}
-                          size="small"
-                          type={activeTimeRange.value === range ? 'primary' : 'ghost'}
-                          onClick={() => onTimeRangeChange(range)}>
-                          {TIME_RANGE_LABELS[range]}
-                        </MobileButton>
-                      ))}
-                      <MobileButton size="small" type={liveMode.value ? 'primary' : 'default'} onClick={onToggleLive}>
-                        {liveMode.value ? h(PhPauseCircle, { size: 14 }) : h(PhPlayCircle, { size: 14 })}
-                        <span class="mobile-overview-v2__control-button-label">Live</span>
-                      </MobileButton>
-                    </div>
+          ) : error.value ? (
+            <MobileEmpty description="数据加载失败，请检查网络连接后重试" class="mobile-overview-v2__error">
+              {{
+                default: () => (
+                  <MobileButton
+                    type="primary"
+                    size="small"
+                    onClick={() => {
+                      refreshing.value = true
+                      loadData()
+                    }}>
+                    重新加载
+                  </MobileButton>
+                )
+              }}
+            </MobileEmpty>
+          ) : (
+            <>
+              <div class="mobile-overview-v2__status-summary" aria-label="值班状态摘要" aria-live="polite">
+                <div class="mobile-overview-v2__status-summary-heading">
+                  <div>
+                    <span class="mobile-overview-v2__eyebrow">ON-CALL STATUS</span>
+                    <strong>值班状态</strong>
                   </div>
-
-                  {/* Auto Refresh */}
-                  <div class="mobile-overview-v2__control-section">
-                    <div class="mobile-overview-v2__control-label">自动刷新</div>
-                    <div class="mobile-overview-v2__time-range-row">
-                      {overviewAutoRefreshOptions.map((opt) => (
-                        <MobileButton
-                          key={opt.value}
-                          size="small"
-                          type={autoRefreshSetting.value === opt.value ? 'primary' : 'ghost'}
-                          onClick={() => onAutoRefreshChange(opt.value)}>
-                          {opt.label}
-                        </MobileButton>
-                      ))}
-                    </div>
-                    {autoRefreshFailureCount.value >= 3 && (
-                      <div class="mobile-overview-v2__auto-refresh-warning">连续刷新失败，已暂停自动刷新</div>
-                    )}
+                  <MobileTag
+                    size="small"
+                    type={
+                      typeof summary.value.activeAlerts !== 'number'
+                        ? 'default'
+                        : summary.value.activeAlerts > 0
+                          ? 'warning'
+                          : 'success'
+                    }>
+                    {typeof summary.value.activeAlerts !== 'number'
+                      ? '状态待确认'
+                      : summary.value.activeAlerts > 0
+                        ? '需要处置'
+                        : '运行良好'}
+                  </MobileTag>
+                </div>
+                <div class="mobile-overview-v2__status-summary-grid">
+                  <div>
+                    <span>服务健康度</span>
+                    <strong>
+                      {displayMetric(summary.value.healthyServices)} / {displayMetric(summary.value.serviceCount)}
+                    </strong>
                   </div>
-
-                  {/* Service Search */}
-                  <div class="mobile-overview-v2__control-section">
-                    <div class="mobile-overview-v2__control-label">服务筛选</div>
-                    <div class="mobile-overview-v2__service-search-row">
-                      <MobileInput
-                        modelValue={serviceSearch.value}
-                        placeholder="输入服务名称搜索…"
-                        clearable
-                        onUpdate:modelValue={(v: string) => (serviceSearch.value = v)}
-                        onEnter={onServiceSearch}
-                        leftIcon={() => h(PhMagnifyingGlass, { size: 14 })}
-                      />
-                      <MobileButton size="small" type="primary" onClick={onServiceSearch}>
-                        搜索
-                      </MobileButton>
-                    </div>
-                    {activeServiceFilter.value && (
-                      <div class="mobile-overview-v2__service-indicator">
-                        <span>
-                          当前服务: <strong>{activeServiceFilter.value}</strong>
-                        </span>
-                        <MobileButton size="small" type="ghost" onClick={onClearServiceFilter}>
-                          {h(PhXCircle, { size: 12 })}
-                          <span class="mobile-overview-v2__clear-filter-label">清除</span>
-                        </MobileButton>
-                      </div>
-                    )}
+                  <div>
+                    <span>活跃告警</span>
+                    <strong>{displayMetric(summary.value.activeAlerts)}</strong>
                   </div>
+                  <div>
+                    <span>错误率</span>
+                    <strong>{displayMetric(summary.value.errorRate, '%')}</strong>
+                  </div>
+                  <div>
+                    <span>P95 延迟</span>
+                    <strong>{displayMetric(summary.value.p95Latency, 'ms')}</strong>
+                  </div>
+                </div>
+              </div>
 
-                  {/* Tag Filter Chips */}
-                  {widgetTagOptions.value.length > 0 && (
+              {/* ── Control Panel ── */}
+              <div class="mobile-overview-v2__control-panel">
+                <button
+                  type="button"
+                  class={['mobile-overview-v2__control-toggle', showControlPanel.value && 'is-active']}
+                  aria-expanded={showControlPanel.value}
+                  aria-controls="overview-filter-controls"
+                  onClick={() => (showControlPanel.value = !showControlPanel.value)}>
+                  {h(PhClock, { size: 16 })}
+                  <span>筛选控制</span>
+                  <span class={['mobile-overview-v2__control-arrow', showControlPanel.value && 'is-open']}>▾</span>
+                </button>
+
+                {showControlPanel.value && (
+                  <div id="overview-filter-controls" class="mobile-overview-v2__control-body">
+                    {/* Time Range Selector */}
                     <div class="mobile-overview-v2__control-section">
-                      <div class="mobile-overview-v2__control-label">
-                        卡片分类
-                        <MobileTag size="small" type="info" class="mobile-overview-v2__filter-count">
-                          {filteredWidgets.value.length}
-                        </MobileTag>
-                      </div>
-                      <div class="mobile-overview-v2__tag-chip-scroll">
-                        <MobileButton
-                          size="small"
-                          type={!activeTagFilter.value ? 'primary' : 'ghost'}
-                          onClick={() => onTagFilterSelect('')}>
-                          全部
-                        </MobileButton>
-                        {widgetTagOptions.value.map(({ tag, count }) => (
+                      <div class="mobile-overview-v2__control-label">时间范围</div>
+                      <div class="mobile-overview-v2__time-range-row">
+                        {(['15m', '1h', '4h', '1d', '2d', '7d'] as TimeRangeKey[]).map((range) => (
                           <MobileButton
-                            key={tag}
+                            key={range}
                             size="small"
-                            type={activeTagFilter.value === tag ? 'primary' : 'ghost'}
-                            onClick={() => onTagFilterSelect(tag)}>
-                            {tag} ({count})
+                            type={activeTimeRange.value === range ? 'primary' : 'ghost'}
+                            onClick={() => onTimeRangeChange(range)}>
+                            {TIME_RANGE_LABELS[range]}
+                          </MobileButton>
+                        ))}
+                        <MobileButton size="small" type={liveMode.value ? 'primary' : 'default'} onClick={onToggleLive}>
+                          {liveMode.value ? h(PhPauseCircle, { size: 14 }) : h(PhPlayCircle, { size: 14 })}
+                          <span class="mobile-overview-v2__control-button-label">Live</span>
+                        </MobileButton>
+                      </div>
+                    </div>
+
+                    {/* Auto Refresh */}
+                    <div class="mobile-overview-v2__control-section">
+                      <div class="mobile-overview-v2__control-label">自动刷新</div>
+                      <div class="mobile-overview-v2__time-range-row">
+                        {overviewAutoRefreshOptions.map((opt) => (
+                          <MobileButton
+                            key={opt.value}
+                            size="small"
+                            type={autoRefreshSetting.value === opt.value ? 'primary' : 'ghost'}
+                            onClick={() => onAutoRefreshChange(opt.value)}>
+                            {opt.label}
                           </MobileButton>
                         ))}
                       </div>
+                      {autoRefreshFailureCount.value >= 3 && (
+                        <div class="mobile-overview-v2__auto-refresh-warning">连续刷新失败，已暂停自动刷新</div>
+                      )}
                     </div>
-                  )}
+
+                    {/* Service Search */}
+                    <div class="mobile-overview-v2__control-section">
+                      <div class="mobile-overview-v2__control-label">服务筛选</div>
+                      <div class="mobile-overview-v2__service-search-row">
+                        <MobileInput
+                          modelValue={serviceSearch.value}
+                          placeholder="输入服务名称搜索…"
+                          clearable
+                          onUpdate:modelValue={(v: string) => (serviceSearch.value = v)}
+                          onEnter={onServiceSearch}
+                          leftIcon={() => h(PhMagnifyingGlass, { size: 14 })}
+                        />
+                        <MobileButton size="small" type="primary" onClick={onServiceSearch}>
+                          搜索
+                        </MobileButton>
+                      </div>
+                      {activeServiceFilter.value && (
+                        <div class="mobile-overview-v2__service-indicator">
+                          <span>
+                            当前服务: <strong>{activeServiceFilter.value}</strong>
+                          </span>
+                          <MobileButton size="small" type="ghost" onClick={onClearServiceFilter}>
+                            {h(PhXCircle, { size: 12 })}
+                            <span class="mobile-overview-v2__clear-filter-label">清除</span>
+                          </MobileButton>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Tag Filter Chips */}
+                    {widgetTagOptions.value.length > 0 && (
+                      <div class="mobile-overview-v2__control-section">
+                        <div class="mobile-overview-v2__control-label">
+                          卡片分类
+                          <MobileTag size="small" type="info" class="mobile-overview-v2__filter-count">
+                            {filteredWidgets.value.length}
+                          </MobileTag>
+                        </div>
+                        <div class="mobile-overview-v2__tag-chip-scroll">
+                          <MobileButton
+                            size="small"
+                            type={!activeTagFilter.value ? 'primary' : 'ghost'}
+                            onClick={() => onTagFilterSelect('')}>
+                            全部
+                          </MobileButton>
+                          {widgetTagOptions.value.map(({ tag, count }) => (
+                            <MobileButton
+                              key={tag}
+                              size="small"
+                              type={activeTagFilter.value === tag ? 'primary' : 'ghost'}
+                              onClick={() => onTagFilterSelect(tag)}>
+                              {tag} ({count})
+                            </MobileButton>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {statusWidgets.value.length > 0 && (
+                <div class="mobile-overview-v2__section mobile-overview-v2__section--priority">
+                  <div class="mobile-overview-v2__section-heading">
+                    <div>
+                      <span class="mobile-overview-v2__eyebrow">ACTION QUEUE</span>
+                      <div class="mobile-overview-v2__section-title">优先处置</div>
+                    </div>
+                    <span class="mobile-overview-v2__section-hint">点按查看详情</span>
+                  </div>
+                  <div class="mobile-overview-v2__widget-list mobile-overview-v2__widget-list--priority">
+                    {statusWidgets.value.map((widget) => (
+                      <div class="mobile-overview-v2__widget-card" key={widget.id}>
+                        <div class="mobile-overview-v2__widget-card-header">
+                          <span class="mobile-overview-v2__widget-card-title">{widget.title}</span>
+                          <MobileTag size="small" type="warning">
+                            {widgetKindLabels[widget.kind] || '状态'}
+                          </MobileTag>
+                        </div>
+                        <div class="mobile-overview-v2__widget-card-body">{renderWidgetBody(widget)}</div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
-            </div>
 
-            {statusWidgets.value.length > 0 && (
-              <div class="mobile-overview-v2__section mobile-overview-v2__section--priority">
-                <div class="mobile-overview-v2__section-title">风险与事件</div>
-                <div class="mobile-overview-v2__widget-list mobile-overview-v2__widget-list--priority">
-                  {statusWidgets.value.map((widget) => (
-                    <div class="mobile-overview-v2__widget-card" key={widget.id}>
-                      <div class="mobile-overview-v2__widget-card-header">
-                        <span class="mobile-overview-v2__widget-card-title">{widget.title}</span>
-                        <MobileTag size="small" type="warning">
-                          {widgetKindLabels[widget.kind] || '状态'}
-                        </MobileTag>
-                      </div>
-                      <div class="mobile-overview-v2__widget-card-body">{renderWidgetBody(widget)}</div>
-                    </div>
+              {/* 既有调查入口：在值班队列后提供低触达跳转 */}
+              <section
+                class="mobile-overview-v2__section mobile-overview-v2__section--pivots"
+                aria-label="快速调查入口">
+                <div class="mobile-overview-v2__section-heading">
+                  <div>
+                    <span class="mobile-overview-v2__eyebrow">INVESTIGATE</span>
+                    <div class="mobile-overview-v2__section-title">快速调查</div>
+                  </div>
+                  <span class="mobile-overview-v2__section-hint">已有工作区</span>
+                </div>
+                <div class="mobile-overview-v2__pivot-grid">
+                  {[
+                    { key: 'services', icon: PhStack, label: '服务目录', path: '/mobile/services-v2' },
+                    { key: 'alerts', icon: PhBell, label: '告警', path: '/mobile/alerts-inbox' },
+                    { key: 'traces', icon: PhGitBranch, label: '链路', path: '/mobile/trace-explorer' },
+                    { key: 'logs', icon: PhFile, label: '日志', path: '/mobile/log-center' },
+                    { key: 'topology', icon: PhGitBranch, label: '拓扑', path: '/mobile/topology' }
+                  ].map((item) => (
+                    <MobileButton
+                      key={item.key}
+                      class="mobile-overview-v2__pivot-btn"
+                      size="large"
+                      onClick={() => router.push(item.path)}>
+                      {h(item.icon, { size: 20 })}
+                      <span class="mobile-overview-v2__pivot-label">{item.label}</span>
+                    </MobileButton>
                   ))}
                 </div>
-              </div>
-            )}
+              </section>
 
-            {/* KPI 指标摘要 */}
-            <MobileCard bordered={false} size="small" class="mobile-overview-v2__summary-card">
-              <MobileGrid cols={2}>
-                {[
-                  {
-                    key: 'serviceCount',
-                    icon: PhComputerTower,
-                    label: '服务总数',
-                    extra: `健康 ${displayMetric(summary.value.healthyServices)}`,
-                    color: 'var(--color-primary-6)'
-                  },
-                  {
-                    key: 'activeAlerts',
-                    icon: PhWarning,
-                    label: '活跃告警',
-                    extra: null,
-                    color: 'var(--color-warning-6)'
-                  },
-                  {
-                    key: 'totalRequests',
-                    icon: PhActivity,
-                    label: '请求总量',
-                    extra: null,
-                    color: 'var(--color-primary-6)'
-                  },
-                  {
-                    key: 'errorRate',
-                    icon: PhWarningCircle,
-                    label: '全局错误率',
-                    extra: null,
-                    unit: '%',
-                    color: 'var(--color-danger-6)'
-                  },
-                  {
-                    key: 'p95Latency',
-                    icon: PhTrendUp,
-                    label: 'P95 延迟',
-                    extra: null,
-                    unit: 'ms',
-                    color: 'var(--color-warning-6)'
-                  },
-                  {
-                    key: 'darwinCpu',
-                    icon: PhCpu,
-                    label: '系统负载',
-                    extra: null,
-                    unit: '%',
-                    color: 'var(--color-primary-6)'
-                  }
-                ].map((item) => (
-                  <div key={item.key}>
-                    <div class="mobile-overview-v2__metric-card">
-                      <div class="mobile-overview-v2__metric-label">
-                        {h(item.icon, { color: item.color, size: 14 })}
-                        <span>{item.label}</span>
+              {/* KPI 指标摘要 */}
+              <MobileCard
+                bordered={false}
+                size="small"
+                class="mobile-overview-v2__summary-card"
+                aria-label="关键指标摘要">
+                <MobileGrid cols={2}>
+                  {[
+                    {
+                      key: 'serviceCount',
+                      icon: PhComputerTower,
+                      label: '服务总数',
+                      extra: `健康 ${displayMetric(summary.value.healthyServices)}`,
+                      color: 'var(--color-primary-6)'
+                    },
+                    {
+                      key: 'activeAlerts',
+                      icon: PhWarning,
+                      label: '活跃告警',
+                      extra: null,
+                      color: 'var(--color-warning-6)'
+                    },
+                    {
+                      key: 'totalRequests',
+                      icon: PhActivity,
+                      label: '请求总量',
+                      extra: null,
+                      color: 'var(--color-primary-6)'
+                    },
+                    {
+                      key: 'errorRate',
+                      icon: PhWarningCircle,
+                      label: '全局错误率',
+                      extra: null,
+                      unit: '%',
+                      color: 'var(--color-danger-6)'
+                    },
+                    {
+                      key: 'p95Latency',
+                      icon: PhTrendUp,
+                      label: 'P95 延迟',
+                      extra: null,
+                      unit: 'ms',
+                      color: 'var(--color-warning-6)'
+                    },
+                    {
+                      key: 'darwinCpu',
+                      icon: PhCpu,
+                      label: '系统负载',
+                      extra: null,
+                      unit: '%',
+                      color: 'var(--color-primary-6)'
+                    }
+                  ].map((item) => (
+                    <div key={item.key}>
+                      <div class="mobile-overview-v2__metric-card">
+                        <div class="mobile-overview-v2__metric-label">
+                          {h(item.icon, { color: item.color, size: 14 })}
+                          <span>{item.label}</span>
+                        </div>
+                        <div class="mobile-overview-v2__metric-value">
+                          {displayMetric(summary.value[item.key], item.unit || '')}
+                        </div>
+                        {item.extra && <div class="mobile-overview-v2__metric-subtitle">{item.extra}</div>}
                       </div>
-                      <div class="mobile-overview-v2__metric-value">
-                        {displayMetric(summary.value[item.key], item.unit || '')}
-                      </div>
-                      {item.extra && <div class="mobile-overview-v2__metric-subtitle">{item.extra}</div>}
                     </div>
-                  </div>
-                ))}
-              </MobileGrid>
-            </MobileCard>
+                  ))}
+                </MobileGrid>
+              </MobileCard>
 
-            {/* Darwin 资源仪表盘 */}
-            {(summary.value.darwinCpu !== null || summary.value.darwinMemory !== null) && (
-              <div class="mobile-overview-v2__section">
-                <div class="mobile-overview-v2__section-title">Darwin 资源</div>
-                <div class="mobile-overview-v2__darwin-grid">
-                  {summary.value.darwinCpu !== null && (
-                    <div class="mobile-overview-v2__darwin-card">
-                      <div class="mobile-overview-v2__darwin-label">
-                        {h(PhCpu, { color: 'var(--color-primary-6)', size: 14 })}
-                        <span>CPU</span>
-                      </div>
-                      <GaugeChart
-                        value={summary.value.darwinCpu!}
-                        min={0}
-                        max={100}
-                        unit="%"
-                        color="var(--color-primary-6)"
-                        height="160px"
-                        loading={loading.value}
-                      />
-                    </div>
-                  )}
-                  {summary.value.darwinMemory !== null && (
-                    <div class="mobile-overview-v2__darwin-card">
-                      <div class="mobile-overview-v2__darwin-label">
-                        {h(PhCloud, { color: 'var(--color-warning-6)', size: 14 })}
-                        <span>内存</span>
-                      </div>
-                      <GaugeChart
-                        value={summary.value.darwinMemory!}
-                        min={0}
-                        max={100}
-                        unit="%"
-                        color="var(--color-warning-6)"
-                        height="160px"
-                        loading={loading.value}
-                      />
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Panel Widgets */}
-            {filteredWidgets.value.length > 0 ? (
-              <>
+              {/* Darwin 资源仪表盘 */}
+              {(summary.value.darwinCpu !== null || summary.value.darwinMemory !== null) && (
                 <div class="mobile-overview-v2__section">
-                  <div class="mobile-overview-v2__section-title">
-                    {currentPanel.value?.name || 'Widgets'}
-                    <MobileTag size="small" type="info" class="mobile-overview-v2__filter-count">
-                      {filteredWidgets.value.length} 个
-                    </MobileTag>
+                  <div class="mobile-overview-v2__section-title">Darwin 资源</div>
+                  <div class="mobile-overview-v2__darwin-grid">
+                    {summary.value.darwinCpu !== null && (
+                      <div class="mobile-overview-v2__darwin-card">
+                        <div class="mobile-overview-v2__darwin-label">
+                          {h(PhCpu, { color: 'var(--color-primary-6)', size: 14 })}
+                          <span>CPU</span>
+                        </div>
+                        <GaugeChart
+                          value={summary.value.darwinCpu!}
+                          min={0}
+                          max={100}
+                          unit="%"
+                          color="var(--color-primary-6)"
+                          height="160px"
+                          loading={loading.value}
+                        />
+                      </div>
+                    )}
+                    {summary.value.darwinMemory !== null && (
+                      <div class="mobile-overview-v2__darwin-card">
+                        <div class="mobile-overview-v2__darwin-label">
+                          {h(PhCloud, { color: 'var(--color-warning-6)', size: 14 })}
+                          <span>内存</span>
+                        </div>
+                        <GaugeChart
+                          value={summary.value.darwinMemory!}
+                          min={0}
+                          max={100}
+                          unit="%"
+                          color="var(--color-warning-6)"
+                          height="160px"
+                          loading={loading.value}
+                        />
+                      </div>
+                    )}
                   </div>
                 </div>
-                <div class="mobile-overview-v2__widget-list">
-                  {remainingWidgets.value.map((widget) => (
-                    <div class="mobile-overview-v2__widget-card" key={widget.id}>
-                      <div class="mobile-overview-v2__widget-card-header">
-                        <span class="mobile-overview-v2__widget-card-title">{widget.title}</span>
-                        <MobileTag size="small" type="default">
-                          {widgetKindLabels[widget.kind] || '自定义组件'}
-                        </MobileTag>
-                      </div>
-                      <div class="mobile-overview-v2__widget-card-body">{renderWidgetBody(widget)}</div>
-                    </div>
-                  ))}
-                </div>
-              </>
-            ) : (
-              <div class="mobile-overview-v2__section">
-                <MobileEmpty
-                  description="当前面板暂无卡片，请在桌面端添加卡片后查看。"
-                  class="mobile-overview-v2__empty-state"
-                />
-              </div>
-            )}
+              )}
 
-            {/* 快捷入口 */}
-            <MobileCard bordered={false} size="small" class="mobile-overview-v2__summary-card">
-              <div class="mobile-overview-v2__pivot-grid">
-                {[
-                  { key: 'services', icon: PhStack, label: '服务目录', path: '/mobile/services-v2' },
-                  { key: 'alerts', icon: PhBell, label: '告警', path: '/mobile/alerts-inbox' },
-                  { key: 'traces', icon: PhGitBranch, label: '链路', path: '/mobile/trace-explorer' },
-                  { key: 'logs', icon: PhFile, label: '日志', path: '/mobile/log-center' },
-                  { key: 'instance', icon: PhComputerTower, label: '实例', path: '/mobile/instance-monitor' },
-                  { key: 'rules', icon: PhWarningCircle, label: '规则', path: '/mobile/alert-rules' }
-                ].map((item) => (
-                  <MobileButton
-                    class="mobile-overview-v2__pivot-btn"
-                    size="large"
-                    onClick={() => router.push(item.path)}>
-                    {h(item.icon, { size: 20 })}
-                    <span class="mobile-overview-v2__pivot-label">{item.label}</span>
-                  </MobileButton>
-                ))}
-              </div>
-            </MobileCard>
-          </>
-        )}
+              {/* Panel Widgets */}
+              {filteredWidgets.value.length > 0 ? (
+                <>
+                  <div class="mobile-overview-v2__section">
+                    <div class="mobile-overview-v2__section-title">
+                      {currentPanel.value?.name || 'Widgets'}
+                      <MobileTag size="small" type="info" class="mobile-overview-v2__filter-count">
+                        {filteredWidgets.value.length} 个
+                      </MobileTag>
+                    </div>
+                  </div>
+                  <div class="mobile-overview-v2__widget-list">
+                    {remainingWidgets.value.map((widget) => (
+                      <div class="mobile-overview-v2__widget-card" key={widget.id}>
+                        <div class="mobile-overview-v2__widget-card-header">
+                          <span class="mobile-overview-v2__widget-card-title">{widget.title}</span>
+                          <MobileTag size="small" type="default">
+                            {widgetKindLabels[widget.kind] || '自定义组件'}
+                          </MobileTag>
+                        </div>
+                        <div class="mobile-overview-v2__widget-card-body">{renderWidgetBody(widget)}</div>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              ) : (
+                <div class="mobile-overview-v2__section">
+                  <MobileEmpty
+                    description="当前面板暂无卡片，请在桌面端添加卡片后查看。"
+                    class="mobile-overview-v2__empty-state"
+                  />
+                </div>
+              )}
+            </>
+          )}
+        </section>
       </div>
     )
   }

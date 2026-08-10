@@ -103,10 +103,7 @@ export function fetchNotifications(params?: {
   startTime?: number
   endTime?: number
 }) {
-  return request.get<NotificationItem[]>(url.metricsNotifications, cleanAlertQueryParams(params)).catch((error) => {
-    console.error('Failed to fetch notifications, using empty fallback:', error)
-    return []
-  })
+  return request.get<NotificationItem[]>(url.metricsNotifications, cleanAlertQueryParams(params))
 }
 
 // 重发通知

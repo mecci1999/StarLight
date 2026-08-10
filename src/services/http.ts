@@ -1,6 +1,8 @@
 import { AppException, ErrorType } from '@/common/exception'
 import { RequestQueue } from '@/utils/RequestQueue'
+import { invoke, isTauri } from '@tauri-apps/api/core'
 import { WebviewWindow } from '@tauri-apps/api/webviewWindow'
+import { platform } from '@tauri-apps/plugin-os'
 import { getCookie, setCookie, removeCookie } from '@/utils/Cookie'
 import url from '@/api/url'
 
@@ -15,6 +17,7 @@ const ERROR_MESSAGES = {
 
 const ACCESS_TOKEN_EXPIRE_DAYS = 0.25
 const REFRESH_TOKEN_EXPIRE_DAYS = 3
+const REFRESH_TIMEOUT_MS = 30_000
 
 /**
  * @description 重试选项
@@ -48,6 +51,7 @@ export type HttpParams = {
   noRetry?: boolean // 是否禁用重试
   suppressErrorLog?: boolean // 是否抑制预期失败的错误日志
   suppressSuccessMessage?: boolean // 是否抑制成功提示
+  timeoutMs?: number // 请求总超时时间
 }
 
 /**
@@ -60,6 +64,67 @@ function wait(ms: number) {
 }
 
 const runtimeFetch = (input: RequestInfo | URL, init?: RequestInit) => globalThis.fetch(input, init)
+
+const settleWithAbort = async <T>(request: Promise<T>, signal: AbortSignal): Promise<T> => {
+  const rejectForAbort = () => new DOMException('The operation was aborted', 'AbortError')
+  if (signal.aborted) throw rejectForAbort()
+
+  let abortListener: (() => void) | undefined
+  const aborted = new Promise<never>((_resolve, reject) => {
+    abortListener = () => reject(rejectForAbort())
+    signal.addEventListener('abort', abortListener, { once: true })
+  })
+
+  try {
+    return await Promise.race([request, aborted])
+  } finally {
+    if (abortListener) signal.removeEventListener('abort', abortListener)
+  }
+}
+
+const isIosRuntime = () => {
+  try {
+    return isTauri() && platform() === 'ios'
+  } catch {
+    return false
+  }
+}
+
+const isIosNativeAuthRequest = (requestUrl: string, method: HttpParams['method'], aborted: boolean) =>
+  !aborted &&
+  isIosRuntime() &&
+  method === 'POST' &&
+  (requestUrl === url.login ||
+    requestUrl === url.emailVerifyCode ||
+    requestUrl === url.scanQRcode ||
+    requestUrl === url.confirmQRcode ||
+    requestUrl === url.cancelQRcode ||
+    requestUrl === url.refreshToken)
+
+type IosAuthEndpoint = 'login' | 'verifyCode' | 'qrScan' | 'qrConfirm' | 'qrCancel' | 'refreshToken'
+
+type IosAuthPostResponse = {
+  status: number
+  headers: Record<string, string[]>
+  bodyText: string
+}
+
+const getIosAuthEndpoint = (requestUrl: string): IosAuthEndpoint => {
+  if (requestUrl === url.login) return 'login'
+  if (requestUrl === url.emailVerifyCode) return 'verifyCode'
+  if (requestUrl === url.confirmQRcode) return 'qrConfirm'
+  if (requestUrl === url.cancelQRcode) return 'qrCancel'
+  if (requestUrl === url.refreshToken) return 'refreshToken'
+  return 'qrScan'
+}
+
+const toBufferedResponse = ({ status, headers, bodyText }: IosAuthPostResponse) => {
+  const responseHeaders = new Headers()
+  Object.entries(headers).forEach(([name, values]) => {
+    values.forEach((value) => responseHeaders.append(name, value))
+  })
+  return new Response(bodyText, { status, headers: responseHeaders })
+}
 
 const DEBUG_DIAGNOSTICS_REFRESH_MS = 30 * 1000
 const DEBUG_DIAGNOSTICS_CAPTURE_BATCH_SIZE = 10
@@ -394,8 +459,9 @@ const isConclusiveAuthenticationFailure = (status: number, code: unknown) =>
 
 async function refreshTokenAndRetry(): Promise<string> {
   if (isRefreshing) {
-    const debugLoggingEnabled = await resolveDebugDiagnosticsEnabled(url.refreshToken)
-    debugLog(debugLoggingEnabled, '🔄 已有刷新请求在进行中，加入等待队列')
+    // A queued protected request must not wait on optional diagnostics before
+    // joining the refresh queue, or it could miss the leader's timeout cleanup.
+    void resolveDebugDiagnosticsEnabled(url.refreshToken)
 
     return new Promise((resolve, reject) => {
       requestQueue.enqueue(resolve, reject, 1)
@@ -403,6 +469,19 @@ async function refreshTokenAndRetry(): Promise<string> {
   }
 
   isRefreshing = true
+  const refreshController = new AbortController()
+  let rejectRefreshDeadline: (reason: AppException) => void = () => undefined
+  const refreshDeadline = new Promise<never>((_resolve, reject) => {
+    rejectRefreshDeadline = reject
+  })
+  const refreshTimeout = setTimeout(() => {
+    const timeoutError = new AppException(ERROR_MESSAGES.TIMEOUT, {
+      type: ErrorType.Network,
+      showError: true
+    })
+    refreshController.abort()
+    rejectRefreshDeadline(timeoutError)
+  }, REFRESH_TIMEOUT_MS)
 
   try {
     const refreshToken = getStoredToken('REFRESH_TOKEN')
@@ -416,7 +495,9 @@ async function refreshTokenAndRetry(): Promise<string> {
     }
     const refreshBody = refreshToken ? JSON.stringify({ refreshToken }) : undefined
 
-    const debugLoggingEnabled = await resolveDebugDiagnosticsEnabled(refreshUrl)
+    // Diagnostics are best-effort and must never delay session recovery.
+    void resolveDebugDiagnosticsEnabled(refreshUrl)
+    const debugLoggingEnabled = false
     debugLog(debugLoggingEnabled, '📤 正在使用refreshToken获取新的token', {
       refreshUrl,
       serviceUrl,
@@ -430,14 +511,33 @@ async function refreshTokenAndRetry(): Promise<string> {
         showError: true
       })
     }
-    const response = await runtimeFetch(refreshUrl, {
-      method: 'POST',
-      headers: refreshHeaders,
-      body: refreshBody,
-      credentials: 'include'
-    })
+    const response = isIosNativeAuthRequest(refreshUrl, 'POST', refreshController.signal.aborted)
+      ? await Promise.race([
+          settleWithAbort(
+            invoke<IosAuthPostResponse>('ios_auth_post', {
+              request: {
+                endpoint: 'refreshToken',
+                bodyJson: refreshBody || '',
+                authorization: refreshHeaders.Authorization,
+                timeoutMs: REFRESH_TIMEOUT_MS
+              }
+            }).then(toBufferedResponse),
+            refreshController.signal
+          ),
+          refreshDeadline
+        ])
+      : await Promise.race([
+          runtimeFetch(refreshUrl, {
+            method: 'POST',
+            headers: refreshHeaders,
+            body: refreshBody,
+            credentials: 'include',
+            signal: refreshController.signal
+          }),
+          refreshDeadline
+        ])
 
-    const data = await response.json().catch(() => null)
+    const data = await Promise.race([response.json().catch(() => null), refreshDeadline])
     const businessStatus = data?.status ?? data?.data?.status
     const businessCode = data?.code ?? data?.data?.code
     const businessSuccess = data?.data?.success ?? data?.success
@@ -508,7 +608,7 @@ async function refreshTokenAndRetry(): Promise<string> {
     if (nextAccessToken) {
       debugLog(debugLoggingEnabled, '🔑 Token刷新成功')
       const safeAccessToken = nextAccessToken.replace(/[\r\n]/g, '')
-      await requestQueue.processQueue(safeAccessToken)
+      await Promise.race([requestQueue.processQueue(safeAccessToken), refreshDeadline])
 
       return safeAccessToken
     }
@@ -518,11 +618,18 @@ async function refreshTokenAndRetry(): Promise<string> {
       showError: true
     })
   } catch (error: any) {
-    console.error('❌ 刷新Token过程出错:', error)
-    requestQueue.clear(error) // 发生错误时清空队列并拒绝等待请求
+    const refreshError = refreshController.signal.aborted
+      ? new AppException(ERROR_MESSAGES.TIMEOUT, {
+          type: ErrorType.Network,
+          showError: true
+        })
+      : error
+    console.error('❌ 刷新Token过程出错:', refreshError)
+    requestQueue.clear(refreshError) // 发生错误时清空队列并拒绝等待请求
 
-    throw error
+    throw refreshError
   } finally {
+    clearTimeout(refreshTimeout)
     isRefreshing = false
   }
 }
@@ -558,7 +665,11 @@ async function Http<T = any>(
   fullResponse: boolean = false,
   abort?: AbortController
 ): Promise<{ data: T; response: Response } | T> {
-  const debugLoggingEnabled = await resolveDebugDiagnosticsEnabled(url)
+  const canonicalRequestUrl = url
+  // Debug diagnostics are optional telemetry. Never allow its network request
+  // to delay an application request or refresh-token coordination.
+  void resolveDebugDiagnosticsEnabled(url)
+  const debugLoggingEnabled = false
 
   // 检查是否需要阻止请求
   const shouldBlock = await shouldBlockRequest(url)
@@ -590,6 +701,17 @@ async function Http<T = any>(
 
   const { retries = 3, retryDelay } = retryOptions
   const maxRetries = options.noRetry ? 1 : retries
+
+  const requestAbort = new AbortController()
+  let timedOut = false
+  const externalAbort = () => requestAbort.abort()
+  abort?.signal.addEventListener('abort', externalAbort, { once: true })
+  if (abort?.signal.aborted) externalAbort()
+  const timeoutMs = options.timeoutMs ?? 30000
+  const timeoutId = setTimeout(() => {
+    timedOut = true
+    requestAbort.abort()
+  }, timeoutMs)
 
   // 获取token和指纹
   const storedToken = getStoredToken('ACCESS_TOKEN')
@@ -629,7 +751,7 @@ async function Http<T = any>(
   const fetchOptions: RequestInit = {
     method: options.method,
     headers: httpHeaders,
-    signal: abort?.signal,
+    signal: requestAbort.signal,
     body,
     credentials: 'include'
   }
@@ -653,6 +775,14 @@ async function Http<T = any>(
       return ERROR_MESSAGES.OFFLINE
     }
 
+    if (timedOut) {
+      return ERROR_MESSAGES.TIMEOUT
+    }
+
+    if (requestAbort.signal.aborted) {
+      return ERROR_MESSAGES.ABORTED
+    }
+
     if (error.name === 'AbortError') {
       return ERROR_MESSAGES.ABORTED
     }
@@ -669,7 +799,25 @@ async function Http<T = any>(
   let tokenRefreshCount = 0 // 在闭包中存储计数器
   async function attemptFetch(currentAttempt: number): Promise<{ data: T; response: Response } | T> {
     try {
-      const response = await runtimeFetch(url, fetchOptions)
+      let response: Response
+      if (isIosNativeAuthRequest(canonicalRequestUrl, options.method, requestAbort.signal.aborted)) {
+        // The plugin HTTP response body is streamed across IPC and can stall
+        // after headers arrive. This command buffers only fixed auth endpoints
+        // in Rust and returns the complete body as a single invoke result.
+        response = await settleWithAbort(
+          invoke<IosAuthPostResponse>('ios_auth_post', {
+            request: {
+              endpoint: getIosAuthEndpoint(canonicalRequestUrl),
+              bodyJson: typeof body === 'string' ? body : '',
+              authorization: httpHeaders.get('Authorization') || undefined,
+              timeoutMs
+            }
+          }).then(toBufferedResponse),
+          requestAbort.signal
+        )
+      } else {
+        response = await settleWithAbort(runtimeFetch(url, fetchOptions), requestAbort.signal)
+      }
       const setCookieHeader = response.headers.get('set-cookie')
       if (setCookieHeader) {
         const headerAccessToken = extractTokenFromSetCookie(setCookieHeader, 'ACCESS_TOKEN')
@@ -680,7 +828,7 @@ async function Http<T = any>(
       }
 
       // 解析响应数据。Vite proxy 或网关错误可能返回 text/plain，不能一律按 JSON 解析。
-      const responseData = await parseResponseData(response, options.isBlob)
+      const responseData = await settleWithAbort(parseResponseData(response, options.isBlob), requestAbort.signal)
 
       const businessStatus = responseData?.status ?? responseData?.data?.status
       const businessCode = responseData?.code ?? responseData?.data?.code
@@ -698,7 +846,7 @@ async function Http<T = any>(
         responseData
       })
 
-      if (response.status === 401 || businessCode === 40001) {
+      if (!isAuthRequest && (response.status === 401 || businessCode === 40001)) {
         debugLog(debugLoggingEnabled, '🔄 Token无效，尝试刷新Token...', {
           status: response.status,
           businessCode,
@@ -770,24 +918,33 @@ async function Http<T = any>(
         }
       }
 
-      if (response.status === 403) {
-        debugLog(debugLoggingEnabled, '🤯 权限不足')
-      }
-
-      if (!response.ok && response.status !== 401 && response.status !== 403 && businessCode !== 40001) {
-        throw new AppException(resolveHttpErrorMessage(response.status, responseData, url), {
+      if (!response.ok) {
+        const requestId = response.headers.get('x-request-id')
+        const errorMessage = resolveHttpErrorMessage(response.status, responseData, url)
+        const message =
+          response.status === 403 && requestId ? `${errorMessage}（请求编号：${requestId}）` : errorMessage
+        throw new AppException(message, {
           type: ErrorType.Server,
           code: response.status,
-          details: { url, method: options.method, response: responseData }
+          details: {
+            url,
+            method: options.method,
+            requestId,
+            contentType: response.headers.get('content-type'),
+            response: responseData
+          },
+          showError: true
         })
       }
 
       const isSuccess =
-        (typeof businessStatus === 'number' && businessStatus >= 200 && businessStatus < 300) ||
-        businessSuccess === true ||
-        businessCode === 0 ||
-        businessCode === 200 ||
-        response.ok
+        typeof businessSuccess === 'boolean'
+          ? businessSuccess
+          : typeof businessCode === 'number'
+            ? businessCode === 0 || businessCode === 200
+            : typeof businessStatus === 'number'
+              ? businessStatus >= 200 && businessStatus < 300
+              : response.ok && !responseData
 
       if (responseData && !isSuccess) {
         throw new AppException(responseData?.data?.message || responseData?.message || '服务端返回错误', {
@@ -827,7 +984,7 @@ async function Http<T = any>(
         const errorMessage = getNetworkErrorMessage(error)
 
         // 重试请求
-        if (shouldRetry(currentAttempt, maxRetries, abort)) {
+        if (shouldRetry(currentAttempt, maxRetries, requestAbort)) {
           console.warn(`${errorMessage}，准备重试 → 第 ${currentAttempt + 2} 次尝试`)
           // 计算重试延迟
           const delayMs = retryDelay ? retryDelay(currentAttempt) : 1000
@@ -867,8 +1024,12 @@ async function Http<T = any>(
     }
   }
 
-  // 第一次执行，attempt=0
-  return attemptFetch(0)
+  try {
+    return await attemptFetch(0)
+  } finally {
+    clearTimeout(timeoutId)
+    abort?.signal.removeEventListener('abort', externalAbort)
+  }
 }
 
 export default Http

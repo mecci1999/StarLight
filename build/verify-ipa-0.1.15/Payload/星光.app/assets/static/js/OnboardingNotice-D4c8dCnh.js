@@ -1,0 +1,47 @@
+import { p as i, a0 as o, w as e, b8 as a, ac as n, b9 as s, $ as l } from './invariable-DewVS0br.js'
+import './request-BiInMBwl.js'
+import { g as t } from './user-CjErkjef.js'
+import { b as r, p as d } from './index-DFkcx8xz.js'
+const b = i({
+  name: 'MobileOnboardingNotice',
+  setup() {
+    const i = l(),
+      b = o(!1),
+      c = async () => {
+        if (b.value) return
+        b.value = !0
+        const o = r()
+        try {
+          if (null == o ? void 0 : o.userId) {
+            const e = await t(o.userId),
+              a = 'boolean' == typeof e.isAdmin ? e.isAdmin : Boolean(o.isAdmin),
+              n = { ...o, ...e, isAdmin: a }
+            if ((d(n), n.isOnboardingCompleted)) return void i.push({ name: 'mobile-overview-v2' })
+          }
+        } catch (e) {
+        } finally {
+          b.value = !1
+        }
+        i.push('/login')
+      }
+    return () =>
+      e('div', { class: 'mobile-onboarding-notice' }, [
+        e('section', { class: 'mobile-onboarding-notice__card', 'aria-labelledby': 'mobile-onboarding-title' }, [
+          e('div', { class: 'mobile-onboarding-notice__icon', 'aria-hidden': 'true' }, [e(a, { size: 28 }, null)]),
+          e('h1', { id: 'mobile-onboarding-title', class: 'mobile-onboarding-notice__title' }, [n('请前往电脑端接入')]),
+          e('p', { class: 'mobile-onboarding-notice__description' }, [
+            n('星光移动端仅提供监控数据查看功能。为了获得完整体验并完成微服务系统接入，请在电脑端登录星光。')
+          ]),
+          e('div', { class: 'mobile-onboarding-notice__footer' }, [
+            e('p', { class: 'mobile-onboarding-notice__hint' }, [n('已在电脑端完成接入？')]),
+            e(
+              s,
+              { type: 'primary', block: !0, loading: b.value, disabled: b.value, onClick: c },
+              { default: () => [n('我已完成接入，进入首页')] }
+            )
+          ])
+        ])
+      ])
+  }
+})
+export { b as default }

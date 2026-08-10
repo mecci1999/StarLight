@@ -1,5 +1,8 @@
 import { NButton, NCard, NIcon, NRadioButton, NRadioGroup, NSwitch, NTag } from 'naive-ui'
+import { getVersion } from '@tauri-apps/api/app'
+import { isTauri } from '@tauri-apps/api/core'
 import {
+  InformationCircleOutline,
   BrushOutline,
   CloseCircleOutline,
   DesktopOutline,
@@ -17,7 +20,7 @@ type SettingSection = {
   key: string
   title: string
   description: string
-  icon: any
+  icon: typeof BrushOutline
 }
 
 const sections: SettingSection[] = [
@@ -38,6 +41,12 @@ const sections: SettingSection[] = [
     title: '登录与启动',
     description: '管理自动登录和开机启动偏好。',
     icon: LogInOutline
+  },
+  {
+    key: 'about',
+    title: '关于应用',
+    description: '查看当前安装的星光客户端版本。',
+    icon: InformationCircleOutline
   }
 ]
 
@@ -45,6 +54,15 @@ export default defineComponent({
   name: 'SettingsPage',
   setup() {
     const settingStore = useSettingStore()
+    const appVersion = ref<string | null>(null)
+
+    onMounted(async () => {
+      try {
+        if (isTauri()) appVersion.value = await getVersion()
+      } catch {
+        appVersion.value = null
+      }
+    })
 
     const themeLabel = computed(() => {
       if (settingStore.themes.pattern === ThemeEnum.OS) return '跟随系统'
@@ -107,7 +125,9 @@ export default defineComponent({
                 <span>{visualEffectCount.value} 项视觉增强已启用</span>
               </div>
             </div>
-            <nav>{sections.map(renderSectionAnchor)}</nav>
+            <nav>
+              {sections.filter((section) => section.key !== 'about' || appVersion.value).map(renderSectionAnchor)}
+            </nav>
           </aside>
 
           <main class="settings-page__content">
@@ -268,6 +288,28 @@ export default defineComponent({
                 </div>
               </NCard>
             </section>
+
+            {appVersion.value && (
+              <section id="about">
+                <NCard bordered={false} class="settings-page__card settings-page__about-card">
+                  <div class="settings-page__card-head">
+                    <div>
+                      <span>About</span>
+                      <h2>应用信息</h2>
+                      <p>当前设备上安装的星光桌面客户端版本。</p>
+                    </div>
+                    <NIcon size={28} class="settings-page__card-icon">
+                      <InformationCircleOutline />
+                    </NIcon>
+                  </div>
+
+                  <div class="settings-page__about-version">
+                    <span>当前版本</span>
+                    <strong>v{appVersion.value}</strong>
+                  </div>
+                </NCard>
+              </section>
+            )}
           </main>
         </div>
       </div>

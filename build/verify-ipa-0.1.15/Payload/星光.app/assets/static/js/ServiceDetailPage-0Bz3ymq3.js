@@ -1,0 +1,2617 @@
+import {
+  p as e,
+  r as a,
+  ba as l,
+  a0 as t,
+  a1 as s,
+  a3 as i,
+  a2 as r,
+  w as d,
+  cO as n,
+  ag as c,
+  ac as u,
+  a6 as v,
+  ch as o,
+  aS as p,
+  cM as m,
+  cN as g,
+  am as _,
+  cL as y,
+  aA as f,
+  aB as h,
+  cz as b,
+  ab as k,
+  ar as w,
+  ce as T,
+  ci as C,
+  aR as S,
+  cP as x,
+  cQ as I,
+  by as R,
+  $ as z,
+  cc as q,
+  ai as N
+} from './invariable-DewVS0br.js'
+import { i as P, z as A, j, l as D, k as U } from './metrics-uVJcD6zf.js'
+import { c as M, l as $ } from './logs-CT6hSV3d.js'
+import { f as K, d as L, k as Y } from './alerts-CIHfuoAx.js'
+import './request-BiInMBwl.js'
+import { s as O, g as B } from './trace-CcV2hmWD.js'
+import { P as G } from './PageHeader-OtleDOO-.js'
+import { T as H } from './TimeRangeBar-EdVcwx6f.js'
+import { S as Q } from './ServiceHealthBadge-b4ePBNa-.js'
+import { a as F, S as E } from './ServiceIdentityCard-CkWpKFwm.js'
+import { D as V } from './DetailDrawer-C1HE8GcD.js'
+import { R as J } from './ResultTable-B_9U75PU.js'
+import { L as W } from './LineChart-gPgXHJ75.js'
+import { B as X } from './BarChart-BD7y_EJr.js'
+import { u as Z } from './useTimeStore-CVw7RN2Q.js'
+import { d as ee } from './index-DFkcx8xz.js'
+import './BaseChart-FGf3lmW3.js'
+function ae(e) {
+  return 'function' == typeof e || ('[object Object]' === Object.prototype.toString.call(e) && !N(e))
+}
+const le = e({
+  name: 'ServiceDetailPageV2',
+  setup() {
+    const e = l(),
+      N = z(),
+      le = Z(),
+      te = a(),
+      se = String(e.params.serviceId || ''),
+      ie = t(ee()),
+      re = t(!1),
+      de = t('overview'),
+      ne = t(null),
+      ce = t({
+        cpu: null,
+        memory: null,
+        qps: null,
+        responseTime: null,
+        errorRate: null,
+        activeIncidentCount: null,
+        activeConnections: null,
+        instances: null,
+        version: ''
+      }),
+      ue = t({
+        instances: [],
+        appKey: '',
+        env: '',
+        region: '',
+        ingestStatus: { metrics: null, logs: null, traces: null }
+      }),
+      ve = t([]),
+      oe = t([]),
+      pe = t([]),
+      me = t([]),
+      ge = t(null),
+      _e = t(''),
+      ye = t(!1),
+      fe = t(null),
+      he = t([]),
+      be = t([]),
+      ke = t(''),
+      we = t(!1),
+      Te = t(null),
+      Ce = t([]),
+      Se = t(!1),
+      xe = t(null),
+      Ie = t([]),
+      Re = t({ cpu: [], memory: [], responseTime: [] }),
+      ze = t({ cpu: [], memory: [], qps: [], responseTime: [] }),
+      qe = t('cpu'),
+      Ne = t([]),
+      Pe = s(() => {
+        var e, a, l, t, s, i, r, d
+        return [
+          { label: 'QPS', data: (null == (a = null == (e = ze.value.qps) ? void 0 : e[0]) ? void 0 : a.data) || [] },
+          {
+            label: '响应时间',
+            data: (null == (t = null == (l = ze.value.responseTime) ? void 0 : l[0]) ? void 0 : t.data) || []
+          },
+          { label: 'CPU', data: (null == (i = null == (s = ze.value.cpu) ? void 0 : s[0]) ? void 0 : i.data) || [] },
+          { label: '内存', data: (null == (d = null == (r = ze.value.memory) ? void 0 : r[0]) ? void 0 : d.data) || [] }
+        ].map((e) => {
+          const a = Math.floor(e.data.length / 2),
+            l = a > 0 ? e.data.slice(0, a) : e.data,
+            t = a > 0 ? e.data.slice(a) : e.data,
+            s = (e) => {
+              const a = e.map((e) => e.value).filter((e) => 'number' == typeof e && Number.isFinite(e))
+              return a.length ? a.reduce((e, a) => e + a, 0) / a.length : 0
+            },
+            i = s(l),
+            r = s(t),
+            d = 0 === i ? 0 : Number((((r - i) / i) * 100).toFixed(1))
+          return { label: e.label, baseline: Number(i.toFixed(2)), current: Number(r.toFixed(2)), delta: d }
+        })
+      }),
+      Ae = t(!1),
+      je = t({ nodes: [], edges: [] }),
+      De = t(!1),
+      Ue = t([]),
+      Me = t(!1),
+      $e = t(null),
+      Ke = async () => {
+        const e = await M({
+          service: se,
+          keyword: _e.value || void 0,
+          startTime: R(le.startTime).format('YYYY-MM-DD HH:mm:ss'),
+          endTime: R(le.endTime).format('YYYY-MM-DD HH:mm:ss'),
+          page: 1,
+          pageSize: 20
+        }).catch((e) => ({ items: [] }))
+        me.value = Array.isArray(null == e ? void 0 : e.items) ? e.items : []
+      },
+      Le = async () => {
+        const e = await O({
+            service: se,
+            traceId: ke.value || void 0,
+            startTime: le.startTime,
+            endTime: le.endTime,
+            limit: 20
+          }).catch((e) => []),
+          a = new Map()
+        ;(Array.isArray(e) ? e : []).forEach((e) => {
+          var l
+          ;(!a.has(e.traceId) || (!e.parentId && (null == (l = a.get(e.traceId)) ? void 0 : l.parentId))) &&
+            a.set(e.traceId, e)
+        }),
+          (be.value = Array.from(a.values())
+            .sort((e, a) => a.startTime - e.startTime)
+            .slice(0, 20))
+      },
+      Ye = async () => {
+        var e, a, l, t, s, i, r, d, n, c, u, v, o
+        re.value = !0
+        try {
+          const [p, m, g, _, y, f, h] = await Promise.all([
+              P(se, { timeRange: `-${le.timeRange}`, scope: ie.value }),
+              A(se, { scope: ie.value }),
+              K({ serviceId: se, scope: ie.value, startTime: le.startTime, endTime: le.endTime }),
+              j({ serviceId: se, timeRange: `-${le.timeRange}`, scope: ie.value }).catch((e) => null),
+              $({ service: se, startTime: le.startTime, endTime: le.endTime, limit: 5 }).catch((e) => ({ items: [] })),
+              L({ serviceId: se, scope: ie.value, startTime: le.startTime, endTime: le.endTime }).catch((e) => []),
+              Y({ serviceId: se, scope: ie.value, startTime: le.startTime, endTime: le.endTime }).catch((e) => [])
+            ]),
+            b = null == p ? void 0 : p.identity,
+            k = null == p ? void 0 : p.summary
+          ;(ne.value = b
+            ? {
+                id: b.id,
+                name: b.name,
+                owner: b.owner,
+                region: b.region,
+                version: (null == k ? void 0 : k.version) || b.runtime,
+                tags: b.tags || [],
+                health: b.healthStatus,
+                status: 'healthy' === b.healthStatus ? 'running' : 'unknown' === b.healthStatus ? 'unknown' : 'error',
+                instances: (null == k ? void 0 : k.instances) ?? null,
+                qps: (null == k ? void 0 : k.qps) ?? null,
+                latency: (null == k ? void 0 : k.responseTime) ?? null,
+                errorRate: (null == k ? void 0 : k.errorRate) ?? null,
+                lastUpdate: new Date().toISOString(),
+                lastDeploy: (null == p ? void 0 : p.lastDeployAt) || void 0
+              }
+            : null),
+            (ce.value = {
+              cpu: (null == k ? void 0 : k.cpu) ?? null,
+              memory: (null == k ? void 0 : k.memory) ?? null,
+              qps: (null == k ? void 0 : k.qps) ?? null,
+              responseTime: (null == k ? void 0 : k.responseTime) ?? null,
+              errorRate: (null == k ? void 0 : k.errorRate) ?? null,
+              activeIncidentCount: (null == k ? void 0 : k.activeIncidentCount) ?? null,
+              activeConnections: (null == k ? void 0 : k.activeConnections) ?? null,
+              instances: (null == k ? void 0 : k.instances) ?? null,
+              version: (null == k ? void 0 : k.version) ?? (null == b ? void 0 : b.runtime) ?? ''
+            }),
+            (ue.value = m || {
+              instances: [],
+              appKey: se,
+              env: '',
+              region: '',
+              ingestStatus: { metrics: null, logs: null, traces: null }
+            }),
+            (ve.value = Array.isArray(g) ? g : []),
+            (oe.value = Array.isArray(f) ? f.slice(0, 5) : []),
+            (pe.value = Array.isArray(h)
+              ? h.slice(0, 5).map((e, a) => {
+                  var l
+                  return {
+                    key: e.id || `notification-${a}`,
+                    sendTime: e.sentAt || e.sendTime || '未知时间',
+                    ruleName: e.type || e.ruleName || '未知通知',
+                    service: e.service || (null == (l = ne.value) ? void 0 : l.name) || se || '未知服务',
+                    channel: e.channel,
+                    recipient: e.target || e.recipient || '未知接收方',
+                    status:
+                      'sent' === e.status || 'delivered' === e.status
+                        ? 'success'
+                        : 'failed' === e.status
+                          ? 'failed'
+                          : 'pending' === e.status
+                            ? 'pending'
+                            : 'unknown',
+                    retryCount: 'number' == typeof e.retryCount ? e.retryCount : null,
+                    content: e.content,
+                    errorMessage: e.errorMessage || ''
+                  }
+                })
+              : []),
+            await Ke(),
+            (he.value = ve.value.slice(0, 5)),
+            (Ie.value = Array.isArray(null == y ? void 0 : y.items) ? y.items.slice(0, 5) : []),
+            (Re.value = {
+              cpu:
+                (null ==
+                (l = null == (a = null == (e = null == _ ? void 0 : _.series) ? void 0 : e.cpu) ? void 0 : a[0])
+                  ? void 0
+                  : l.data) || [],
+              memory:
+                (null ==
+                (i = null == (s = null == (t = null == _ ? void 0 : _.series) ? void 0 : t.memory) ? void 0 : s[0])
+                  ? void 0
+                  : i.data) || [],
+              responseTime:
+                (null ==
+                (n =
+                  null == (d = null == (r = null == _ ? void 0 : _.series) ? void 0 : r.responseTime) ? void 0 : d[0])
+                  ? void 0
+                  : n.data) || []
+            }),
+            (ze.value = {
+              cpu: (null == (c = null == _ ? void 0 : _.series) ? void 0 : c.cpu) || [],
+              memory: (null == (u = null == _ ? void 0 : _.series) ? void 0 : u.memory) || [],
+              qps: (null == (v = null == _ ? void 0 : _.series) ? void 0 : v.qps) || [],
+              responseTime: (null == (o = null == _ ? void 0 : _.series) ? void 0 : o.responseTime) || []
+            }),
+            (Ne.value = Array.isArray(null == _ ? void 0 : _.requestStats) ? _.requestStats : [])
+        } catch (p) {
+        } finally {
+          re.value = !1
+        }
+      },
+      Oe = async () => {
+        Ae.value = !0
+        try {
+          je.value = ((e) => {
+            const a = (null == e ? void 0 : e.snapshot) || e
+            return {
+              nodes: Array.isArray(null == a ? void 0 : a.nodes)
+                ? a.nodes.map((e) => {
+                    return {
+                      ...e,
+                      id: String((null == e ? void 0 : e.id) || (null == e ? void 0 : e.name) || ''),
+                      name: String((null == e ? void 0 : e.name) || (null == e ? void 0 : e.id) || ''),
+                      status:
+                        ((a = null == e ? void 0 : e.status),
+                        !a ||
+                        ('healthy' !== a &&
+                          'critical' !== a &&
+                          'idle' !== a &&
+                          'running' !== a &&
+                          'error' !== a &&
+                          'stopped' !== a &&
+                          'warning' !== a &&
+                          'unknown' !== a)
+                          ? 'unknown'
+                          : a)
+                    }
+                    var a
+                  })
+                : [],
+              edges: Array.isArray(null == a ? void 0 : a.edges)
+                ? a.edges.map((e) => ({
+                    ...e,
+                    from: (null == e ? void 0 : e.from) ?? (null == e ? void 0 : e.source),
+                    to: (null == e ? void 0 : e.to) ?? (null == e ? void 0 : e.target)
+                  }))
+                : []
+            }
+          })(await D({ timeRange: `-${le.timeRange}`, scope: ie.value }))
+        } catch (e) {
+          je.value = { nodes: [], edges: [] }
+        } finally {
+          Ae.value = !1
+        }
+      }
+    i(() => {
+      e.query.timeRange && 'string' == typeof e.query.timeRange && le.setTimeRange(e.query.timeRange),
+        Ye(),
+        Oe(),
+        (async () => {
+          De.value = !0
+          try {
+            Ue.value = (await U(se, { scope: ie.value })) || []
+          } catch (e) {
+            Ue.value = []
+          } finally {
+            De.value = !1
+          }
+        })()
+    }),
+      r(
+        () => le.timeRange,
+        () => {
+          Ye(), Oe()
+        }
+      )
+    const Be = s(() =>
+        ne.value
+          ? 'healthy' === ne.value.health
+            ? 'healthy'
+            : 'warning' === ne.value.health
+              ? 'degraded'
+              : 'unhealthy' === ne.value.health
+                ? 'critical'
+                : (ne.value.health, 'unknown')
+          : 'unknown'
+      ),
+      Ge = (e, a = '') => ('number' == typeof e ? `${e}${a}` : '未知'),
+      He = (e) => {
+        N.push({ path: e, query: { serviceId: se, timeRange: le.timeRange, scope: ie.value } })
+      },
+      Qe = () => {
+        N.push({ path: '/home/services', query: { timeRange: le.timeRange, scope: ie.value } })
+      },
+      Fe = (e) => {
+        N.push({
+          path: e ? `/home/alerts/inbox/${e}` : '/home/alerts/inbox',
+          query: { serviceId: se, timeRange: le.timeRange, scope: ie.value, incidentId: void 0 }
+        })
+      },
+      Ee = s(() => {
+        const e = je.value.nodes || [],
+          a = je.value.edges || []
+        if (!se || !e.length) return { nodes: [], edges: [] }
+        const l = new Set([se])
+        return (
+          a.forEach((e) => {
+            ;(e.from !== se && e.to !== se) || (l.add(String(e.from)), l.add(String(e.to)))
+          }),
+          {
+            nodes: e.filter((e) => l.has(String(e.id))),
+            edges: a.filter((e) => l.has(String(e.from)) && l.has(String(e.to)))
+          }
+        )
+      }),
+      Ve = s(() => Ee.value.nodes.filter((e) => String(e.id) !== se)),
+      Je = s(() => {
+        const e = Ee.value.edges.filter((e) => String(e.to) === se),
+          a = Ee.value.edges.filter((e) => String(e.from) === se),
+          l = (e) => !e.type || 'service' === e.type
+        return {
+          upstreamCount: e.length,
+          downstreamCount: a.length,
+          relatedCount: Ve.value.length,
+          upstreamNodes: Ve.value.filter((a) => l(a) && e.some((e) => String(e.from) === String(a.id))),
+          downstreamNodes: Ve.value.filter((e) => l(e) && a.some((a) => String(a.to) === String(e.id)))
+        }
+      }),
+      We = async (e) => {
+        ;(Te.value = e), (we.value = !0), (xe.value = null), (Ce.value = []), (Se.value = !0)
+        try {
+          const a = await B(e)
+          Ce.value = a.sort((e, a) => e.startTime - a.startTime)
+        } catch (a) {
+          ;(Ce.value = []), te.error('加载链路详情失败')
+        } finally {
+          Se.value = !1
+        }
+      },
+      Xe = s(() => Ce.value.find((e) => !e.parentId) || Ce.value[0]),
+      Ze = s(() => {
+        if (0 === Ce.value.length) return 0
+        const e = Ce.value.map((e) => e.startTime + e.duration),
+          a = Math.min(...Ce.value.map((e) => e.startTime))
+        return Math.max(...e) - a
+      }),
+      ea = (e) => {
+        const a = e.span.startTime - e.rootStart,
+          l = Ze.value || 1,
+          t = Math.max(0, (a / l) * 100),
+          s = Math.max((e.span.duration / l) * 100, 0.5)
+        return d('div', { class: 'service-detail-page__waterfall-row', onClick: () => (xe.value = e.span) }, [
+          d('div', { class: 'service-detail-page__waterfall-service' }, [
+            d(
+              'div',
+              { style: { marginLeft: 16 * e.depth + 'px' }, class: 'service-detail-page__waterfall-service-inner' },
+              [
+                d(
+                  'div',
+                  {
+                    class: [
+                      'service-detail-page__waterfall-dot',
+                      'ok' === e.span.status
+                        ? 'service-detail-page__waterfall-dot--ok'
+                        : 'service-detail-page__waterfall-dot--error'
+                    ]
+                  },
+                  null
+                ),
+                d('span', { class: 'service-detail-page__waterfall-service-name', title: e.span.service }, [
+                  e.span.service
+                ])
+              ]
+            )
+          ]),
+          d('div', { class: 'service-detail-page__waterfall-main' }, [
+            d('div', { class: 'service-detail-page__waterfall-axis' }, [
+              d('div', { class: 'service-detail-page__waterfall-axis-line' }, null)
+            ]),
+            d(
+              'div',
+              {
+                class: [
+                  'service-detail-page__waterfall-bar',
+                  'ok' === e.span.status
+                    ? 'service-detail-page__waterfall-bar--ok'
+                    : 'service-detail-page__waterfall-bar--error'
+                ],
+                style: { '--waterfall-left': `${t}%`, '--waterfall-width': `${s}%` }
+              },
+              [
+                d(
+                  'span',
+                  {
+                    class: [
+                      'service-detail-page__waterfall-label',
+                      'ok' === e.span.status ? '' : 'service-detail-page__waterfall-label--error'
+                    ]
+                  },
+                  [
+                    e.span.name,
+                    u(' '),
+                    d('span', { class: 'service-detail-page__waterfall-duration' }, [u('('), e.span.duration, u('ms)')])
+                  ]
+                )
+              ]
+            )
+          ])
+        ])
+      },
+      aa = (e, a = 0, l = 0) => {
+        const t = Ce.value.filter((a) => a.parentId === e).sort((e, a) => e.startTime - a.startTime)
+        if (0 === a && 0 === t.length && Ce.value.length > 0) {
+          const e = new Set(Ce.value.map((e) => e.id))
+          return Ce.value
+            .filter((a) => !a.parentId || !e.has(a.parentId))
+            .flatMap((e) => [d(ea, { span: e, depth: 0, rootStart: e.startTime }, null), ...aa(e.id, 1, e.startTime)])
+        }
+        return t.flatMap((e) => [d(ea, { span: e, depth: a, rootStart: l }, null), ...aa(e.id, a + 1, l)])
+      },
+      la = [
+        { title: '开始时间', key: 'startTime', render: (e) => new Date(e.startTime).toLocaleTimeString() },
+        {
+          title: '服务',
+          key: 'service',
+          render: (e) => d(C, { size: 'small', type: 'info', bordered: !1 }, { default: () => [e.service] })
+        },
+        { title: '操作', key: 'name' },
+        { title: '耗时', key: 'duration', render: (e) => `${e.duration}ms` },
+        {
+          title: '状态',
+          key: 'status',
+          render: (e) =>
+            d(
+              C,
+              { type: 'ok' === e.status ? 'success' : 'error', size: 'small', bordered: !1 },
+              { default: () => ['ok' === e.status ? '正常' : '异常'] }
+            )
+        },
+        {
+          title: 'Trace ID',
+          key: 'traceId',
+          render: (e) =>
+            d(
+              'span',
+              {
+                class: 'service-detail-page__link-button service-detail-page__mono-id',
+                onClick: (a) => {
+                  a.stopPropagation(), We(e.traceId)
+                }
+              },
+              [e.traceId]
+            )
+        }
+      ],
+      ta = (e) => {
+        N.push({ path: `/home/services/${e.id}`, query: { timeRange: le.timeRange } })
+      },
+      sa = (e, a) =>
+        e.map((e) => {
+          const l = Ee.value.edges.find((l) =>
+            'upstream' === a
+              ? String(l.from) === String(e.id) && String(l.to) === se
+              : String(l.from) === se && String(l.to) === String(e.id)
+          )
+          return {
+            id: e.id,
+            name: e.name,
+            status: e.status,
+            protocol: (null == l ? void 0 : l.protocol) || '-',
+            qps: 'number' == typeof (null == l ? void 0 : l.qps) ? l.qps : null,
+            errorRate: 'number' == typeof (null == l ? void 0 : l.errorRate) ? l.errorRate : null,
+            p99: 'number' == typeof (null == l ? void 0 : l.p99) ? l.p99 : null,
+            count: 'number' == typeof (null == l ? void 0 : l.count) ? l.count : null,
+            rawNode: e
+          }
+        }),
+      ia = (e, a = '') => ('number' == typeof e ? `${e}${a}` : '未知'),
+      ra = (e) => ('critical' === e ? 'critical' : 'warning' === e ? 'degraded' : 'unknown'),
+      da = s(() => ve.value.filter((e) => 'active' === e.status)),
+      na = s(() => ve.value.some((e) => !e.status)),
+      ca = s(() => sa(Je.value.upstreamNodes, 'upstream')),
+      ua = s(() => sa(Je.value.downstreamNodes, 'downstream')),
+      va = (e) => {
+        ;($e.value = e), (Me.value = !0)
+      },
+      oa = s(() => {
+        if (!$e.value) return null
+        const e = Ee.value.edges.filter((e) => {
+          var a, l
+          return (
+            String(e.from) === String(null == (a = $e.value) ? void 0 : a.id) ||
+            String(e.to) === String(null == (l = $e.value) ? void 0 : l.id)
+          )
+        })
+        if (!e.length) return null
+        const a = (e) => (e.length ? Number((e.reduce((e, a) => e + a, 0) / e.length).toFixed(2)) : null),
+          l = e.map((e) => e.qps).filter((e) => 'number' == typeof e),
+          t = e.map((e) => e.errorRate).filter((e) => 'number' == typeof e),
+          s = e.map((e) => e.p99).filter((e) => 'number' == typeof e),
+          i = e.map((e) => e.count).filter((e) => 'number' == typeof e),
+          r = i.length ? i.reduce((e, a) => e + a, 0) : null
+        return { edgeCount: e.length, qps: a(l), errorRate: a(t), p99: a(s), callCount: r }
+      }),
+      pa = (e) => {
+        ;(fe.value = e), (ye.value = !0)
+      },
+      ma = s(() => {
+        const e = new Map()
+        return (
+          me.value.forEach((a) => {
+            const l = a.message,
+              t = e.get(l)
+            t ? (t.count += 1) : e.set(l, { pattern: l, count: 1, level: String(a.level) })
+          }),
+          Array.from(e.values())
+            .filter((e) => e.count > 1)
+            .sort((e, a) => a.count - e.count)
+            .slice(0, 10)
+        )
+      }),
+      ga = s(() => (ge.value ? me.value.filter((e) => e.message === ge.value) : me.value)),
+      _a = s(() =>
+        [
+          { name: '0-50ms', min: 0, max: 50 },
+          { name: '50-100ms', min: 50, max: 100 },
+          { name: '100-250ms', min: 100, max: 250 },
+          { name: '250-500ms', min: 250, max: 500 },
+          { name: '500ms+', min: 500, max: Number.POSITIVE_INFINITY }
+        ].map((e) => ({
+          name: e.name,
+          value: be.value.filter((a) => a.duration >= e.min && a.duration < e.max).length
+        }))
+      ),
+      ya = [
+        { title: '时间', key: 'timestamp' },
+        {
+          title: '级别',
+          key: 'level',
+          render: (e) => {
+            let a
+            return d(
+              C,
+              { size: 'small', bordered: !1 },
+              ae((a = String(e.level).toUpperCase())) ? a : { default: () => [a] }
+            )
+          }
+        },
+        { title: '服务', key: 'service' },
+        {
+          title: '消息',
+          key: 'message',
+          render: (e) =>
+            d(
+              'span',
+              {
+                class: 'service-detail-page__link-button',
+                onClick: (a) => {
+                  a.stopPropagation(), pa(e)
+                }
+              },
+              [e.message]
+            )
+        },
+        { title: '主机', key: 'hostname' }
+      ],
+      fa = [
+        { title: '服务名', key: 'name' },
+        {
+          title: '状态',
+          key: 'status',
+          render: (e) =>
+            d(
+              Q,
+              {
+                status:
+                  'running' === e.status || 'healthy' === e.status
+                    ? 'healthy'
+                    : 'unknown' === e.status
+                      ? 'unknown'
+                      : 'warning' === e.status
+                        ? 'degraded'
+                        : 'critical',
+                size: 'sm'
+              },
+              null
+            )
+        },
+        { title: '协议', key: 'protocol' },
+        { title: 'QPS', key: 'qps' },
+        { title: '错误率', key: 'errorRate', render: (e) => ia(e.errorRate, '%') },
+        { title: 'P99', key: 'p99', render: (e) => ia(e.p99, 'ms') },
+        { title: '调用次数', key: 'count' },
+        {
+          title: '操作',
+          key: 'actions',
+          render: (e) =>
+            d(c, { size: 'small', secondary: !0, onClick: () => ta(e.rawNode) }, { default: () => [u('查看详情')] })
+        }
+      ],
+      ha = [
+        { title: '规则名', key: 'name' },
+        { title: '指标', key: 'metric' },
+        { title: '阈值', key: 'threshold', render: (e) => `${e.operator} ${e.threshold}${e.unit || ''}` },
+        {
+          title: '级别',
+          key: 'level',
+          render: (e) =>
+            d(
+              C,
+              {
+                size: 'small',
+                bordered: !1,
+                type: 'critical' === e.level ? 'error' : 'warning' === e.level ? 'warning' : 'info'
+              },
+              { default: () => [e.level] }
+            )
+        },
+        {
+          title: '状态',
+          key: 'enabled',
+          render: (e) =>
+            d(
+              C,
+              { size: 'small', bordered: !1, type: e.enabled ? 'success' : 'default' },
+              { default: () => [e.enabled ? '启用' : '停用'] }
+            )
+        }
+      ],
+      ba = [
+        { title: '实例ID', key: 'id', render: (e) => d('span', { class: 'service-detail-page__mono-id' }, [e.id]) },
+        {
+          title: '状态',
+          key: 'status',
+          render: (e) =>
+            d(
+              C,
+              {
+                type: 'running' === e.status ? 'success' : 'unknown' === e.status ? 'default' : 'error',
+                size: 'small',
+                bordered: !1
+              },
+              { default: () => ['running' === e.status ? '运行中' : 'unknown' === e.status ? '未知' : '异常'] }
+            )
+        },
+        { title: '节点', key: 'node' },
+        {
+          title: 'CPU',
+          key: 'cpu',
+          render: (e) =>
+            'number' == typeof e.cpu
+              ? S(q, { type: 'line', percentage: e.cpu, showIndicator: !1 })
+              : S('span', { class: 'service-detail-page__unknown-text' }, '未知')
+        },
+        {
+          title: '内存',
+          key: 'memory',
+          render: (e) =>
+            'number' == typeof e.memory
+              ? S(q, { type: 'line', percentage: e.memory, showIndicator: !1 })
+              : S('span', { class: 'service-detail-page__unknown-text' }, '未知')
+        }
+      ]
+    return () => {
+      var e, a
+      let l, t
+      return d('div', { class: 'service-detail-page' }, [
+        d(
+          G,
+          { title: '服务详情', subtitle: '围绕服务状态、性能与关联入口组织当前上下文' },
+          {
+            actions: () =>
+              d(
+                n,
+                { size: 'small' },
+                {
+                  default: () => [
+                    d(c, { secondary: !0, onClick: Qe }, { default: () => [u('返回服务目录')] }),
+                    d(c, { secondary: !0, type: 'primary', onClick: Ye }, { default: () => [u('刷新详情')] })
+                  ]
+                }
+              )
+          }
+        ),
+        d(
+          H,
+          {
+            value: le.timeRange,
+            live: le.isLive,
+            options: le.timeOptions,
+            'onUpdate:value': (e) => le.setTimeRange(e),
+            'onUpdate:live': (e) => {
+              ;(le.isLive = e), e && le.refreshTime()
+            },
+            onRefresh: () => {
+              le.refreshTime(), Ye()
+            }
+          },
+          null
+        ),
+        re.value
+          ? d('div', { class: 'service-detail-page__loading' }, [d(v, { size: 'large' }, null)])
+          : ne.value
+            ? d(p, null, [
+                d(
+                  F,
+                  {
+                    service: {
+                      id: ne.value.id,
+                      name: ne.value.name,
+                      displayName: ne.value.name,
+                      owner: ne.value.owner,
+                      env: ue.value.env,
+                      region: ne.value.region,
+                      appKey: ue.value.appKey || ne.value.id,
+                      healthStatus: Be.value,
+                      runtime: ne.value.version,
+                      tags: ne.value.tags || []
+                    }
+                  },
+                  null
+                ),
+                d(
+                  m,
+                  { cols: 6, xGap: 16, yGap: 16, class: 'service-detail-page__summary-grid' },
+                  ae(
+                    (l = [
+                      { label: '实例数', value: Ge(ce.value.instances) },
+                      { label: 'QPS', value: Ge(ce.value.qps) },
+                      { label: '响应时间', value: Ge(ce.value.responseTime, 'ms') },
+                      { label: '错误率', value: Ge(ce.value.errorRate, '%') },
+                      {
+                        label: '活跃事件',
+                        value:
+                          'number' == typeof ce.value.activeIncidentCount
+                            ? ce.value.activeIncidentCount
+                            : na.value
+                              ? '未知'
+                              : da.value.length
+                      },
+                      { label: '最近部署', value: (null == (e = ne.value) ? void 0 : e.lastDeploy) || '-' }
+                    ].map((e) =>
+                      d(
+                        g,
+                        { key: e.label },
+                        {
+                          default: () => [
+                            d(
+                              _,
+                              { bordered: !1, class: 'service-detail-page__summary-card' },
+                              { default: () => [d(y, { label: e.label, value: e.value }, null)] }
+                            )
+                          ]
+                        }
+                      )
+                    ))
+                  )
+                    ? l
+                    : { default: () => [l] }
+                ),
+                d(
+                  f,
+                  { type: 'line', animated: !0, value: de.value, onUpdateValue: (e) => (de.value = e) },
+                  {
+                    default: () => [
+                      d(
+                        h,
+                        { name: 'overview', tab: '概览' },
+                        {
+                          default: () => [
+                            d(
+                              m,
+                              { cols: 2, xGap: 16, yGap: 16 },
+                              {
+                                default: () => [
+                                  d(g, null, {
+                                    default: () => [
+                                      d(
+                                        _,
+                                        {
+                                          title: '运行摘要',
+                                          bordered: !1,
+                                          class:
+                                            'service-detail-page__section-card service-detail-page__section-card--tall'
+                                        },
+                                        {
+                                          default: () => [
+                                            d('div', { class: 'service-detail-page__summary-content-grid' }, [
+                                              d('div', { class: 'service-detail-page__sub-card' }, [
+                                                d('div', { class: 'service-detail-page__sub-card-label' }, [u('CPU')]),
+                                                d('div', { class: 'service-detail-page__sub-card-value' }, [
+                                                  Ge(ce.value.cpu, '%')
+                                                ])
+                                              ]),
+                                              d('div', { class: 'service-detail-page__sub-card' }, [
+                                                d('div', { class: 'service-detail-page__sub-card-label' }, [u('内存')]),
+                                                d('div', { class: 'service-detail-page__sub-card-value' }, [
+                                                  Ge(ce.value.memory, '%')
+                                                ])
+                                              ]),
+                                              d('div', { class: 'service-detail-page__sub-card' }, [
+                                                d('div', { class: 'service-detail-page__sub-card-label' }, [
+                                                  u('活跃连接')
+                                                ]),
+                                                d('div', { class: 'service-detail-page__sub-card-value' }, [
+                                                  Ge(ce.value.activeConnections)
+                                                ])
+                                              ]),
+                                              d('div', { class: 'service-detail-page__sub-card' }, [
+                                                d('div', { class: 'service-detail-page__sub-card-label' }, [u('版本')]),
+                                                d('div', { class: 'service-detail-page__sub-card-value' }, [
+                                                  ce.value.version || '-'
+                                                ])
+                                              ])
+                                            ])
+                                          ]
+                                        }
+                                      )
+                                    ]
+                                  }),
+                                  d(g, null, {
+                                    default: () => [
+                                      d(
+                                        _,
+                                        {
+                                          title: '快捷入口',
+                                          bordered: !1,
+                                          class:
+                                            'service-detail-page__section-card service-detail-page__section-card--tall'
+                                        },
+                                        {
+                                          default: () => [
+                                            d(
+                                              n,
+                                              { vertical: !0, size: 'large' },
+                                              {
+                                                default: () => [
+                                                  d(n, null, {
+                                                    default: () => [
+                                                      d(
+                                                        c,
+                                                        {
+                                                          secondary: !0,
+                                                          type: 'primary',
+                                                          onClick: () => He('/home/services/topology')
+                                                        },
+                                                        { default: () => [u('查看拓扑')] }
+                                                      ),
+                                                      d(
+                                                        c,
+                                                        {
+                                                          secondary: !0,
+                                                          type: 'primary',
+                                                          onClick: () => He('/home/instance-monitor')
+                                                        },
+                                                        { default: () => [u('查看实例')] }
+                                                      )
+                                                    ]
+                                                  }),
+                                                  d(n, null, {
+                                                    default: () => [
+                                                      d(
+                                                        c,
+                                                        { secondary: !0, onClick: () => He('/home/investigate/logs') },
+                                                        { default: () => [u('查看日志')] }
+                                                      ),
+                                                      d(
+                                                        c,
+                                                        {
+                                                          secondary: !0,
+                                                          onClick: () => He('/home/investigate/traces')
+                                                        },
+                                                        { default: () => [u('查看链路')] }
+                                                      ),
+                                                      d(
+                                                        c,
+                                                        { secondary: !0, onClick: () => He('/home/alerts/inbox') },
+                                                        { default: () => [u('查看告警')] }
+                                                      )
+                                                    ]
+                                                  }),
+                                                  d('div', { class: 'service-detail-page__section-note' }, [
+                                                    u(
+                                                      '当前已打通服务详情与拓扑、实例、日志、链路、告警页之间的主导航入口，后续逐步补齐更深的联动与过滤透传。'
+                                                    )
+                                                  ])
+                                                ]
+                                              }
+                                            )
+                                          ]
+                                        }
+                                      )
+                                    ]
+                                  }),
+                                  d(
+                                    g,
+                                    { span: 2 },
+                                    {
+                                      default: () => [
+                                        d(
+                                          _,
+                                          {
+                                            title: '健康时间线',
+                                            bordered: !1,
+                                            class: 'service-detail-page__section-card'
+                                          },
+                                          {
+                                            default: () => [
+                                              Re.value.cpu.length ||
+                                              Re.value.memory.length ||
+                                              Re.value.responseTime.length
+                                                ? d('div', { class: 'service-detail-page__overview-panels' }, [
+                                                    d(
+                                                      W,
+                                                      { title: 'CPU 趋势', height: '220px', data: Re.value.cpu },
+                                                      null
+                                                    ),
+                                                    d(
+                                                      W,
+                                                      {
+                                                        title: '内存趋势',
+                                                        height: '220px',
+                                                        color: '#14b8a6',
+                                                        data: Re.value.memory
+                                                      },
+                                                      null
+                                                    ),
+                                                    d(
+                                                      W,
+                                                      {
+                                                        title: '响应时间趋势',
+                                                        height: '220px',
+                                                        color: '#8b5cf6',
+                                                        data: Re.value.responseTime
+                                                      },
+                                                      null
+                                                    )
+                                                  ])
+                                                : d(
+                                                    o,
+                                                    {
+                                                      description: '暂无健康时间线数据',
+                                                      class: 'service-detail-page__empty-state'
+                                                    },
+                                                    null
+                                                  )
+                                            ]
+                                          }
+                                        )
+                                      ]
+                                    }
+                                  ),
+                                  d(g, null, {
+                                    default: () => [
+                                      d(
+                                        _,
+                                        {
+                                          title: '依赖摘要',
+                                          bordered: !1,
+                                          class:
+                                            'service-detail-page__section-card service-detail-page__section-card--tall'
+                                        },
+                                        {
+                                          default: () => [
+                                            Je.value.relatedCount
+                                              ? d('div', { class: 'service-detail-page__section-shell' }, [
+                                                  d('div', { class: 'service-detail-page__dependency-kpis' }, [
+                                                    d('div', { class: 'service-detail-page__sub-card' }, [
+                                                      d('div', { class: 'service-detail-page__sub-card-label' }, [
+                                                        u('上游')
+                                                      ]),
+                                                      d('div', { class: 'service-detail-page__sub-card-value' }, [
+                                                        Je.value.upstreamCount
+                                                      ])
+                                                    ]),
+                                                    d('div', { class: 'service-detail-page__sub-card' }, [
+                                                      d('div', { class: 'service-detail-page__sub-card-label' }, [
+                                                        u('下游')
+                                                      ]),
+                                                      d('div', { class: 'service-detail-page__sub-card-value' }, [
+                                                        Je.value.downstreamCount
+                                                      ])
+                                                    ]),
+                                                    d('div', { class: 'service-detail-page__sub-card' }, [
+                                                      d('div', { class: 'service-detail-page__sub-card-label' }, [
+                                                        u('相关依赖')
+                                                      ]),
+                                                      d('div', { class: 'service-detail-page__sub-card-value' }, [
+                                                        Je.value.relatedCount
+                                                      ])
+                                                    ])
+                                                  ]),
+                                                  d('div', { class: 'service-detail-page__stack-list' }, [
+                                                    d('div', null, [
+                                                      d('div', { class: 'service-detail-page__sub-card-label' }, [
+                                                        u('上游服务')
+                                                      ]),
+                                                      d('div', { class: 'service-detail-page__route-actions' }, [
+                                                        Je.value.upstreamNodes.length
+                                                          ? Je.value.upstreamNodes.map((e) =>
+                                                              d(
+                                                                c,
+                                                                { size: 'small', secondary: !0, onClick: () => ta(e) },
+                                                                { default: () => [e.name] }
+                                                              )
+                                                            )
+                                                          : d('span', { class: 'service-detail-page__muted-text' }, [
+                                                              u('暂无上游')
+                                                            ])
+                                                      ])
+                                                    ]),
+                                                    d('div', null, [
+                                                      d('div', { class: 'service-detail-page__sub-card-label' }, [
+                                                        u('下游服务')
+                                                      ]),
+                                                      d('div', { class: 'service-detail-page__route-actions' }, [
+                                                        Je.value.downstreamNodes.length
+                                                          ? Je.value.downstreamNodes.map((e) =>
+                                                              d(
+                                                                c,
+                                                                { size: 'small', secondary: !0, onClick: () => ta(e) },
+                                                                { default: () => [e.name] }
+                                                              )
+                                                            )
+                                                          : d('span', { class: 'service-detail-page__muted-text' }, [
+                                                              u('暂无下游')
+                                                            ])
+                                                      ])
+                                                    ])
+                                                  ])
+                                                ])
+                                              : d(
+                                                  o,
+                                                  {
+                                                    description: '暂无依赖关系',
+                                                    class: 'service-detail-page__empty-state'
+                                                  },
+                                                  null
+                                                )
+                                          ]
+                                        }
+                                      )
+                                    ]
+                                  }),
+                                  d(g, null, {
+                                    default: () => [
+                                      d(
+                                        _,
+                                        {
+                                          title: '最近事件',
+                                          bordered: !1,
+                                          class:
+                                            'service-detail-page__section-card service-detail-page__section-card--tall'
+                                        },
+                                        {
+                                          default: () => [
+                                            he.value.length
+                                              ? d('div', { class: 'service-detail-page__event-list' }, [
+                                                  he.value.map((e) => {
+                                                    var a
+                                                    return d(
+                                                      'div',
+                                                      {
+                                                        class: 'service-detail-page__event-card',
+                                                        key: e.id,
+                                                        onClick: () => Fe(e.id)
+                                                      },
+                                                      [
+                                                        d('div', { class: 'service-detail-page__event-header' }, [
+                                                          d('div', null, [
+                                                            d('div', { class: 'service-detail-page__event-title' }, [
+                                                              e.message
+                                                            ]),
+                                                            d('div', { class: 'service-detail-page__event-meta' }, [
+                                                              e.service ||
+                                                                (null == (a = ne.value) ? void 0 : a.name) ||
+                                                                se,
+                                                              u(' · '),
+                                                              e.time || '-'
+                                                            ])
+                                                          ]),
+                                                          d(Q, { status: ra(e.level), size: 'sm' }, null)
+                                                        ])
+                                                      ]
+                                                    )
+                                                  })
+                                                ])
+                                              : d(
+                                                  o,
+                                                  {
+                                                    description: '暂无事件',
+                                                    class: 'service-detail-page__empty-state'
+                                                  },
+                                                  null
+                                                )
+                                          ]
+                                        }
+                                      )
+                                    ]
+                                  }),
+                                  d(g, null, {
+                                    default: () => [
+                                      d(
+                                        _,
+                                        {
+                                          title: '最近链路',
+                                          bordered: !1,
+                                          class:
+                                            'service-detail-page__section-card service-detail-page__section-card--tall'
+                                        },
+                                        {
+                                          default: () => [
+                                            be.value.length
+                                              ? d('div', { class: 'service-detail-page__event-list' }, [
+                                                  be.value.map((e) =>
+                                                    d(
+                                                      'div',
+                                                      {
+                                                        class: 'service-detail-page__event-card',
+                                                        key: e.traceId,
+                                                        onClick: () => He('/home/investigate/traces')
+                                                      },
+                                                      [
+                                                        d('div', { class: 'service-detail-page__event-header' }, [
+                                                          d('div', null, [
+                                                            d('div', { class: 'service-detail-page__event-title' }, [
+                                                              e.name
+                                                            ]),
+                                                            d('div', { class: 'service-detail-page__event-meta' }, [
+                                                              e.service,
+                                                              u(' · '),
+                                                              new Date(e.startTime).toLocaleString(),
+                                                              u(' · '),
+                                                              e.duration,
+                                                              u('ms')
+                                                            ])
+                                                          ]),
+                                                          d(
+                                                            Q,
+                                                            {
+                                                              status: 'ok' === e.status ? 'healthy' : 'critical',
+                                                              size: 'sm'
+                                                            },
+                                                            null
+                                                          )
+                                                        ])
+                                                      ]
+                                                    )
+                                                  )
+                                                ])
+                                              : d(
+                                                  o,
+                                                  {
+                                                    description: '暂无链路',
+                                                    class: 'service-detail-page__empty-state'
+                                                  },
+                                                  null
+                                                )
+                                          ]
+                                        }
+                                      )
+                                    ]
+                                  }),
+                                  d(
+                                    g,
+                                    { span: 2 },
+                                    {
+                                      default: () => [
+                                        d(
+                                          _,
+                                          {
+                                            title: '最近异常',
+                                            bordered: !1,
+                                            class:
+                                              'service-detail-page__section-card service-detail-page__section-card--tall'
+                                          },
+                                          {
+                                            default: () => [
+                                              Ie.value.length
+                                                ? d('div', { class: 'service-detail-page__event-list' }, [
+                                                    Ie.value.map((e) =>
+                                                      d(
+                                                        'div',
+                                                        {
+                                                          class: 'service-detail-page__event-card',
+                                                          key: e.id || e.message,
+                                                          onClick: () => He('/home/exception-analysis')
+                                                        },
+                                                        [
+                                                          d('div', { class: 'service-detail-page__event-header' }, [
+                                                            d('div', null, [
+                                                              d('div', { class: 'service-detail-page__event-title' }, [
+                                                                e.message
+                                                              ]),
+                                                              d('div', { class: 'service-detail-page__event-meta' }, [
+                                                                e.type || '未知类型',
+                                                                u(' · 次数'),
+                                                                ' ',
+                                                                'number' == typeof e.count ? e.count : '未知',
+                                                                u(' · 最近'),
+                                                                ' ',
+                                                                e.lastOccurrence || '未知时间'
+                                                              ])
+                                                            ]),
+                                                            d(Q, { status: 'critical', size: 'sm' }, null)
+                                                          ])
+                                                        ]
+                                                      )
+                                                    )
+                                                  ])
+                                                : d(
+                                                    o,
+                                                    {
+                                                      description: '暂无异常',
+                                                      class: 'service-detail-page__empty-state'
+                                                    },
+                                                    null
+                                                  )
+                                            ]
+                                          }
+                                        )
+                                      ]
+                                    }
+                                  )
+                                ]
+                              }
+                            )
+                          ]
+                        }
+                      ),
+                      d(
+                        h,
+                        { name: 'metrics', tab: '指标' },
+                        {
+                          default: () => [
+                            d('div', { class: 'service-detail-page__metrics-stack' }, [
+                              d(
+                                _,
+                                { title: 'KPI 图组', bordered: !1, class: 'service-detail-page__metrics-section' },
+                                {
+                                  default: () => [
+                                    d(
+                                      m,
+                                      { cols: 2, xGap: 16, yGap: 16 },
+                                      {
+                                        default: () => [
+                                          d(g, null, {
+                                            default: () => [
+                                              d(
+                                                _,
+                                                {
+                                                  title: 'QPS 趋势',
+                                                  bordered: !1,
+                                                  class: 'service-detail-page__section-card'
+                                                },
+                                                {
+                                                  default: () => [
+                                                    ze.value.qps.length
+                                                      ? d(
+                                                          W,
+                                                          {
+                                                            series: ze.value.qps,
+                                                            title: '',
+                                                            height: '260px',
+                                                            variant: 'monitor',
+                                                            showLegend: !0
+                                                          },
+                                                          null
+                                                        )
+                                                      : d(
+                                                          o,
+                                                          {
+                                                            description: '暂无 QPS 指标',
+                                                            class: 'service-detail-page__empty-state'
+                                                          },
+                                                          null
+                                                        )
+                                                  ]
+                                                }
+                                              )
+                                            ]
+                                          }),
+                                          d(g, null, {
+                                            default: () => [
+                                              d(
+                                                _,
+                                                {
+                                                  title: '响应时间趋势',
+                                                  bordered: !1,
+                                                  class: 'service-detail-page__section-card'
+                                                },
+                                                {
+                                                  default: () => [
+                                                    ze.value.responseTime.length
+                                                      ? d(
+                                                          W,
+                                                          {
+                                                            series: ze.value.responseTime,
+                                                            title: '',
+                                                            height: '260px',
+                                                            variant: 'monitor',
+                                                            showLegend: !0
+                                                          },
+                                                          null
+                                                        )
+                                                      : d(
+                                                          o,
+                                                          {
+                                                            description: '暂无响应时间指标',
+                                                            class: 'service-detail-page__empty-state'
+                                                          },
+                                                          null
+                                                        )
+                                                  ]
+                                                }
+                                              )
+                                            ]
+                                          })
+                                        ]
+                                      }
+                                    )
+                                  ]
+                                }
+                              ),
+                              d(
+                                _,
+                                { title: '基础设施图组', bordered: !1, class: 'service-detail-page__metrics-section' },
+                                {
+                                  default: () => [
+                                    d(
+                                      m,
+                                      { cols: 2, xGap: 16, yGap: 16 },
+                                      {
+                                        default: () => [
+                                          d(g, null, {
+                                            default: () => [
+                                              d(
+                                                _,
+                                                {
+                                                  title: 'CPU 使用率趋势',
+                                                  bordered: !1,
+                                                  class: 'service-detail-page__section-card'
+                                                },
+                                                {
+                                                  default: () => [
+                                                    ze.value.cpu.length
+                                                      ? d(
+                                                          W,
+                                                          {
+                                                            series: ze.value.cpu,
+                                                            title: '',
+                                                            height: '260px',
+                                                            area: !0,
+                                                            variant: 'monitor',
+                                                            showLegend: !0
+                                                          },
+                                                          null
+                                                        )
+                                                      : d(
+                                                          o,
+                                                          {
+                                                            description: '暂无 CPU 指标',
+                                                            class: 'service-detail-page__empty-state'
+                                                          },
+                                                          null
+                                                        )
+                                                  ]
+                                                }
+                                              )
+                                            ]
+                                          }),
+                                          d(g, null, {
+                                            default: () => [
+                                              d(
+                                                _,
+                                                {
+                                                  title: '内存使用率趋势',
+                                                  bordered: !1,
+                                                  class: 'service-detail-page__section-card'
+                                                },
+                                                {
+                                                  default: () => [
+                                                    ze.value.memory.length
+                                                      ? d(
+                                                          W,
+                                                          {
+                                                            series: ze.value.memory,
+                                                            title: '',
+                                                            height: '260px',
+                                                            area: !0,
+                                                            variant: 'monitor',
+                                                            showLegend: !0
+                                                          },
+                                                          null
+                                                        )
+                                                      : d(
+                                                          o,
+                                                          {
+                                                            description: '暂无内存指标',
+                                                            class: 'service-detail-page__empty-state'
+                                                          },
+                                                          null
+                                                        )
+                                                  ]
+                                                }
+                                              )
+                                            ]
+                                          })
+                                        ]
+                                      }
+                                    )
+                                  ]
+                                }
+                              ),
+                              d(
+                                _,
+                                { title: '请求统计', bordered: !1, class: 'service-detail-page__metrics-section' },
+                                {
+                                  default: () => [
+                                    Ne.value.length
+                                      ? d(X, { data: Ne.value, height: '260px', variant: 'monitor' }, null)
+                                      : d(
+                                          o,
+                                          { description: '暂无请求统计', class: 'service-detail-page__empty-state' },
+                                          null
+                                        )
+                                  ]
+                                }
+                              ),
+                              d(
+                                _,
+                                { title: '自定义指标', bordered: !1, class: 'service-detail-page__metrics-section' },
+                                {
+                                  default: () => [
+                                    d('div', { class: 'service-detail-page__custom-metric-toolbar' }, [
+                                      d(
+                                        b,
+                                        {
+                                          value: qe.value,
+                                          'onUpdate:value': (e) => (qe.value = e),
+                                          options: [
+                                            { label: 'CPU', value: 'cpu' },
+                                            { label: '内存', value: 'memory' },
+                                            { label: 'QPS', value: 'qps' },
+                                            { label: '响应时间', value: 'responseTime' }
+                                          ],
+                                          class: 'service-detail-page__select'
+                                        },
+                                        null
+                                      )
+                                    ]),
+                                    ze.value[qe.value].length
+                                      ? d(
+                                          W,
+                                          {
+                                            series: ze.value[qe.value],
+                                            title: '',
+                                            height: '280px',
+                                            variant: 'monitor',
+                                            showLegend: !0
+                                          },
+                                          null
+                                        )
+                                      : d(
+                                          o,
+                                          { description: '暂无指标数据', class: 'service-detail-page__empty-state' },
+                                          null
+                                        )
+                                  ]
+                                }
+                              ),
+                              d(
+                                _,
+                                { title: '基线对比', bordered: !1, class: 'service-detail-page__metrics-section' },
+                                {
+                                  default: () => [
+                                    d('div', { class: 'service-detail-page__baseline-grid' }, [
+                                      Pe.value.map((e) =>
+                                        d('div', { class: 'service-detail-page__sub-card' }, [
+                                          d('div', { class: 'service-detail-page__baseline-label' }, [e.label]),
+                                          d('div', { class: 'service-detail-page__muted-text' }, [
+                                            u('Baseline: '),
+                                            e.baseline
+                                          ]),
+                                          d('div', { class: 'service-detail-page__muted-text' }, [
+                                            u('Current: '),
+                                            e.current
+                                          ]),
+                                          d(
+                                            'div',
+                                            {
+                                              class: [
+                                                'service-detail-page__baseline-delta',
+                                                e.delta >= 0
+                                                  ? 'service-detail-page__baseline-delta--up'
+                                                  : 'service-detail-page__baseline-delta--down'
+                                              ]
+                                            },
+                                            [e.delta > 0 ? '+' : '', e.delta, u('%')]
+                                          )
+                                        ])
+                                      )
+                                    ])
+                                  ]
+                                }
+                              ),
+                              d('div', { class: 'service-detail-page__trace-footer' }, [
+                                d(
+                                  c,
+                                  { type: 'primary', secondary: !0, onClick: () => He('/home/investigate/metrics') },
+                                  { default: () => [u('进入指标分析')] }
+                                )
+                              ])
+                            ])
+                          ]
+                        }
+                      ),
+                      d(
+                        h,
+                        { name: 'topology', tab: '拓扑' },
+                        {
+                          default: () => [
+                            d(
+                              _,
+                              { bordered: !1, class: 'service-detail-page__section-card' },
+                              {
+                                default: () => {
+                                  var e
+                                  return [
+                                    d('div', { class: 'service-detail-page__section-note' }, [
+                                      u('查看当前服务在调用链中的上下游关系，并可直接查看节点详情。')
+                                    ]),
+                                    Ee.value.nodes.length > 0
+                                      ? d(p, null, [
+                                          d('div', { class: 'service-detail-page__topology-shell' }, [
+                                            d(
+                                              E,
+                                              { data: Ee.value, height: '100%', loading: Ae.value, onNodeClick: va },
+                                              null
+                                            )
+                                          ]),
+                                          oa.value
+                                            ? d('div', { class: 'service-detail-page__topology-metrics' }, [
+                                                d('div', { class: 'service-detail-page__topology-metrics-title' }, [
+                                                  null == (e = $e.value) ? void 0 : e.name,
+                                                  u(' 关联指标')
+                                                ]),
+                                                d('div', { class: 'service-detail-page__topology-node-stats' }, [
+                                                  d('div', { class: 'service-detail-page__sub-card' }, [
+                                                    d('div', { class: 'service-detail-page__sub-card-label' }, [
+                                                      u('关联边数')
+                                                    ]),
+                                                    d('div', { class: 'service-detail-page__sub-card-value' }, [
+                                                      oa.value.edgeCount
+                                                    ])
+                                                  ]),
+                                                  d('div', { class: 'service-detail-page__sub-card' }, [
+                                                    d('div', { class: 'service-detail-page__sub-card-label' }, [
+                                                      u('QPS')
+                                                    ]),
+                                                    d('div', { class: 'service-detail-page__sub-card-value' }, [
+                                                      ia(oa.value.qps)
+                                                    ])
+                                                  ]),
+                                                  d('div', { class: 'service-detail-page__sub-card' }, [
+                                                    d('div', { class: 'service-detail-page__sub-card-label' }, [
+                                                      u('错误率')
+                                                    ]),
+                                                    d('div', { class: 'service-detail-page__sub-card-value' }, [
+                                                      ia(oa.value.errorRate, '%')
+                                                    ])
+                                                  ]),
+                                                  d('div', { class: 'service-detail-page__sub-card' }, [
+                                                    d('div', { class: 'service-detail-page__sub-card-label' }, [
+                                                      u('P99')
+                                                    ]),
+                                                    d('div', { class: 'service-detail-page__sub-card-value' }, [
+                                                      ia(oa.value.p99, 'ms')
+                                                    ])
+                                                  ]),
+                                                  d('div', { class: 'service-detail-page__sub-card' }, [
+                                                    d('div', { class: 'service-detail-page__sub-card-label' }, [
+                                                      u('调用次数')
+                                                    ]),
+                                                    d('div', { class: 'service-detail-page__sub-card-value' }, [
+                                                      oa.value.callCount
+                                                    ])
+                                                  ])
+                                                ])
+                                              ])
+                                            : null,
+                                          d('div', { class: 'service-detail-page__topology-footer' }, [
+                                            d('div', { class: 'service-detail-page__topology-hint' }, [
+                                              u('已显示当前服务及其直接上下游节点，点击节点可查看详情。')
+                                            ]),
+                                            d(
+                                              c,
+                                              {
+                                                type: 'primary',
+                                                secondary: !0,
+                                                onClick: () => He('/home/services/topology')
+                                              },
+                                              { default: () => [u('打开完整拓扑')] }
+                                            )
+                                          ]),
+                                          Ve.value.length > 0 &&
+                                            d('div', { class: 'service-detail-page__related-nodes' }, [
+                                              Ve.value.map((e) =>
+                                                d(
+                                                  c,
+                                                  { size: 'small', secondary: !0, onClick: () => va(e) },
+                                                  { default: () => [e.name] }
+                                                )
+                                              )
+                                            ]),
+                                          d('div', { class: 'service-detail-page__topology-tables' }, [
+                                            d(
+                                              _,
+                                              {
+                                                title: '上游依赖表',
+                                                bordered: !1,
+                                                class: 'service-detail-page__table-card'
+                                              },
+                                              {
+                                                default: () => [
+                                                  ca.value.length
+                                                    ? d(
+                                                        J,
+                                                        { columns: fa, data: ca.value, rowKey: 'id', pagination: !1 },
+                                                        null
+                                                      )
+                                                    : d(
+                                                        o,
+                                                        {
+                                                          description: '暂无上游依赖',
+                                                          class: 'service-detail-page__empty-state'
+                                                        },
+                                                        null
+                                                      )
+                                                ]
+                                              }
+                                            ),
+                                            d(
+                                              _,
+                                              {
+                                                title: '下游依赖表',
+                                                bordered: !1,
+                                                class: 'service-detail-page__table-card'
+                                              },
+                                              {
+                                                default: () => [
+                                                  ua.value.length
+                                                    ? d(
+                                                        J,
+                                                        { columns: fa, data: ua.value, rowKey: 'id', pagination: !1 },
+                                                        null
+                                                      )
+                                                    : d(
+                                                        o,
+                                                        {
+                                                          description: '暂无下游依赖',
+                                                          class: 'service-detail-page__empty-state'
+                                                        },
+                                                        null
+                                                      )
+                                                ]
+                                              }
+                                            )
+                                          ])
+                                        ])
+                                      : d(
+                                          o,
+                                          { description: '暂无拓扑数据' },
+                                          {
+                                            default: () => [
+                                              d('div', { class: 'service-detail-page__topology-empty-action' }, [
+                                                d(
+                                                  c,
+                                                  {
+                                                    type: 'primary',
+                                                    secondary: !0,
+                                                    onClick: () => He('/home/services/topology')
+                                                  },
+                                                  { default: () => [u('打开完整拓扑')] }
+                                                )
+                                              ])
+                                            ]
+                                          }
+                                        )
+                                  ]
+                                }
+                              }
+                            )
+                          ]
+                        }
+                      ),
+                      d(
+                        h,
+                        { name: 'logs', tab: '日志' },
+                        {
+                          default: () => [
+                            d(
+                              _,
+                              { bordered: !1, class: 'service-detail-page__logs-shell' },
+                              {
+                                default: () => [
+                                  d(
+                                    'div',
+                                    { class: 'service-detail-page__section-note service-detail-page__logs-toolbar' },
+                                    [u('查看与当前服务相关的日志、异常与导出能力。')]
+                                  ),
+                                  d('div', { class: 'service-detail-page__custom-metric-toolbar' }, [
+                                    d(
+                                      k,
+                                      {
+                                        value: _e.value,
+                                        'onUpdate:value': (e) => (_e.value = e),
+                                        placeholder: '搜索日志关键词',
+                                        clearable: !0
+                                      },
+                                      { prefix: () => d(w, { component: T }, null) }
+                                    ),
+                                    d(c, { type: 'primary', onClick: Ke }, { default: () => [u('搜索')] })
+                                  ]),
+                                  d('div', { class: 'service-detail-page__logs-layout' }, [
+                                    d('div', null, [
+                                      ga.value.length
+                                        ? d(
+                                            J,
+                                            {
+                                              columns: ya,
+                                              data: ga.value,
+                                              rowKey: (e) => e.id || e.key || e.timestamp,
+                                              pagination: !1,
+                                              rowProps: (e) => ({ onClick: () => pa(e) })
+                                            },
+                                            null
+                                          )
+                                        : d(
+                                            o,
+                                            { description: '暂无日志数据', class: 'service-detail-page__empty-state' },
+                                            null
+                                          )
+                                    ]),
+                                    d(
+                                      _,
+                                      { title: '日志模式', bordered: !1, class: 'service-detail-page__side-card' },
+                                      {
+                                        default: () => [
+                                          ma.value.length
+                                            ? d('div', { class: 'service-detail-page__logs-patterns' }, [
+                                                ma.value.map((e) =>
+                                                  d(
+                                                    'button',
+                                                    {
+                                                      class: 'service-detail-page__log-pattern-card',
+                                                      key: e.pattern,
+                                                      onClick: () => {
+                                                        ge.value = ge.value === e.pattern ? null : e.pattern
+                                                      }
+                                                    },
+                                                    [
+                                                      d('div', { class: 'service-detail-page__log-pattern-header' }, [
+                                                        d('div', { class: 'service-detail-page__log-pattern-title' }, [
+                                                          e.pattern
+                                                        ]),
+                                                        d(
+                                                          C,
+                                                          { size: 'small', bordered: !1 },
+                                                          { default: () => [e.count] }
+                                                        )
+                                                      ]),
+                                                      d('div', { class: 'service-detail-page__event-meta' }, [
+                                                        e.level.toUpperCase()
+                                                      ])
+                                                    ]
+                                                  )
+                                                )
+                                              ])
+                                            : d(
+                                                o,
+                                                {
+                                                  description: '暂无日志模式',
+                                                  class: 'service-detail-page__empty-state'
+                                                },
+                                                null
+                                              )
+                                        ]
+                                      }
+                                    )
+                                  ]),
+                                  d('div', { class: 'service-detail-page__logs-footer' }, [
+                                    d(n, null, {
+                                      default: () => [
+                                        d(
+                                          c,
+                                          {
+                                            type: 'primary',
+                                            secondary: !0,
+                                            onClick: () => He('/home/investigate/logs')
+                                          },
+                                          { default: () => [u('日志中心')] }
+                                        ),
+                                        d(
+                                          c,
+                                          { secondary: !0, onClick: () => He('/home/exception-analysis') },
+                                          { default: () => [u('异常分析')] }
+                                        )
+                                      ]
+                                    })
+                                  ])
+                                ]
+                              }
+                            )
+                          ]
+                        }
+                      ),
+                      d(
+                        h,
+                        { name: 'traces', tab: '链路' },
+                        {
+                          default: () => [
+                            d(
+                              _,
+                              { bordered: !1, class: 'service-detail-page__traces-shell' },
+                              {
+                                default: () => [
+                                  d(
+                                    'div',
+                                    { class: 'service-detail-page__section-note service-detail-page__traces-toolbar' },
+                                    [u('查看当前服务相关链路，并可直接在页内打开链路详情。')]
+                                  ),
+                                  d('div', { class: 'service-detail-page__trace-toolbar' }, [
+                                    d(
+                                      k,
+                                      {
+                                        value: ke.value,
+                                        'onUpdate:value': (e) => (ke.value = e),
+                                        placeholder: '搜索 Trace ID',
+                                        clearable: !0
+                                      },
+                                      { prefix: () => d(w, { component: T }, null) }
+                                    ),
+                                    d(c, { type: 'primary', onClick: Le }, { default: () => [u('搜索')] })
+                                  ]),
+                                  d(
+                                    _,
+                                    {
+                                      title: '耗时分布',
+                                      bordered: !1,
+                                      class: 'service-detail-page__distribution-card'
+                                    },
+                                    {
+                                      default: () => [
+                                        _a.value.some((e) => e.value > 0)
+                                          ? d(X, { data: _a.value, height: '220px', variant: 'monitor' }, null)
+                                          : d(
+                                              o,
+                                              {
+                                                description: '暂无耗时分布数据',
+                                                class: 'service-detail-page__empty-state'
+                                              },
+                                              null
+                                            )
+                                      ]
+                                    }
+                                  ),
+                                  be.value.length
+                                    ? d(
+                                        J,
+                                        {
+                                          columns: la,
+                                          data: be.value,
+                                          rowKey: (e) => e.traceId,
+                                          pagination: !1,
+                                          rowProps: (e) => ({ onClick: () => We(e.traceId) })
+                                        },
+                                        null
+                                      )
+                                    : d(
+                                        o,
+                                        { description: '暂无链路数据', class: 'service-detail-page__empty-state' },
+                                        null
+                                      ),
+                                  d('div', { class: 'service-detail-page__trace-footer' }, [
+                                    d(
+                                      c,
+                                      { type: 'primary', secondary: !0, onClick: () => He('/home/investigate/traces') },
+                                      { default: () => [u('打开链路追踪')] }
+                                    )
+                                  ])
+                                ]
+                              }
+                            )
+                          ]
+                        }
+                      ),
+                      d(
+                        h,
+                        { name: 'alerts', tab: '告警' },
+                        {
+                          default: () => [
+                            d(
+                              _,
+                              { bordered: !1, class: 'service-detail-page__alerts-shell' },
+                              {
+                                default: () => [
+                                  d(
+                                    'div',
+                                    { class: 'service-detail-page__section-note service-detail-page__alerts-section' },
+                                    [u('查看当前服务相关的告警历史、规则与通知记录。')]
+                                  ),
+                                  da.value.length
+                                    ? d('div', { class: 'service-detail-page__alerts-active-list' }, [
+                                        da.value.slice(0, 5).map((e) => {
+                                          var a
+                                          return d(
+                                            'div',
+                                            {
+                                              class: 'service-detail-page__event-card',
+                                              key: e.id,
+                                              onClick: () => Fe(e.id)
+                                            },
+                                            [
+                                              d('div', { class: 'service-detail-page__event-header' }, [
+                                                d('div', null, [
+                                                  d('div', { class: 'service-detail-page__event-title' }, [e.message]),
+                                                  d('div', { class: 'service-detail-page__event-meta' }, [
+                                                    e.service || (null == (a = ne.value) ? void 0 : a.name) || se,
+                                                    u(' · '),
+                                                    e.time || '-'
+                                                  ])
+                                                ]),
+                                                d(Q, { status: ra(e.level), size: 'sm' }, null)
+                                              ])
+                                            ]
+                                          )
+                                        })
+                                      ])
+                                    : na.value
+                                      ? d(
+                                          o,
+                                          {
+                                            description: '活跃状态未知，暂时无法确认当前事件数',
+                                            class: 'service-detail-page__empty-state'
+                                          },
+                                          null
+                                        )
+                                      : d(
+                                          o,
+                                          { description: '暂无活跃事件', class: 'service-detail-page__empty-state' },
+                                          null
+                                        ),
+                                  d(n, null, {
+                                    default: () => [
+                                      d(
+                                        c,
+                                        { type: 'primary', secondary: !0, onClick: () => He('/home/alerts/inbox') },
+                                        { default: () => [u('告警历史')] }
+                                      ),
+                                      d(
+                                        c,
+                                        { secondary: !0, onClick: () => He('/home/alert-rules') },
+                                        { default: () => [u('告警规则')] }
+                                      ),
+                                      d(
+                                        c,
+                                        { secondary: !0, onClick: () => He('/home/alert-notifications') },
+                                        { default: () => [u('通知历史')] }
+                                      )
+                                    ]
+                                  }),
+                                  d('div', { class: 'service-detail-page__alert-rules' }, [
+                                    oe.value.length
+                                      ? d(J, { columns: ha, data: oe.value, rowKey: 'id', pagination: !1 }, null)
+                                      : d(
+                                          o,
+                                          { description: '暂无告警规则', class: 'service-detail-page__empty-state' },
+                                          null
+                                        )
+                                  ]),
+                                  d('div', { class: 'service-detail-page__silent-section' }, [
+                                    d('div', { class: 'service-detail-page__section-note' }, [
+                                      u('静默策略（当前以已静默告警作为最小视图）')
+                                    ]),
+                                    ve.value.filter((e) => 'suppressed' === e.status).length
+                                      ? d('div', { class: 'service-detail-page__alerts-muted-list' }, [
+                                          ve.value
+                                            .filter((e) => 'suppressed' === e.status)
+                                            .slice(0, 5)
+                                            .map((e) => {
+                                              var a
+                                              return d(
+                                                'div',
+                                                { class: 'service-detail-page__silent-card', key: e.id },
+                                                [
+                                                  d('div', { class: 'service-detail-page__silent-header' }, [
+                                                    d('div', null, [
+                                                      d('div', { class: 'service-detail-page__event-title' }, [
+                                                        e.message
+                                                      ]),
+                                                      d('div', { class: 'service-detail-page__event-meta' }, [
+                                                        e.service || (null == (a = ne.value) ? void 0 : a.name) || se,
+                                                        u(' · '),
+                                                        e.time || '-'
+                                                      ])
+                                                    ]),
+                                                    d(
+                                                      C,
+                                                      { size: 'small', bordered: !1 },
+                                                      { default: () => [u('已静默')] }
+                                                    )
+                                                  ])
+                                                ]
+                                              )
+                                            })
+                                        ])
+                                      : d(
+                                          o,
+                                          { description: '暂无静默策略', class: 'service-detail-page__empty-state' },
+                                          null
+                                        )
+                                  ]),
+                                  d('div', { class: 'service-detail-page__notifications-section' }, [
+                                    pe.value.length
+                                      ? d('div', { class: 'service-detail-page__alerts-notifications' }, [
+                                          pe.value.map((e) =>
+                                            d(
+                                              'div',
+                                              {
+                                                class: 'service-detail-page__notification-card',
+                                                key: e.key,
+                                                onClick: () => He('/home/alert-notifications')
+                                              },
+                                              [
+                                                d('div', { class: 'service-detail-page__notification-header' }, [
+                                                  d('div', null, [
+                                                    d('div', { class: 'service-detail-page__event-title' }, [
+                                                      e.ruleName
+                                                    ]),
+                                                    d('div', { class: 'service-detail-page__event-meta' }, [
+                                                      e.channel,
+                                                      u(' · '),
+                                                      e.recipient,
+                                                      u(' · '),
+                                                      e.sendTime
+                                                    ])
+                                                  ]),
+                                                  d(
+                                                    C,
+                                                    {
+                                                      size: 'small',
+                                                      bordered: !1,
+                                                      type:
+                                                        'success' === e.status
+                                                          ? 'success'
+                                                          : 'failed' === e.status
+                                                            ? 'error'
+                                                            : 'pending' === e.status
+                                                              ? 'warning'
+                                                              : 'default'
+                                                    },
+                                                    { default: () => [e.status] }
+                                                  )
+                                                ])
+                                              ]
+                                            )
+                                          )
+                                        ])
+                                      : d(
+                                          o,
+                                          { description: '暂无通知历史', class: 'service-detail-page__empty-state' },
+                                          null
+                                        )
+                                  ])
+                                ]
+                              }
+                            )
+                          ]
+                        }
+                      ),
+                      d(
+                        h,
+                        { name: 'runtime', tab: '运行时' },
+                        {
+                          default: () => [
+                            d(
+                              _,
+                              { bordered: !1, class: 'service-detail-page__runtime-shell' },
+                              {
+                                default: () => [
+                                  d(
+                                    n,
+                                    { vertical: !0 },
+                                    {
+                                      default: () => [
+                                        d('div', { class: 'service-detail-page__section-note' }, [
+                                          u('运行时视图聚焦实例、区域、AppKey 与采集状态。')
+                                        ]),
+                                        d(
+                                          n,
+                                          { class: 'service-detail-page__runtime-tags' },
+                                          {
+                                            default: () => [
+                                              d(
+                                                C,
+                                                { size: 'small', bordered: !1 },
+                                                { default: () => [u('实例数：'), ia(ce.value.instances)] }
+                                              ),
+                                              d(
+                                                C,
+                                                { size: 'small', bordered: !1 },
+                                                { default: () => [u('版本：'), ce.value.version || '-'] }
+                                              ),
+                                              d(
+                                                C,
+                                                { size: 'small', bordered: !1 },
+                                                {
+                                                  default: () => [
+                                                    u('区域：'),
+                                                    ue.value.region || ne.value.region || '-'
+                                                  ]
+                                                }
+                                              ),
+                                              d(
+                                                C,
+                                                { size: 'small', bordered: !1 },
+                                                { default: () => [u('AppKey：'), ue.value.appKey || ne.value.id] }
+                                              )
+                                            ]
+                                          }
+                                        ),
+                                        d(n, null, {
+                                          default: () => [
+                                            d(
+                                              C,
+                                              {
+                                                size: 'small',
+                                                type: ue.value.ingestStatus.metrics ? 'success' : 'default',
+                                                bordered: !1
+                                              },
+                                              { default: () => [u('Metrics')] }
+                                            ),
+                                            d(
+                                              C,
+                                              {
+                                                size: 'small',
+                                                type: ue.value.ingestStatus.logs ? 'success' : 'default',
+                                                bordered: !1
+                                              },
+                                              { default: () => [u('Logs')] }
+                                            ),
+                                            d(
+                                              C,
+                                              {
+                                                size: 'small',
+                                                type: ue.value.ingestStatus.traces ? 'success' : 'default',
+                                                bordered: !1
+                                              },
+                                              { default: () => [u('Traces')] }
+                                            )
+                                          ]
+                                        }),
+                                        d(
+                                          _,
+                                          {
+                                            title: '运行环境',
+                                            bordered: !1,
+                                            class: 'service-detail-page__runtime-card'
+                                          },
+                                          {
+                                            default: () => [
+                                              ue.value.env
+                                                ? d('div', { class: 'service-detail-page__runtime-meta-card' }, [
+                                                    d('div', { class: 'service-detail-page__runtime-meta-label' }, [
+                                                      u('当前环境')
+                                                    ]),
+                                                    d('div', { class: 'service-detail-page__runtime-meta-value' }, [
+                                                      ue.value.env
+                                                    ])
+                                                  ])
+                                                : d(
+                                                    o,
+                                                    {
+                                                      description: '暂无运行环境信息',
+                                                      class: 'service-detail-page__empty-state'
+                                                    },
+                                                    null
+                                                  )
+                                            ]
+                                          }
+                                        ),
+                                        d(
+                                          _,
+                                          { title: '元信息', bordered: !1, class: 'service-detail-page__runtime-card' },
+                                          {
+                                            default: () => {
+                                              var e
+                                              return [
+                                                ne.value
+                                                  ? d('div', { class: 'service-detail-page__runtime-meta-grid' }, [
+                                                      d('div', { class: 'service-detail-page__runtime-meta-card' }, [
+                                                        d('div', { class: 'service-detail-page__runtime-meta-label' }, [
+                                                          u('Owner')
+                                                        ]),
+                                                        d('div', { class: 'service-detail-page__runtime-meta-value' }, [
+                                                          ne.value.owner || '-'
+                                                        ])
+                                                      ]),
+                                                      d('div', { class: 'service-detail-page__runtime-meta-card' }, [
+                                                        d('div', { class: 'service-detail-page__runtime-meta-label' }, [
+                                                          u('Region')
+                                                        ]),
+                                                        d('div', { class: 'service-detail-page__runtime-meta-value' }, [
+                                                          ue.value.region || ne.value.region || '-'
+                                                        ])
+                                                      ]),
+                                                      d('div', { class: 'service-detail-page__runtime-meta-card' }, [
+                                                        d('div', { class: 'service-detail-page__runtime-meta-label' }, [
+                                                          u('AppKey')
+                                                        ]),
+                                                        d(
+                                                          'div',
+                                                          {
+                                                            class:
+                                                              'service-detail-page__runtime-meta-value service-detail-page__runtime-meta-value--break'
+                                                          },
+                                                          [ue.value.appKey || ne.value.id]
+                                                        )
+                                                      ]),
+                                                      d('div', { class: 'service-detail-page__runtime-meta-card' }, [
+                                                        d('div', { class: 'service-detail-page__runtime-meta-label' }, [
+                                                          u('Version')
+                                                        ]),
+                                                        d('div', { class: 'service-detail-page__runtime-meta-value' }, [
+                                                          ce.value.version || ne.value.version || '-'
+                                                        ])
+                                                      ]),
+                                                      d('div', { class: 'service-detail-page__runtime-meta-card' }, [
+                                                        d('div', { class: 'service-detail-page__runtime-meta-label' }, [
+                                                          u('Tags')
+                                                        ]),
+                                                        d('div', { class: 'service-detail-page__runtime-tags' }, [
+                                                          (null == (e = ne.value.tags) ? void 0 : e.length)
+                                                            ? ne.value.tags.map((e) =>
+                                                                d(
+                                                                  C,
+                                                                  { size: 'small', bordered: !1 },
+                                                                  ae(e) ? e : { default: () => [e] }
+                                                                )
+                                                              )
+                                                            : d('span', { class: 'service-detail-page__muted-text' }, [
+                                                                u('-')
+                                                              ])
+                                                        ])
+                                                      ])
+                                                    ])
+                                                  : d(
+                                                      o,
+                                                      {
+                                                        description: '暂无元信息',
+                                                        class: 'service-detail-page__empty-state'
+                                                      },
+                                                      null
+                                                    )
+                                              ]
+                                            }
+                                          }
+                                        ),
+                                        d(
+                                          _,
+                                          {
+                                            title: '部署历史',
+                                            bordered: !1,
+                                            class: 'service-detail-page__runtime-card'
+                                          },
+                                          {
+                                            default: () => {
+                                              var e, a
+                                              return [
+                                                (null == (e = ne.value) ? void 0 : e.lastDeploy) || ce.value.version
+                                                  ? d('div', { class: 'service-detail-page__runtime-stack' }, [
+                                                      d('div', { class: 'service-detail-page__runtime-meta-card' }, [
+                                                        d('div', { class: 'service-detail-page__runtime-meta-label' }, [
+                                                          u('最近部署时间')
+                                                        ]),
+                                                        d('div', { class: 'service-detail-page__runtime-meta-value' }, [
+                                                          (null == (a = ne.value) ? void 0 : a.lastDeploy) || '-'
+                                                        ])
+                                                      ]),
+                                                      d('div', { class: 'service-detail-page__runtime-meta-card' }, [
+                                                        d('div', { class: 'service-detail-page__runtime-meta-label' }, [
+                                                          u('当前版本')
+                                                        ]),
+                                                        d('div', { class: 'service-detail-page__runtime-meta-value' }, [
+                                                          ce.value.version || '-'
+                                                        ])
+                                                      ])
+                                                    ])
+                                                  : d(
+                                                      o,
+                                                      {
+                                                        description: '暂无部署历史',
+                                                        class: 'service-detail-page__empty-state'
+                                                      },
+                                                      null
+                                                    )
+                                              ]
+                                            }
+                                          }
+                                        ),
+                                        d(
+                                          J,
+                                          {
+                                            loading: De.value,
+                                            columns: ba,
+                                            data: Ue.value.slice(0, 5),
+                                            rowKey: (e) => e.id,
+                                            pagination: !1
+                                          },
+                                          null
+                                        ),
+                                        d('div', { class: 'service-detail-page__trace-footer' }, [
+                                          d(
+                                            c,
+                                            {
+                                              type: 'primary',
+                                              secondary: !0,
+                                              onClick: () => He('/home/instance-monitor')
+                                            },
+                                            { default: () => [u('打开实例监控')] }
+                                          )
+                                        ])
+                                      ]
+                                    }
+                                  )
+                                ]
+                              }
+                            )
+                          ]
+                        }
+                      )
+                    ]
+                  }
+                ),
+                d(
+                  V,
+                  {
+                    show: Me.value,
+                    title: (null == (a = $e.value) ? void 0 : a.name) || '节点详情',
+                    width: 'md',
+                    'onUpdate:show': (e) => {
+                      Me.value = e
+                    }
+                  },
+                  {
+                    default: () => [
+                      $e.value
+                        ? d('div', { class: 'service-detail-page__detail-drawer-shell' }, [
+                            d(
+                              F,
+                              {
+                                compact: !0,
+                                service: {
+                                  id: $e.value.id,
+                                  name: $e.value.name,
+                                  displayName: $e.value.name,
+                                  healthStatus:
+                                    'running' === $e.value.status
+                                      ? 'healthy'
+                                      : 'error' === $e.value.status
+                                        ? 'critical'
+                                        : 'degraded',
+                                  runtime: $e.value.type || 'service',
+                                  env: $e.value.env,
+                                  region: $e.value.cluster,
+                                  tags: $e.value.protocol ? [$e.value.protocol] : []
+                                }
+                              },
+                              null
+                            ),
+                            d('div', { class: 'service-detail-page__detail-meta-grid' }, [
+                              d('div', null, [u('节点ID：'), $e.value.id]),
+                              d('div', null, [u('状态：'), $e.value.status]),
+                              d('div', null, [u('环境：'), $e.value.env || '-']),
+                              d('div', null, [u('集群：'), $e.value.cluster || '-']),
+                              d('div', null, [u('协议：'), $e.value.protocol || '-']),
+                              d('div', null, [u('层级：'), $e.value.layerName || '-'])
+                            ])
+                          ])
+                        : null
+                    ]
+                  }
+                ),
+                d(
+                  x,
+                  { show: we.value, 'onUpdate:show': (e) => (we.value = e), width: 800, placement: 'right' },
+                  {
+                    default: () => [
+                      d(
+                        I,
+                        { title: `链路：${Te.value}`, closable: !0 },
+                        {
+                          default: () => [
+                            Se.value
+                              ? d('div', { class: 'service-detail-page__trace-loading' }, [
+                                  d(v, { size: 'large' }, null)
+                                ])
+                              : Ce.value.length > 0 && Xe.value
+                                ? d('div', { class: 'service-detail-page__trace-tree-shell' }, [
+                                    d('div', { class: 'service-detail-page__trace-scale' }, [
+                                      d('div', { class: 'service-detail-page__trace-scale-service' }, [
+                                        u('服务 / 操作')
+                                      ]),
+                                      d('div', { class: 'service-detail-page__trace-scale-main' }, [
+                                        d(
+                                          'div',
+                                          {
+                                            class:
+                                              'service-detail-page__trace-scale-edge service-detail-page__trace-scale-edge--left'
+                                          },
+                                          [u('0ms')]
+                                        ),
+                                        d(
+                                          'div',
+                                          {
+                                            class:
+                                              'service-detail-page__trace-scale-edge service-detail-page__trace-scale-edge--right'
+                                          },
+                                          [Ze.value, u('ms')]
+                                        )
+                                      ])
+                                    ]),
+                                    d('div', { class: 'service-detail-page__trace-tree' }, [
+                                      aa(void 0, 0, Xe.value.startTime)
+                                    ]),
+                                    xe.value &&
+                                      d('div', { class: 'service-detail-page__trace-detail-panel' }, [
+                                        d('h4', { class: 'service-detail-page__trace-detail-title' }, [
+                                          xe.value.name,
+                                          u(' 详情')
+                                        ]),
+                                        d('div', { class: 'service-detail-page__trace-detail-grid' }, [
+                                          d('div', null, [
+                                            u('服务：'),
+                                            d('span', { class: 'service-detail-page__mono-value' }, [xe.value.service])
+                                          ]),
+                                          d('div', null, [
+                                            u('耗时：'),
+                                            d('span', { class: 'service-detail-page__mono-value' }, [
+                                              xe.value.duration,
+                                              u('ms')
+                                            ])
+                                          ]),
+                                          d('div', null, [
+                                            u('开始时间：'),
+                                            d('span', { class: 'service-detail-page__mono-value' }, [
+                                              new Date(xe.value.startTime).toLocaleTimeString()
+                                            ])
+                                          ]),
+                                          d('div', null, [
+                                            u('状态：'),
+                                            d(
+                                              'span',
+                                              {
+                                                class:
+                                                  'ok' === xe.value.status
+                                                    ? 'service-detail-page__trace-status-ok'
+                                                    : 'service-detail-page__trace-status-error'
+                                              },
+                                              [xe.value.status]
+                                            )
+                                          ])
+                                        ]),
+                                        xe.value.tags &&
+                                          Object.keys(xe.value.tags).length > 0 &&
+                                          d('div', { class: 'service-detail-page__alert-rules' }, [
+                                            d('h5', { class: 'service-detail-page__log-detail-title' }, [u('Tags')]),
+                                            d('div', { class: 'service-detail-page__trace-tags' }, [
+                                              Object.entries(xe.value.tags).map(([e, a]) =>
+                                                d(
+                                                  C,
+                                                  { key: e, size: 'small', bordered: !1 },
+                                                  { default: () => [e, u(': '), String(a)] }
+                                                )
+                                              )
+                                            ])
+                                          ])
+                                      ])
+                                  ])
+                                : d(
+                                    o,
+                                    {
+                                      description: 'No trace details found',
+                                      class: 'service-detail-page__trace-empty'
+                                    },
+                                    null
+                                  )
+                          ]
+                        }
+                      )
+                    ]
+                  }
+                ),
+                d(
+                  V,
+                  {
+                    show: ye.value,
+                    title: '日志详情',
+                    width: 'lg',
+                    'onUpdate:show': (e) => {
+                      ye.value = e
+                    }
+                  },
+                  {
+                    default: () => [
+                      fe.value
+                        ? d('div', { class: 'service-detail-page__log-detail-shell' }, [
+                            d('div', { class: 'service-detail-page__log-detail-header' }, [
+                              d(
+                                C,
+                                {
+                                  type:
+                                    'error' === fe.value.level || 'fatal' === fe.value.level
+                                      ? 'error'
+                                      : 'warn' === fe.value.level
+                                        ? 'warning'
+                                        : 'info'
+                                },
+                                ae((t = String(fe.value.level).toUpperCase())) ? t : { default: () => [t] }
+                              ),
+                              d('span', { class: 'service-detail-page__log-detail-time' }, [
+                                R(fe.value.timestamp).format('YYYY-MM-DD HH:mm:ss.SSS')
+                              ])
+                            ]),
+                            d('pre', { class: 'service-detail-page__log-detail-block' }, [fe.value.message]),
+                            d('pre', { class: 'service-detail-page__log-detail-json' }, [
+                              JSON.stringify(
+                                { tags: fe.value.tags, fields: fe.value.fields, stackTrace: fe.value.stackTrace },
+                                null,
+                                2
+                              )
+                            ])
+                          ])
+                        : null
+                    ]
+                  }
+                )
+              ])
+            : d(o, { description: '未找到对应服务', class: 'service-detail-page__empty-state' }, null)
+      ])
+    }
+  }
+})
+export { le as default }

@@ -10,6 +10,11 @@
     "http:allow-fetch-cancel",
     "http:allow-fetch-read-body",
     "http:allow-fetch-send",
+    "barcode-scanner:allow-scan",
+    "barcode-scanner:allow-cancel",
+    "barcode-scanner:allow-check-permissions",
+    "barcode-scanner:allow-request-permissions",
+    "barcode-scanner:allow-open-app-settings",
     "os:default",
     "os:allow-os-type",
     "os:allow-arch",
@@ -107,16 +112,7 @@
       "identifier": "http:default",
       "allow": [
         {
-          "url": "http://**"
-        },
-        {
-          "url": "https://**"
-        },
-        {
-          "url": "http://*:*"
-        },
-        {
-          "url": "https://*:*"
+          "url": "https://api.starlight.host"
         }
       ]
     },

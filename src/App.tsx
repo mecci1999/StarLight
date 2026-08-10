@@ -5,7 +5,12 @@ import { emit, listen } from '@tauri-apps/api/event'
 import { type } from '@tauri-apps/plugin-os'
 import { useSettingStore } from '@/store/setting'
 import { StoresEnum, ThemeEnum } from '@/types/enums'
-import { clearStoredAuthSession, persistAuthTokens } from '@/services/authSession'
+import {
+  clearStoredAuthSession,
+  getStoredUserInfo,
+  persistAuthTokens,
+  resolveAuthLandingRoute
+} from '@/services/authSession'
 import { restoreAuthSession } from '@/services/http'
 
 import { useTauriListener } from '@/hooks/useTauriListener'
@@ -83,7 +88,7 @@ export default defineComponent({
     /** 重新登录处理 */
     const handleReLogin = () => {
       clearStoredAuthSession()
-      router.push('/login')
+      router.replace(isDesktop.value ? '/login' : '/mobile/login')
     }
 
     onMounted(async () => {
@@ -112,7 +117,11 @@ export default defineComponent({
       // Restore the short-lived access token before the application starts its
       // normal authenticated traffic. A temporary network error preserves the
       // three-day refresh session and is retried by ordinary request handling.
-      await restoreAuthSession()
+      const restored = await restoreAuthSession()
+      const storedUser = getStoredUserInfo()
+      if (restored && !isDesktop.value && router.currentRoute.value.name === 'mobile-login') {
+        await router.replace({ name: resolveAuthLandingRoute(false, storedUser) })
+      }
       sessionRestored.value = true
       emit('auth-token-request')
       /** 开发环境不禁止 */

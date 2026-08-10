@@ -207,6 +207,9 @@ export default defineComponent({
         Object.assign(rawUser, getStoredUserInfo() || {})
         message.success('个人资料已更新')
         closeEditModal()
+      } catch (saveError) {
+        console.error('Failed to save mobile profile:', saveError)
+        message.error('保存个人资料失败，请检查网络后重试')
       } finally {
         saving.value = false
       }

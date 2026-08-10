@@ -1354,6 +1354,13 @@
     gap: 12px;
   }
 
+  &__incident-title-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--spacing-2);
+  }
+
   &__ingest-grid {
     display: grid;
     grid-template-columns: repeat(1, minmax(0, 1fr));

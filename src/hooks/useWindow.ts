@@ -62,6 +62,11 @@ export const useWindow = () => {
     })
 
     await webview.once('tauri://created', async () => {
+      // The destination starts hidden so its page can initialize cleanly. Show it
+      // before closing the source window; otherwise a successful login can leave
+      // the application running with no visible window while the route mounts.
+      await webview.show()
+      await webview.setFocus()
       if (wantCloseWindow) {
         const win = await WebviewWindow.getByLabel(wantCloseWindow)
         win?.close()

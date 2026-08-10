@@ -13,11 +13,36 @@
   &__content {
     flex: 1;
     min-height: 0;
-    padding-bottom: calc(clamp(48px, 14vw, 60px) + env(safe-area-inset-bottom, 0px));
+    padding-bottom: calc(48px + env(safe-area-inset-bottom, 0px));
     overflow-x: hidden;
     overflow-y: auto;
+    overscroll-behavior-y: contain;
     -webkit-overflow-scrolling: touch;
     box-sizing: border-box;
+  }
+
+  // Route pages share this scroll container. They must fill its available space
+  // without creating a second viewport-height scrolling context behind the tab bar.
+  &__content > :is(
+      .mobile-alert-rules,
+      .mobile-alerts-inbox,
+      .mobile-billing,
+      .mobile-exception-analysis,
+      .mobile-ingestion,
+      .mobile-instance-monitor,
+      .mobile-log-center,
+      .mobile-metrics-explorer,
+      .mobile-notification-center,
+      .mobile-onboarding-notice,
+      .mobile-overview-v2,
+      .mobile-profile,
+      .mobile-realtime-monitor,
+      .mobile-service-detail-v2,
+      .mobile-services-v2,
+      .mobile-topology,
+      .mobile-trace-explorer
+    ) {
+    min-height: 100%;
   }
 
   &__content-error {
@@ -51,7 +76,7 @@
     display: flex;
     align-items: stretch;
     justify-content: space-around;
-    height: calc(clamp(48px, 14vw, 60px) + env(safe-area-inset-bottom, 0px));
+    height: calc(48px + env(safe-area-inset-bottom, 0px));
     padding-bottom: env(safe-area-inset-bottom, 0px);
     background: color-mix(in srgb, var(--color-bg-1) 92%, transparent);
     backdrop-filter: blur(20px) saturate(180%);

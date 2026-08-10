@@ -70,6 +70,8 @@ const quotaTypeLabels: Record<string, string> = {
   maxAppKeys: '活跃 API Key'
 }
 
+const BILLING_HISTORY_PAGE_SIZE = 20
+
 // ── Component ──────────────────────────────
 export default defineComponent({
   name: 'MobileBilling',
@@ -88,7 +90,10 @@ export default defineComponent({
     // ── Payment state ────────────────────────
     const paymentHistory = ref<PaymentHistoryItem[]>([])
     const paymentLoading = ref(false)
+    const paymentLoadingMore = ref(false)
     const paymentError = ref(false)
+    const paymentLoadMoreError = ref(false)
+    const paymentTotal = ref(0)
     const analytics = ref<BillingAnalyticsResult | null>(null)
 
     // ── Usage state ──────────────────────────
@@ -180,26 +185,32 @@ export default defineComponent({
       }
     }
 
+    const mapPaymentHistory = (items: BillingHistoryItem[]): PaymentHistoryItem[] =>
+      items.map((item) => ({
+        id: item.id,
+        date: item.createdAt?.slice(0, 10) || '-',
+        description: item.planName || item.billNumber,
+        amount: formatAmount(item.currency, item.amount),
+        status: item.status,
+        downloadUrl: item.downloadUrl
+      }))
+
     const loadPayment = async () => {
       paymentLoading.value = true
       paymentError.value = false
+      paymentLoadMoreError.value = false
       try {
         const [historyRes, analyticsRes] = await Promise.allSettled([
-          subscriptionApi.getBillingHistory({ limit: 20, offset: 0 }),
+          subscriptionApi.getBillingHistory({ limit: BILLING_HISTORY_PAGE_SIZE, offset: 0 }),
           isAdminUser.value ? subscriptionApi.getBillingAnalytics() : Promise.resolve(null)
         ])
 
         if (historyRes.status === 'fulfilled') {
-          paymentHistory.value = (historyRes.value?.bills || []).map((item: BillingHistoryItem) => ({
-            id: item.id,
-            date: item.createdAt?.slice(0, 10) || '-',
-            description: item.planName || item.billNumber,
-            amount: formatAmount(item.currency, item.amount),
-            status: item.status,
-            downloadUrl: item.downloadUrl
-          }))
+          paymentHistory.value = mapPaymentHistory(historyRes.value?.bills || [])
+          paymentTotal.value = Number(historyRes.value?.total || paymentHistory.value.length)
         } else {
           paymentHistory.value = []
+          paymentTotal.value = 0
           paymentError.value = true
         }
 
@@ -209,9 +220,33 @@ export default defineComponent({
       } catch (e) {
         reportUnexpectedBillingError('Mobile billing payment load failed:', e)
         paymentHistory.value = []
+        paymentTotal.value = 0
         paymentError.value = true
       } finally {
         paymentLoading.value = false
+      }
+    }
+
+    const hasMorePayments = computed(() => paymentHistory.value.length < paymentTotal.value)
+
+    const loadMorePayments = async () => {
+      if (paymentLoadingMore.value || !hasMorePayments.value) return
+      paymentLoadingMore.value = true
+      paymentLoadMoreError.value = false
+      try {
+        const response = await subscriptionApi.getBillingHistory({
+          limit: BILLING_HISTORY_PAGE_SIZE,
+          offset: paymentHistory.value.length
+        })
+        const existingIds = new Set(paymentHistory.value.map((item) => item.id))
+        const incoming = mapPaymentHistory(response?.bills || []).filter((item) => !existingIds.has(item.id))
+        paymentHistory.value = [...paymentHistory.value, ...incoming]
+        paymentTotal.value = Number(response?.total || paymentHistory.value.length)
+      } catch (loadError) {
+        reportUnexpectedBillingError('Mobile billing payment pagination failed:', loadError)
+        paymentLoadMoreError.value = true
+      } finally {
+        paymentLoadingMore.value = false
       }
     }
 
@@ -460,6 +495,18 @@ export default defineComponent({
               </article>
             ))}
           </div>
+          {hasMorePayments.value && (
+            <div class="mobile-billing__load-more">
+              <Button size="small" type="primary" loading={paymentLoadingMore.value} onClick={loadMorePayments}>
+                加载更多账单 ({paymentHistory.value.length}/{paymentTotal.value})
+              </Button>
+              {paymentLoadMoreError.value && (
+                <p class="mobile-billing__load-more-error" role="alert">
+                  更多账单加载失败，请重试。
+                </p>
+              )}
+            </div>
+          )}
         </div>
       )
     }

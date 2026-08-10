@@ -1,4 +1,5 @@
-import { defineComponent, ref, onActivated, computed, h } from 'vue'
+import { defineComponent, ref, onActivated, computed, h, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import {
   MobileButton,
   MobileCard,
@@ -20,17 +21,10 @@ import {
   PhList
 } from '@phosphor-icons/vue'
 import { fetchCatalogServices, fetchServiceInstances } from '@/api'
+import { getPreferredMetricsDatasetScope } from '@/services/authSession'
 import type { ServiceInstance } from '@/types/monitor'
+import { parseInvestigationContext } from '@/mobile/hooks/investigationContext'
 import './MobileInstanceMonitor.scss'
-
-type TimeRange = '1h' | '4h' | '1d' | '7d'
-
-const TIME_RANGE_OPTIONS: { key: TimeRange; label: string }[] = [
-  { key: '1h', label: '1小时' },
-  { key: '4h', label: '4小时' },
-  { key: '1d', label: '1天' },
-  { key: '7d', label: '7天' }
-]
 
 type SortKey = 'id' | 'status' | 'node' | 'cpu' | 'memory' | 'startTime'
 type SortDir = 'asc' | 'desc'
@@ -38,19 +32,21 @@ type SortDir = 'asc' | 'desc'
 export default defineComponent({
   name: 'MobileInstanceMonitor',
   setup() {
+    const route = useRoute()
     const loading = ref(false)
     const error = ref(false)
     const instances = ref<ServiceInstance[]>([])
     const services = ref<{ label: string; value: string }[]>([])
+    const servicesError = ref(false)
     const selectedServiceId = ref<string | null>(null)
     const viewMode = ref<'card' | 'table'>('card')
-    const timeRange = ref<TimeRange>('1h')
     const sortKey = ref<SortKey>('id')
     const sortDir = ref<SortDir>('asc')
 
     const loadServices = async () => {
+      servicesError.value = false
       try {
-        const res = await fetchCatalogServices({ page: 1, pageSize: 200 })
+        const res = await fetchCatalogServices({ page: 1, pageSize: 200, scope: getPreferredMetricsDatasetScope() })
         const items = res?.items || []
         services.value = items.map((item: Record<string, unknown>) => ({
           label: (item.identity as Record<string, string>)?.name || '-',
@@ -58,6 +54,7 @@ export default defineComponent({
         }))
       } catch {
         services.value = []
+        servicesError.value = true
       }
     }
 
@@ -69,7 +66,7 @@ export default defineComponent({
           instances.value = []
           return
         }
-        const res = await fetchServiceInstances(selectedServiceId.value)
+        const res = await fetchServiceInstances(selectedServiceId.value, { scope: getPreferredMetricsDatasetScope() })
         instances.value = Array.isArray(res) ? res : []
       } catch {
         error.value = true
@@ -124,9 +121,22 @@ export default defineComponent({
     })
 
     onActivated(async () => {
+      const context = parseInvestigationContext(route.query)
+      if (context.serviceId) selectedServiceId.value = context.serviceId
       await loadServices()
       if (selectedServiceId.value) await loadInstances()
     })
+
+    watch(
+      () => route.query,
+      () => {
+        const context = parseInvestigationContext(route.query)
+        if (context.serviceId !== undefined) {
+          selectedServiceId.value = context.serviceId
+          void loadInstances()
+        }
+      }
+    )
 
     const statusTagType = (status: string): 'success' | 'danger' | 'warning' | 'default' => {
       switch (status) {
@@ -228,20 +238,14 @@ export default defineComponent({
             placeholder="选择服务"
             clearable
           />
-        </div>
-
-        <div class="mobile-instance-monitor__time-range">
-          {TIME_RANGE_OPTIONS.map((opt) => (
-            <MobileButton
-              key={opt.key}
-              size="small"
-              type={timeRange.value === opt.key ? 'primary' : 'default'}
-              onClick={() => {
-                timeRange.value = opt.key
-              }}>
-              {opt.label}
-            </MobileButton>
-          ))}
+          {servicesError.value && (
+            <div class="mobile-instance-monitor__selector-error" role="alert">
+              <span>服务列表加载失败</span>
+              <MobileButton size="small" type="ghost" onClick={loadServices}>
+                重试
+              </MobileButton>
+            </div>
+          )}
         </div>
 
         {loading.value ? (

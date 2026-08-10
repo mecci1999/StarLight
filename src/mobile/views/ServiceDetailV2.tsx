@@ -1,9 +1,10 @@
-import { defineComponent, ref, onActivated } from 'vue'
+import { defineComponent, ref, onActivated, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { MobileButton, MobileCard, MobileEmpty, MobileLoading, MobileTag } from '@/mobile/ui'
 import { fetchServiceDetailSummary } from '@/api'
 
 import type { ServiceItem } from '@/types/monitor'
+import { investigationQuery, parseInvestigationContext } from '@/mobile/hooks/investigationContext'
 import './ServiceDetailV2.scss'
 
 export default defineComponent({
@@ -11,8 +12,8 @@ export default defineComponent({
   setup() {
     const route = useRoute()
     const router = useRouter()
-    const serviceId = String(route.params.serviceId || '')
     const loading = ref(false)
+    const error = ref(false)
     const service = ref<ServiceItem | null>(null)
     const summary = ref<{
       cpu: number | null
@@ -31,11 +32,20 @@ export default defineComponent({
       activeConnections: null,
       instances: null
     })
+    let detailRequestId = 0
 
     const loadServiceDetail = async () => {
+      const requestId = ++detailRequestId
+      const serviceId = String(route.params.serviceId || '')
       loading.value = true
+      error.value = false
       try {
-        const detailRes = await fetchServiceDetailSummary(serviceId)
+        const context = parseInvestigationContext(route.query)
+        const detailRes = await fetchServiceDetailSummary(
+          serviceId,
+          context.range ? { timeRange: `-${context.range}` } : undefined
+        )
+        if (requestId !== detailRequestId) return
         const identity = detailRes?.identity
         const detailSummary = detailRes?.summary
 
@@ -70,8 +80,13 @@ export default defineComponent({
           activeConnections: detailSummary?.activeConnections ?? null,
           instances: detailSummary?.instances ?? null
         }
+      } catch (loadError) {
+        if (requestId !== detailRequestId) return
+        console.error('Failed to load mobile service detail:', loadError)
+        service.value = null
+        error.value = true
       } finally {
-        loading.value = false
+        if (requestId === detailRequestId) loading.value = false
       }
     }
 
@@ -79,6 +94,20 @@ export default defineComponent({
       typeof value === 'number' ? `${value}${suffix}` : '未知'
 
     onActivated(loadServiceDetail)
+    watch(
+      () => route.params.serviceId,
+      () => void loadServiceDetail()
+    )
+    watch(
+      () => route.query,
+      () => void loadServiceDetail()
+    )
+
+    const investigate = (path: string, extras: { serviceName?: string } = {}) => {
+      const context = parseInvestigationContext(route.query)
+      const serviceId = String(route.params.serviceId || '')
+      router.push({ path, query: investigationQuery({ ...context, serviceId, ...extras }) })
+    }
 
     return () => (
       <div class="mobile-service-detail-v2">
@@ -95,6 +124,14 @@ export default defineComponent({
         {loading.value ? (
           <div class="mobile-service-detail-v2__loading">
             <MobileLoading size="32px" />
+          </div>
+        ) : error.value ? (
+          <div class="mobile-service-detail-v2__state">
+            <MobileEmpty description="服务详情加载失败，请检查网络后重试">
+              <MobileButton size="small" type="primary" onClick={loadServiceDetail}>
+                重试
+              </MobileButton>
+            </MobileEmpty>
           </div>
         ) : !service.value ? (
           <div class="mobile-service-detail-v2__state">
@@ -164,6 +201,28 @@ export default defineComponent({
                 </div>
               </div>
             </MobileCard>
+            <div class="mobile-service-detail-v2__footer">
+              <MobileButton size="small" onClick={() => investigate('/mobile/metrics-explorer')}>
+                查看指标
+              </MobileButton>
+              <MobileButton size="small" onClick={() => investigate('/mobile/instance-monitor')}>
+                查看实例
+              </MobileButton>
+              {service.value.name && (
+                <>
+                  <MobileButton
+                    size="small"
+                    onClick={() => investigate('/mobile/log-center', { serviceName: service.value?.name })}>
+                    查看日志
+                  </MobileButton>
+                  <MobileButton
+                    size="small"
+                    onClick={() => investigate('/mobile/trace-explorer', { serviceName: service.value?.name })}>
+                    查看链路
+                  </MobileButton>
+                </>
+              )}
+            </div>
           </>
         )}
 

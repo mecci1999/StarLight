@@ -33,6 +33,16 @@
     margin-bottom: var(--spacing-4);
   }
 
+  &__selector-error {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-2);
+    margin-top: var(--spacing-2);
+    color: var(--color-danger-6);
+    font-size: var(--font-size-body-1);
+  }
+
   // ── States ──────────────────────────────
 
   &__loading {

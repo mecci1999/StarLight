@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-const requestGet = vi.hoisted(() => vi.fn(() => Promise.resolve([])))
+const requestGet = vi.hoisted(() => vi.fn((): Promise<unknown> => Promise.resolve([])))
 
 vi.mock('@/services/request', () => ({
   default: {
@@ -44,5 +44,19 @@ describe('trace api', () => {
       traceId: 'trace-1',
       startTime: 10
     })
+  })
+
+  it('rejects malformed trace responses instead of treating them as empty data', async () => {
+    requestGet.mockImplementationOnce(() => Promise.resolve({ spans: [] }) as Promise<unknown>)
+    const { searchTraces } = await import('../trace')
+
+    await expect(searchTraces({})).rejects.toThrow('Trace search returned an invalid response payload')
+  })
+
+  it('keeps a successful empty trace array as empty data', async () => {
+    requestGet.mockResolvedValueOnce([])
+    const { getTraceDetails } = await import('../trace')
+
+    await expect(getTraceDetails('trace-1')).resolves.toEqual([])
   })
 })

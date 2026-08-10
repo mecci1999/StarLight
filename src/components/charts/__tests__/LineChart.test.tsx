@@ -49,6 +49,38 @@ describe('LineChart', () => {
     })
   })
 
+  it('softens only explicitly opted-in dashboard grid lines', () => {
+    chartProps.props = []
+
+    mount(LineChart, {
+      props: {
+        data: [{ timestamp: Date.now(), value: 64 }],
+        variant: 'monitor',
+        mutedGrid: true
+      }
+    })
+
+    const props = chartProps.props.at(-1)
+    expect(props.option.yAxis.splitLine.lineStyle.color).toBe('rgba(242, 243, 245, 0.22)')
+    expect(props.option.series[0].lineStyle.opacity).toBe(0.92)
+  })
+
+  it('keeps the existing monitor grid contrast when mutedGrid is not enabled', () => {
+    chartProps.props = []
+
+    mount(LineChart, {
+      props: {
+        data: [{ timestamp: Date.now(), value: 64 }],
+        variant: 'monitor',
+        thresholdLines: [{ value: 80, label: '阈值', level: 'warning' }]
+      }
+    })
+
+    const props = chartProps.props.at(-1)
+    expect(props.option.yAxis.splitLine.lineStyle.color).toBe('rgba(242, 243, 245, 0.4)')
+    expect(props.option.series[0].markLine.data[0].lineStyle.type).toBe('dashed')
+  })
+
   it('renders threshold guide line when threshold value is provided', () => {
     chartProps.props = []
 
