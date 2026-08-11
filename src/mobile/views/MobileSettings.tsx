@@ -8,9 +8,20 @@ import {
   MobileRadio,
   MobileSwitch
 } from '@/mobile/ui'
+import { getVersion } from '@tauri-apps/api/app'
+import { isTauri } from '@tauri-apps/api/core'
 import { PhSignIn, PhMoon, PhArrowsClockwise } from '@phosphor-icons/vue'
+import { mobileFeedback } from '@/mobile/services/mobileFeedback'
+import {
+  getClientNotificationPermission,
+  canOpenClientNotificationSettings,
+  openClientNotificationSettings,
+  requestClientNotificationPermission,
+  type ClientNotificationNativePermissionStatus
+} from '@/services/clientNotifications'
 import { useSettingStore } from '@/store/setting'
 import { ShowModeEnum, ThemeEnum } from '@/types/enums'
+import pkg from '~/package.json'
 import './MobileSettings.scss'
 
 type SettingSection = {
@@ -32,6 +43,9 @@ export default defineComponent({
   setup() {
     const settingStore = useSettingStore()
     const showResetConfirm = ref(false)
+    const appVersion = ref(pkg.version)
+    const notificationPermission = ref<ClientNotificationNativePermissionStatus>('not-requested')
+    const notificationPermissionLoading = ref(false)
     const activeThemeLabel = computed(() => {
       if (settingStore.themes.pattern === ThemeEnum.OS) {
         return settingStore.themes.content === ThemeEnum.DARK ? '深色' : '浅色'
@@ -67,6 +81,55 @@ export default defineComponent({
       showResetConfirm.value = false
     }
 
+    const notificationPermissionLabel = computed(() => {
+      const labels: Record<ClientNotificationNativePermissionStatus, string> = {
+        'not-requested': '未请求',
+        granted: '已允许',
+        default: '未决定',
+        denied: '未允许',
+        'check-failed': '暂时无法确认',
+        'request-failed': '请求未完成'
+      }
+      return labels[notificationPermission.value]
+    })
+
+    const notificationPermissionActionLabel = computed(() => {
+      if (notificationPermission.value === 'granted') return '已开启'
+      if (notificationPermission.value === 'denied' && canOpenClientNotificationSettings()) return '前往系统设置'
+      if (notificationPermission.value === 'check-failed' || notificationPermission.value === 'request-failed')
+        return '重试'
+      return '开启通知'
+    })
+
+    const requestNotificationPermission = async () => {
+      notificationPermissionLoading.value = true
+      const result = await requestClientNotificationPermission()
+      notificationPermission.value = result.status
+      notificationPermissionLoading.value = false
+
+      if (result.status === 'granted') {
+        mobileFeedback.success('系统通知已开启')
+        return
+      }
+      if (result.status === 'denied') {
+        mobileFeedback.warning('系统通知未开启，应用内通知仍会正常显示')
+        return
+      }
+      mobileFeedback.warning('暂时无法开启系统通知，应用内通知仍会正常显示')
+    }
+
+    const handleNotificationPermissionAction = async () => {
+      if (notificationPermission.value !== 'denied' || !canOpenClientNotificationSettings()) {
+        await requestNotificationPermission()
+        return
+      }
+
+      notificationPermissionLoading.value = true
+      const opened = await openClientNotificationSettings()
+      notificationPermissionLoading.value = false
+      if (!opened) mobileFeedback.warning('无法打开系统设置，请稍后重试，应用内通知仍会正常显示')
+    }
+
     const handleResetDefaults = () => {
       settingStore.setTheme(ThemeEnum.OS)
       settingStore.themes.versatile = 'default'
@@ -84,6 +147,15 @@ export default defineComponent({
         el.scrollIntoView({ behavior: 'smooth', block: 'start' })
       }
     }
+
+    onMounted(async () => {
+      try {
+        if (isTauri()) appVersion.value = await getVersion()
+      } catch {
+        appVersion.value = pkg.version
+      }
+      notificationPermission.value = (await getClientNotificationPermission()).status
+    })
 
     return () => (
       <div class="mobile-settings">
@@ -235,9 +307,27 @@ export default defineComponent({
             </div>
             <MobileList class="mobile-settings__list">
               <MobileListItem class="mobile-settings__list-item">
-                <div class="mobile-settings__placeholder-row">
-                  <strong>应用版本</strong>
-                  <span>星光 Odyssey v0.1.0</span>
+                <div class="mobile-settings__version-row">
+                  <span class="mobile-settings__version-label">应用版本</span>
+                  <output class="mobile-settings__version-value" aria-label={`当前应用版本 ${appVersion.value}`}>
+                    v{appVersion.value}
+                  </output>
+                </div>
+              </MobileListItem>
+              <MobileListItem class="mobile-settings__list-item">
+                <div class="mobile-settings__notification-row">
+                  <div class="mobile-settings__toggle-text">
+                    <strong>系统通知</strong>
+                    <span>状态：{notificationPermissionLabel.value}，应用内通知始终可用</span>
+                  </div>
+                  <MobileButton
+                    size="small"
+                    type="primary"
+                    loading={notificationPermissionLoading.value}
+                    disabled={notificationPermission.value === 'granted'}
+                    onClick={handleNotificationPermissionAction}>
+                    {notificationPermissionActionLabel.value}
+                  </MobileButton>
                 </div>
               </MobileListItem>
             </MobileList>

@@ -33,6 +33,45 @@ describe('mobile cached route lifecycle', () => {
     expect(source).toContain('onActivated(')
   })
 
+  it('uses bounded activation refreshes for cached list and tab pages', async () => {
+    const files = [
+      'Home.tsx',
+      'OverviewV2.tsx',
+      'ServicesV2.tsx',
+      'MobileAlertsInbox.tsx',
+      'MobileNotificationCenter.tsx',
+      'MobileExceptionAnalysis.tsx',
+      'MobileAlertRules.tsx',
+      'MobileTopology.tsx',
+      'MobileBilling.tsx',
+      'MobileIngestion.tsx',
+      'MobileLogCenter.tsx',
+      'MobileRealtimeMonitor.tsx'
+    ]
+    const sources = await Promise.all(
+      files.map((fileName) => readFile(new URL(`../${fileName}`, import.meta.url), 'utf8'))
+    )
+
+    sources.forEach((source) => {
+      expect(source).toContain('useActivationRefresh')
+      expect(source).toContain('shouldRefreshOnActivation()')
+    })
+  })
+
+  it('keeps parameterized detail and analysis pages immediately route-responsive', async () => {
+    const [serviceDetail, instanceMonitor, metricsExplorer, traceExplorer] = await Promise.all([
+      readFile(new URL('../ServiceDetailV2.tsx', import.meta.url), 'utf8'),
+      readFile(new URL('../MobileInstanceMonitor.tsx', import.meta.url), 'utf8'),
+      readFile(new URL('../MobileMetricsExplorer.tsx', import.meta.url), 'utf8'),
+      readFile(new URL('../MobileTraceExplorer.tsx', import.meta.url), 'utf8')
+    ])
+
+    ;[serviceDetail, instanceMonitor, metricsExplorer, traceExplorer].forEach((source) => {
+      expect(source).toContain('watch(')
+      expect(source).toContain('route.')
+    })
+  })
+
   it('cleans dashboard timers while the cached page is inactive', async () => {
     const source = await readFile(new URL('../OverviewV2.tsx', import.meta.url), 'utf8')
 

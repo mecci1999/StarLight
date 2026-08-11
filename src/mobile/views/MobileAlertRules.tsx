@@ -28,6 +28,7 @@ import {
   importAlertRules
 } from '@/api'
 import type { AlertRuleItem } from '@/types/monitor'
+import { useActivationRefresh } from '@/mobile/hooks/useActivationRefresh'
 import './MobileAlertRules.scss'
 
 const metricOptions = [
@@ -104,7 +105,11 @@ export default defineComponent({
       }
     }
 
-    onActivated(loadRules)
+    const shouldRefreshOnActivation = useActivationRefresh(30_000)
+
+    onActivated(() => {
+      if (shouldRefreshOnActivation()) void loadRules()
+    })
 
     // ── Rule type resolution ────────────────
     const resolveRuleType = (metric: string): 'metrics' | 'logs' | 'trace' => {

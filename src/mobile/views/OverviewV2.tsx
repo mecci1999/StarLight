@@ -60,6 +60,7 @@ import { formatQueryNumberDisplay } from '@/domains/overview/queryNumberDisplay'
 import ServiceHealthBadge from '@/shared/components/ServiceHealthBadge'
 import './OverviewV2.scss'
 import MobileHeaderToolbar from '@/mobile/components/MobileHeaderToolbar'
+import { useActivationRefresh } from '@/mobile/hooks/useActivationRefresh'
 import { resolveMobileOverviewPanels } from './overviewPanels'
 
 const PANEL_STATE_STORAGE_KEY = 'starlight_overview_panel_state_v5'
@@ -214,6 +215,9 @@ export default defineComponent({
     let panelsRestorePromise: Promise<void> | null = null
     let suppressNextTimeRangeLoad = false
     let nextTimeRangeRefreshReason: RefreshReason | null = null
+    const shouldRefreshOnActivation = useActivationRefresh(30_000, {
+      contextKey: () => `${datasetScope.value}:${timeStore.timeRange}:${activeServiceFilter.value}`
+    })
 
     const formatLargeNumber = (v: number): string => {
       if (v >= 100000000) return `${(v / 100000000).toFixed(1)}亿`
@@ -598,7 +602,7 @@ export default defineComponent({
 
     onActivated(() => {
       restoreAutoRefreshSetting()
-      loadData()
+      if (shouldRefreshOnActivation()) loadData()
       if (refreshTimer) clearInterval(refreshTimer)
       refreshTimer = setInterval(() => {
         timeAgo.value = formatTimeAgo()

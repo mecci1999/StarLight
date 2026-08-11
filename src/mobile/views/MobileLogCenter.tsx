@@ -30,6 +30,7 @@ import { LogLevelEnum } from '@/types/logs'
 import dayjs from 'dayjs'
 import { getPreferredMetricsDatasetScope, getStoredUserInfo } from '@/services/authSession'
 import { parseInvestigationContext, resolveInvestigationWindow } from '@/mobile/hooks/investigationContext'
+import { useActivationRefresh } from '@/mobile/hooks/useActivationRefresh'
 import './MobileLogCenter.scss'
 
 const LOG_LEVELS: Array<{ key: LogLevelEnum; label: string }> = [
@@ -597,6 +598,10 @@ export default defineComponent({
       else if (activeTab.value === 'stream') startStream()
     }
 
+    const shouldRefreshOnActivation = useActivationRefresh(15_000, {
+      contextKey: () => route.fullPath
+    })
+
     const handleTabChange = (tab: string) => {
       if (tab === activeTab.value) return
       stopStream()
@@ -620,7 +625,7 @@ export default defineComponent({
       if (context.keyword !== undefined) searchKeyword.value = context.keyword
       if (context.serviceName) selectedService.value = context.serviceName
       if (context.range && TIME_RANGE_HOURS[context.range]) timeRange.value = context.range
-      loadLogs(1)
+      if (shouldRefreshOnActivation()) loadLogs(1)
       if (isAdminUser) loadDebugState()
       startRefreshTimer()
       if (activeTab.value === 'stream') startStream()

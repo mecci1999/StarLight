@@ -1139,14 +1139,6 @@ export default defineComponent({
         sourceMode: cardSourceMode.value
       }
 
-      if (editingWidgetId.value) {
-        customWidgets.value = customWidgets.value.map((widget) =>
-          widget.id === editingWidgetId.value ? nextWidget : widget
-        )
-      } else {
-        customWidgets.value.push(nextWidget)
-      }
-
       try {
         const createdRules = await createAlertRuleForQuery(title, query)
         if (createdRules.length) {
@@ -1155,21 +1147,26 @@ export default defineComponent({
             ruleId: createdRules[index]?.id || rule.ruleId
           }))
           query.alert = { ...query.alert!, ruleId: nextRules[0]?.ruleId, rules: nextRules }
-          customWidgets.value = customWidgets.value.map((widget) =>
-            widget.id === widgetId ? { ...widget, query: { ...query } } : widget
-          )
-          await persistDashboardWidgets()
-          message.success('组件已保存，告警规则已同步创建')
         }
       } catch (error) {
         console.error('Failed to create alert rule from dashboard widget:', error)
-        message.warning('组件已保存，但告警规则创建失败，请稍后到告警规则页补建')
+        message.error('告警规则创建失败，组件未保存，请修复后重试')
+        return
       }
 
-      closeWidgetModal()
-      if (!query.alert?.enabled) {
-        message.success(wasEditing ? '组件配置已更新' : '组件已添加到面板')
+      if (editingWidgetId.value) {
+        customWidgets.value = customWidgets.value.map((widget) =>
+          widget.id === editingWidgetId.value ? { ...nextWidget, query: { ...query } } : widget
+        )
+      } else {
+        customWidgets.value.push({ ...nextWidget, query: { ...query } })
       }
+      await persistDashboardWidgets()
+      message.success(
+        query.alert?.enabled ? '组件已保存，告警规则已同步创建' : wasEditing ? '组件配置已更新' : '组件已添加到面板'
+      )
+
+      closeWidgetModal()
     }
 
     const removeWidget = (id: string) => {

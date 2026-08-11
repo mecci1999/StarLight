@@ -1522,16 +1522,17 @@ export default defineComponent({
 
         const alertSyncResult = await persistAlertRulesForImportedWidgets(widgets)
 
+        if (alertSyncResult.failedCount > 0) {
+          message.error(`导入已取消：${alertSyncResult.failedCount} 张卡片的告警规则未能创建`)
+          return
+        }
+
         replaceCurrentPanel((panel) => ({
           ...panel,
           widgets: alertSyncResult.widgets.map((widget) => cloneValue(widget))
         }))
         activeWidgetTag.value = ''
-        if (alertSyncResult.failedCount > 0) {
-          message.warning(
-            `已导入 ${widgets.length} 张卡片配置，${alertSyncResult.failedCount} 张卡片的告警规则同步失败`
-          )
-        } else if (alertSyncResult.persistedCount > 0) {
+        if (alertSyncResult.persistedCount > 0) {
           message.success(`已导入 ${widgets.length} 张卡片配置，并同步 ${alertSyncResult.persistedCount} 条告警规则`)
         } else {
           message.success(`已导入 ${widgets.length} 张卡片配置`)
@@ -2586,7 +2587,8 @@ export default defineComponent({
             }
           } catch (error) {
             console.error('Failed to persist overview widget alert rule:', error)
-            message.warning('卡片会继续保存，但告警规则创建失败，请稍后到告警规则页补建')
+            message.error('告警规则创建失败，卡片未保存，请修复后重试')
+            return
           }
         }
 

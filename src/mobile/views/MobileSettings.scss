@@ -130,6 +130,20 @@
     padding: var(--spacing-2) 0;
   }
 
+  &__notification-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--spacing-3);
+    width: 100%;
+    padding: var(--spacing-2) 0;
+
+    :deep(.mobile-button) {
+      flex: 0 0 auto;
+      min-height: var(--size-large);
+    }
+  }
+
   &__toggle-text {
     min-width: 0;
     strong,

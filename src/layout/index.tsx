@@ -1,6 +1,5 @@
 import LoadingSpinner from '@/components/common/LoadingSpinner'
 import { getCurrentWebviewWindow } from '@tauri-apps/api/webviewWindow'
-import { isPermissionGranted, requestPermission } from '@tauri-apps/plugin-notification'
 import { Suspense, KeepAlive } from 'vue'
 import WindowActionBar from '@/components/WindowActionBar'
 import Header from '@/layout/container/header/index'
@@ -41,14 +40,6 @@ export default defineComponent({
 
     onMounted(async () => {
       await getCurrentWebviewWindow().show()
-
-      let permissionGranted = await isPermissionGranted()
-
-      // 如果没有授权，则请求授权系统通知
-      if (!permissionGranted) {
-        const permission = await requestPermission()
-        permissionGranted = permission === 'granted'
-      }
     })
 
     return () => (

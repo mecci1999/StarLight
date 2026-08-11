@@ -16,6 +16,7 @@ import LineChart from '@/components/charts/LineChart'
 import type { MetricPoint } from '@/types/monitor'
 import type { MetricsDatasetScope } from '@/api'
 import { getPreferredMetricsDatasetScope } from '@/services/authSession'
+import { useActivationRefresh } from '@/mobile/hooks/useActivationRefresh'
 import './MobileRealtimeMonitor.scss'
 
 type TimeRangeKey = '15m' | '1h' | '4h' | '1d' | '2d' | '7d'
@@ -205,6 +206,7 @@ export default defineComponent({
         refreshTimer = null
       }
     }
+    const shouldRefreshOnActivation = useActivationRefresh(15_000)
 
     const startPolling = () => {
       stopPolling()
@@ -221,9 +223,11 @@ export default defineComponent({
 
     onActivated(async () => {
       isActive = true
-      await fetchServices()
-      if (!isActive) return
-      if (selectedService.value) await fetchData()
+      if (shouldRefreshOnActivation()) {
+        await fetchServices()
+        if (!isActive) return
+        if (selectedService.value) await fetchData()
+      }
       if (!isActive) return
       startPolling()
     })

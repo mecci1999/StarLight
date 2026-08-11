@@ -6,8 +6,14 @@ pub trait CustomInit {
 impl<R: Runtime> CustomInit for tauri::Builder<R> {
     // 初始化插件
     fn init_plugin(self) -> Self {
-        self.plugin(tauri_plugin_os::init())
-            .plugin(tauri_plugin_notification::init())
+        let builder = self
+            .plugin(tauri_plugin_os::init())
+            .plugin(tauri_plugin_notification::init());
+
+        #[cfg(target_os = "ios")]
+        let builder = builder.plugin(ios_foreground_notification::init());
+
+        builder
             .plugin(tauri_plugin_process::init())
             .plugin(tauri_plugin_http::init())
             .plugin(tauri_plugin_shell::init())

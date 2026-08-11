@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 import { mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { readFile } from 'node:fs/promises'
+import { resolve } from 'node:path'
 import ContainerTabs from '../tabs'
 
 const routerPush = vi.hoisted(() => vi.fn())
@@ -51,5 +53,14 @@ describe('ContainerTabs', () => {
     await wrapper.get('.container-tabs__tab').trigger('mouseup', { button: 1 })
 
     expect(routerPush).toHaveBeenCalledWith('/home/overview')
+  })
+
+  it('caches the routed desktop page instance inside the content RouterView', async () => {
+    const source = await readFile(resolve(process.cwd(), 'src/layout/container/index.tsx'), 'utf8')
+
+    expect(source).toContain('KeepAlive')
+    expect(source).toContain('<RouterView>')
+    expect(source).toMatch(/h\(\s*KeepAlive/)
+    expect(source).toContain('key: route.fullPath')
   })
 })

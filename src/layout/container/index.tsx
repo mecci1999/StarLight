@@ -1,11 +1,11 @@
-import { defineComponent } from 'vue'
+import { defineComponent, h, KeepAlive, type Component } from 'vue'
 import { RouterView, useRoute } from 'vue-router'
 import ContainerTabs from './tabs'
 import './index.scss'
 
 export default defineComponent({
   name: 'HomeContainer',
-  setup(props, { slots }) {
+  setup() {
     const route = useRoute()
     const isMicroAppRuntime = computed(() => route.name === 'micro-app-runtime')
 
@@ -14,7 +14,20 @@ export default defineComponent({
         <ContainerTabs />
         {/* 主内容区域 */}
         <main class={['service-main', 'home-container__main', { 'is-micro-app-runtime': isMicroAppRuntime.value }]}>
-          <RouterView />
+          <RouterView>
+            {{
+              default: ({ Component }: { Component?: Component }) =>
+                Component
+                  ? h(
+                      KeepAlive,
+                      { max: 12 },
+                      {
+                        default: () => h(Component, { key: route.fullPath })
+                      }
+                    )
+                  : null
+            }}
+          </RouterView>
         </main>
       </section>
     )

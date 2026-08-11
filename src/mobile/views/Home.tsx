@@ -12,6 +12,7 @@ import {
 import { PhActivity, PhClock, PhWarning } from '@phosphor-icons/vue'
 import { fetchAlerts, fetchOverviewSummary, type MetricsDatasetScope } from '@/api'
 import { getPreferredMetricsDatasetScope } from '@/services/authSession'
+import { useActivationRefresh } from '@/mobile/hooks/useActivationRefresh'
 import './Home.scss'
 
 export default defineComponent({
@@ -43,9 +44,13 @@ export default defineComponent({
       }
     }
 
+    const shouldRefreshOnActivation = useActivationRefresh(30_000)
+
     const displayMetric = (v: number | null | undefined, s = '') => (typeof v === 'number' ? `${v}${s}` : '--')
 
-    onActivated(() => loadData())
+    onActivated(() => {
+      if (shouldRefreshOnActivation()) void loadData()
+    })
 
     return () => (
       <div class="mobile-home">

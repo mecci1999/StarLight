@@ -4,6 +4,7 @@ import { MobileTag } from '@/mobile/ui'
 import { PhArrowsClockwise, PhCpu, PhCheckCircle, PhXCircle, PhWarningCircle } from '@phosphor-icons/vue'
 import { getAppKeys, generateAppKey, deleteAppKey, getIngestionStatus } from '@/api/metrics'
 import { mobileFeedback } from '@/mobile/services/mobileFeedback'
+import { useActivationRefresh } from '@/mobile/hooks/useActivationRefresh'
 import './MobileIngestion.scss'
 
 // ── Types ──────────────────────────────────
@@ -82,7 +83,11 @@ export default defineComponent({
       }
     }
 
-    onActivated(loadData)
+    const shouldRefreshOnActivation = useActivationRefresh(30_000)
+
+    onActivated(() => {
+      if (shouldRefreshOnActivation()) void loadData()
+    })
 
     // ── Helpers ──────────────────────────────
     const getSourceStatus = (item: AppKeyItem): 'active' | 'inactive' | 'error' | 'expired' => {

@@ -41,6 +41,7 @@ import {
   parseInvestigationContext,
   resolveInvestigationWindow
 } from '@/mobile/hooks/investigationContext'
+import { useActivationRefresh } from '@/mobile/hooks/useActivationRefresh'
 import './MobileAlertsInbox.scss'
 
 function relativeTime(dateStr: string): string {
@@ -125,6 +126,7 @@ export default defineComponent({
 
     const displayCount = ref(PAGE_SIZE)
     let alertRequestId = 0
+    const shouldRefreshOnActivation = useActivationRefresh(30_000, { contextKey: () => route.fullPath })
 
     // ── Computed ────────────────────────────────
     const activeCount = computed(() => allAlerts.value.filter((a) => a.status === 'active').length)
@@ -527,10 +529,12 @@ export default defineComponent({
       const context = parseInvestigationContext(route.query)
       keyword.value = context.keyword ?? queryValue(route.query.keyword)
       pendingIncidentId.value = context.incidentId ?? queryValue(route.query.incidentId) ?? null
-      loadServiceOptions()
-      loadAssignees()
-      loadAlerts()
-      refreshAlertBadge?.()
+      if (shouldRefreshOnActivation()) {
+        loadServiceOptions()
+        loadAssignees()
+        loadAlerts()
+        refreshAlertBadge?.()
+      }
     })
 
     watch(

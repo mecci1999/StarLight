@@ -6,6 +6,7 @@ import { getStoredUserInfo } from '@/services/authSession'
 import * as subscriptionApi from '@/api/subscription'
 import type { BillingAnalyticsResult, BillingHistoryItem } from '@/api/subscription'
 import { reportUnexpectedBillingError } from '@/domains/admin/components/billing/billingErrorState'
+import { useActivationRefresh } from '@/mobile/hooks/useActivationRefresh'
 import './MobileBilling.scss'
 
 // ── Types ──────────────────────────────────
@@ -278,6 +279,8 @@ export default defineComponent({
       await Promise.all([loadPlans(), loadPayment(), loadUsage()])
     }
 
+    const shouldRefreshOnActivation = useActivationRefresh(30_000)
+
     const refreshAll = async () => {
       if (refreshing.value) return
       refreshing.value = true
@@ -288,7 +291,9 @@ export default defineComponent({
       }
     }
 
-    onActivated(loadAll)
+    onActivated(() => {
+      if (shouldRefreshOnActivation()) void loadAll()
+    })
 
     // ── Tab switch ───────────────────────────
     const handleTabChange = (tab: MobileBillingTab) => {

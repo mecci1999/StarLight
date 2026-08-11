@@ -1,4 +1,4 @@
-import { invoke } from '@tauri-apps/api/core'
+import { invoke, isTauri } from '@tauri-apps/api/core'
 import { isPermissionGranted, requestPermission, sendNotification } from '@tauri-apps/plugin-notification'
 import { type as getPlatformType } from '@tauri-apps/plugin-os'
 import { computed, ref } from 'vue'
@@ -38,9 +38,78 @@ export type ClientNotificationEntry = Required<
 > &
   Pick<ClientNotificationPayload, 'dedupeKey' | 'service' | 'native' | 'badge' | 'actions' | 'metadata'>
 
+export type ClientNotificationNativeDeliveryStatus =
+  | 'not-requested'
+  | 'permission-granted'
+  | 'permission-default'
+  | 'permission-denied'
+  | 'permission-check-failed'
+  | 'permission-request-failed'
+  | 'sent'
+  | 'send-failed'
+
+export type ClientNotificationNativePermissionStatus =
+  | 'not-requested'
+  | 'granted'
+  | 'default'
+  | 'denied'
+  | 'check-failed'
+  | 'request-failed'
+
+export type ClientNotificationPermissionResult = {
+  status: ClientNotificationNativePermissionStatus
+}
+
+export type ClientNotificationDeliveryOutcome = {
+  notificationId: string
+  dedupeKey: string
+  status: ClientNotificationNativeDeliveryStatus
+  permissionStatus: ClientNotificationNativePermissionStatus
+  attemptedAt: number
+}
+
+export type ClientNotificationDeliveryState = {
+  outcomes: readonly ClientNotificationDeliveryOutcome[]
+  latestByDedupeKey: Readonly<Record<string, ClientNotificationDeliveryOutcome>>
+}
+
 const NOTIFICATION_LIMIT = 5
+const DELIVERY_OUTCOME_LIMIT = 99
 const DEFAULT_DURATION_MS = 7000
 const UNREAD_STORAGE_KEY = 'starlight_client_notification_unread_ids_v1'
+const IOS_DENIED_PERMISSION_STORAGE_KEY = 'starlight_client_notification_ios_permission_v1'
+const IOS_DENIED_PERMISSION_RECORD = JSON.stringify({ version: 1, status: 'denied' })
+
+const hasStoredIosNotificationDenial = () => {
+  if (typeof localStorage === 'undefined') return false
+  try {
+    return localStorage.getItem(IOS_DENIED_PERMISSION_STORAGE_KEY) === IOS_DENIED_PERMISSION_RECORD
+  } catch {
+    return false
+  }
+}
+
+const persistIosNotificationDenial = () => {
+  if (typeof localStorage === 'undefined') return
+  try {
+    localStorage.setItem(IOS_DENIED_PERMISSION_STORAGE_KEY, IOS_DENIED_PERMISSION_RECORD)
+  } catch {
+    if (import.meta.env.PROD) console.warn('iOS notification permission state could not be persisted')
+  }
+}
+
+const clearStoredIosNotificationDenial = () => {
+  if (typeof localStorage === 'undefined') return
+  try {
+    localStorage.removeItem(IOS_DENIED_PERMISSION_STORAGE_KEY)
+  } catch {
+    if (import.meta.env.PROD) console.warn('iOS notification permission state could not be cleared')
+  }
+}
+
+const isIosTauri = () => isTauri() && getPlatformType() === 'ios'
+
+export const canOpenClientNotificationSettings = () => isIosTauri()
 
 const readStoredUnreadIds = () => {
   if (typeof localStorage === 'undefined') return []
@@ -55,7 +124,11 @@ const readStoredUnreadIds = () => {
 
 const persistUnreadIds = (ids: string[]) => {
   if (typeof localStorage === 'undefined') return
-  localStorage.setItem(UNREAD_STORAGE_KEY, JSON.stringify(ids.slice(0, 99)))
+  try {
+    localStorage.setItem(UNREAD_STORAGE_KEY, JSON.stringify(ids.slice(0, 99)))
+  } catch {
+    if (import.meta.env.PROD) console.warn('Client notification unread state could not be persisted')
+  }
 }
 
 const updateAppBadgeCount = async (count: number) => {
@@ -68,25 +141,133 @@ const updateAppBadgeCount = async (count: number) => {
   }
 }
 
-const showNativeNotification = async (notification: ClientNotificationEntry) => {
-  if (!notification.native) return
+const reportNativeDeliveryFailure = (
+  notification: ClientNotificationEntry,
+  status: ClientNotificationNativeDeliveryStatus
+) => {
+  if (import.meta.env.PROD) {
+    console.warn('Client notification native delivery failed', { notificationId: notification.id, status })
+  }
+}
+
+const isPromiseLike = (value: unknown): value is PromiseLike<unknown> =>
+  typeof value === 'object' && value !== null && 'then' in value && typeof value.then === 'function'
+
+export const getClientNotificationPermission = async (): Promise<ClientNotificationPermissionResult> => {
+  if (!isTauri()) return { status: 'not-requested' }
+
   try {
-    let granted = await isPermissionGranted()
-    if (!granted) granted = (await requestPermission()) === 'granted'
-    if (granted) {
-      sendNotification({
-        title: notification.title,
-        body: notification.body
-      })
+    if (await isPermissionGranted()) {
+      clearStoredIosNotificationDenial()
+      return { status: 'granted' }
     }
-  } catch (error) {
-    if (import.meta.env.DEV) console.warn('Failed to show native notification:', error)
+    return { status: isIosTauri() && hasStoredIosNotificationDenial() ? 'denied' : 'default' }
+  } catch {
+    return { status: 'check-failed' }
+  }
+}
+
+export const requestClientNotificationPermission = async (): Promise<ClientNotificationPermissionResult> => {
+  if (!isTauri()) return { status: 'not-requested' }
+
+  try {
+    if (await isPermissionGranted()) return { status: 'granted' }
+  } catch {
+    return { status: 'check-failed' }
+  }
+
+  try {
+    const status = await requestPermission()
+    if (isIosTauri() && status === 'denied') persistIosNotificationDenial()
+    if (status === 'granted') clearStoredIosNotificationDenial()
+    return { status }
+  } catch {
+    return { status: 'request-failed' }
+  }
+}
+
+export const openClientNotificationSettings = async (): Promise<boolean> => {
+  if (!canOpenClientNotificationSettings()) return false
+
+  try {
+    await invoke('plugin:ios-foreground-notification|openNotificationSettings')
+    return true
+  } catch {
+    return false
+  }
+}
+
+const showNativeNotification = async (
+  notification: ClientNotificationEntry
+): Promise<ClientNotificationDeliveryOutcome> => {
+  const outcome = (
+    status: ClientNotificationNativeDeliveryStatus,
+    permissionStatus: ClientNotificationNativePermissionStatus
+  ): ClientNotificationDeliveryOutcome => ({
+    notificationId: notification.id,
+    dedupeKey: notification.dedupeKey || notification.id,
+    status,
+    permissionStatus,
+    attemptedAt: Date.now()
+  })
+
+  if (!notification.native) return outcome('not-requested', 'not-requested')
+
+  const permission = await getClientNotificationPermission()
+  if (permission.status !== 'granted') {
+    const statusMap: Record<
+      Exclude<ClientNotificationNativePermissionStatus, 'granted'>,
+      ClientNotificationNativeDeliveryStatus
+    > = {
+      'not-requested': 'not-requested',
+      default: 'permission-default',
+      denied: 'permission-denied',
+      'check-failed': 'permission-check-failed',
+      'request-failed': 'permission-request-failed'
+    }
+    const result = outcome(statusMap[permission.status], permission.status)
+    reportNativeDeliveryFailure(notification, result.status)
+    return result
+  }
+
+  try {
+    const sendResult: unknown = sendNotification({
+      title: notification.title,
+      body: notification.body
+    })
+    if (isPromiseLike(sendResult)) await sendResult
+    return outcome('sent', 'granted')
+  } catch {
+    const result = outcome('send-failed', 'granted')
+    reportNativeDeliveryFailure(notification, result.status)
+    return result
   }
 }
 
 export const clientNotifications = ref<ClientNotificationEntry[]>([])
 export const clientNotificationUnreadIds = ref<string[]>(readStoredUnreadIds())
 export const clientNotificationUnreadCount = computed(() => clientNotificationUnreadIds.value.length)
+export const clientNotificationDeliveryOutcomes = ref<ClientNotificationDeliveryOutcome[]>([])
+export const clientNotificationDeliveryState = computed<ClientNotificationDeliveryState>(() => ({
+  outcomes: clientNotificationDeliveryOutcomes.value,
+  latestByDedupeKey: clientNotificationDeliveryOutcomes.value.reduce<Record<string, ClientNotificationDeliveryOutcome>>(
+    (latest, outcome) => {
+      if (!latest[outcome.dedupeKey]) latest[outcome.dedupeKey] = outcome
+      return latest
+    },
+    {}
+  )
+}))
+
+export const getClientNotificationDeliveryOutcome = (dedupeKey: string) =>
+  clientNotificationDeliveryOutcomes.value.find((outcome) => outcome.dedupeKey === dedupeKey)
+
+const recordClientNotificationDeliveryOutcome = (outcome: ClientNotificationDeliveryOutcome) => {
+  clientNotificationDeliveryOutcomes.value = [outcome, ...clientNotificationDeliveryOutcomes.value].slice(
+    0,
+    DELIVERY_OUTCOME_LIMIT
+  )
+}
 
 export const syncClientNotificationBadge = () => updateAppBadgeCount(clientNotificationUnreadCount.value)
 
@@ -143,7 +324,7 @@ export const pushClientNotification = async (payload: ClientNotificationPayload)
     persistUnreadIds(clientNotificationUnreadIds.value)
     await syncClientNotificationBadge()
   }
-  await showNativeNotification(notification)
+  recordClientNotificationDeliveryOutcome(await showNativeNotification(notification))
   return notification
 }
 

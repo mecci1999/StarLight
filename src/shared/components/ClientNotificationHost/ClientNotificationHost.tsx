@@ -2,6 +2,8 @@ import { PulseOutline, WarningOutline, NotificationsOutline, CheckmarkCircleOutl
 import { NIcon } from 'naive-ui'
 import { computed, defineComponent, onMounted, onUnmounted, ref, watch } from 'vue'
 import { fetchNotifications } from '@/api/alerts'
+import { useMitt } from '@/hooks/useMitt'
+import { isWebSocketAlertMessage, toClientAlertNotification } from '@/services/alertNotifications'
 import {
   clientNotifications,
   dismissClientNotification,
@@ -43,13 +45,18 @@ const readSeenIds = () => {
 
 const persistSeenIds = (ids: Set<string>) => {
   if (typeof localStorage === 'undefined') return
-  localStorage.setItem(SEEN_STORAGE_KEY, JSON.stringify(Array.from(ids).slice(-SEEN_LIMIT)))
+  try {
+    localStorage.setItem(SEEN_STORAGE_KEY, JSON.stringify(Array.from(ids).slice(-SEEN_LIMIT)))
+  } catch {
+    if (import.meta.env.PROD) console.warn('Client notification seen state could not be persisted')
+  }
 }
 
-const resolveNotificationId = (item: RawNotification, index: number) =>
-  String(
-    item.id || item.key || `${item.alertId || item.ruleId || 'notification'}-${item.sentAt || item.updatedAt || index}`
-  )
+const resolveNotificationId = (item: RawNotification) => {
+  const stableId = item.alertId || item.id || item.key
+  if (stableId) return String(stableId)
+  return `${item.ruleId || 'notification'}-${item.sentAt || item.updatedAt || 'unknown'}`
+}
 
 const resolveNotificationTime = (item: RawNotification) => {
   if (typeof item.updatedAt === 'number' && Number.isFinite(item.updatedAt)) return item.updatedAt
@@ -91,8 +98,11 @@ export default defineComponent({
   setup(props) {
     const seenIds = ref(readSeenIds())
     const hydrated = ref(false)
+    const sessionStartedAt = Date.now()
+    const pendingWebSocketAlerts = ref<ReturnType<typeof toClientAlertNotification>[]>([])
     const dismissTimers = new Map<string, number>()
     let pollTimer: number | null = null
+    let polling = false
 
     const visibleNotifications = computed(() =>
       clientNotifications.value.filter((item) => item.placement === 'bottom-right').slice(0, 4)
@@ -103,29 +113,41 @@ export default defineComponent({
       persistSeenIds(seenIds.value)
     }
 
+    const ingestNotification = async (payload: ReturnType<typeof toClientAlertNotification>) => {
+      const id = payload.dedupeKey || payload.id
+      if (!id || seenIds.value.has(id)) return
+      const notification = await pushClientNotification(payload)
+      if (notification) markSeen(id)
+    }
+
     const pollNotifications = async () => {
+      if (polling) return
+      polling = true
       try {
         const notifications = ((await fetchNotifications({ channel: 'InApp' })) || []) as RawNotification[]
         const visibleItems = notifications.filter(isClientVisibleNotification)
         if (!hydrated.value) {
-          visibleItems.forEach((item, index) => markSeen(resolveNotificationId(item, index)))
+          visibleItems
+            .filter((item) => resolveNotificationTime(item) < sessionStartedAt)
+            .forEach((item) => markSeen(resolveNotificationId(item)))
           hydrated.value = true
-          await syncClientNotificationBadge()
-          return
+          syncClientNotificationBadge()
+          const bufferedAlerts = pendingWebSocketAlerts.value
+          pendingWebSocketAlerts.value = []
+          for (const alert of bufferedAlerts) await ingestNotification(alert)
         }
 
         const freshItems = visibleItems
-          .map((item, index) => ({
+          .map((item) => ({
             item,
-            id: resolveNotificationId(item, index),
+            id: resolveNotificationId(item),
             createdAt: resolveNotificationTime(item)
           }))
           .filter(({ id }) => !seenIds.value.has(id))
           .sort((left, right) => left.createdAt - right.createdAt)
 
         for (const { item, id, createdAt } of freshItems) {
-          markSeen(id)
-          await pushClientNotification({
+          await ingestNotification({
             id,
             dedupeKey: id,
             source: 'alerts',
@@ -150,9 +172,21 @@ export default defineComponent({
             }
           })
         }
-      } catch (error) {
-        if (import.meta.env.DEV) console.warn('Failed to poll client notifications:', error)
+      } catch {
+        if (import.meta.env.PROD) console.warn('Client notification polling failed; will retry')
+      } finally {
+        polling = false
       }
+    }
+
+    const handleWebSocketAlert = async (message: unknown) => {
+      if (!isWebSocketAlertMessage(message)) return
+      const alert = toClientAlertNotification(message)
+      if (!hydrated.value) {
+        pendingWebSocketAlerts.value = [...pendingWebSocketAlerts.value, alert]
+        return
+      }
+      await ingestNotification(alert)
     }
 
     const scheduleDismiss = (notification: ClientNotificationEntry) => {
@@ -181,11 +215,13 @@ export default defineComponent({
     )
 
     onMounted(() => {
+      useMitt.on('wsRawMessage', handleWebSocketAlert)
       pollNotifications()
       pollTimer = window.setInterval(pollNotifications, props.pollIntervalMs)
     })
 
     onUnmounted(() => {
+      useMitt.off('wsRawMessage', handleWebSocketAlert)
       if (pollTimer) window.clearInterval(pollTimer)
       dismissTimers.forEach((timer) => window.clearTimeout(timer))
       dismissTimers.clear()

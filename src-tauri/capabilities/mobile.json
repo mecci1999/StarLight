@@ -40,6 +40,7 @@
     "notification:allow-delete-channel",
     "notification:allow-create-channel",
     "notification:allow-permission-state",
+    "ios-foreground-notification:allow-open-notification-settings",
     {
       "identifier": "shell:allow-execute",
       "allow": [

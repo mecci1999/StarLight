@@ -15,6 +15,7 @@ import ServiceHealthBadge from '@/shared/components/ServiceHealthBadge'
 import { PhArrowsClockwise } from '@phosphor-icons/vue'
 import type { TopologyData, TopologyNode, TopologyEdge } from '@/types/monitor'
 import { investigationQuery, parseInvestigationContext } from '@/mobile/hooks/investigationContext'
+import { useActivationRefresh } from '@/mobile/hooks/useActivationRefresh'
 import './MobileTopology.scss'
 
 export default defineComponent({
@@ -48,10 +49,14 @@ export default defineComponent({
       }
     }
 
+    const shouldRefreshOnActivation = useActivationRefresh(30_000, {
+      contextKey: () => route.fullPath
+    })
+
     onActivated(() => {
       const context = parseInvestigationContext(route.query)
       if (context.serviceId) selectedServiceId.value = context.serviceId
-      void loadTopology()
+      if (shouldRefreshOnActivation()) void loadTopology()
     })
 
     watch(

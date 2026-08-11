@@ -2,15 +2,19 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 const invokeMock = vi.fn()
 const sendNotificationMock = vi.fn()
+const isPermissionGrantedMock = vi.fn()
+const requestPermissionMock = vi.fn()
 let platformType = 'macos'
+let tauri = true
 
 vi.mock('@tauri-apps/api/core', () => ({
-  invoke: invokeMock
+  invoke: invokeMock,
+  isTauri: () => tauri
 }))
 
 vi.mock('@tauri-apps/plugin-notification', () => ({
-  isPermissionGranted: vi.fn(async () => true),
-  requestPermission: vi.fn(async () => 'granted'),
+  isPermissionGranted: isPermissionGrantedMock,
+  requestPermission: requestPermissionMock,
   sendNotification: sendNotificationMock
 }))
 
@@ -25,7 +29,12 @@ describe('clientNotifications', () => {
     vi.resetModules()
     invokeMock.mockReset()
     sendNotificationMock.mockReset()
+    isPermissionGrantedMock.mockReset()
+    requestPermissionMock.mockReset()
+    isPermissionGrantedMock.mockResolvedValue(true)
+    requestPermissionMock.mockResolvedValue('granted')
     platformType = 'macos'
+    tauri = true
     storage.clear()
     vi.stubGlobal('localStorage', {
       getItem: (key: string) => storage.get(key) || null,
@@ -36,9 +45,12 @@ describe('clientNotifications', () => {
   })
 
   it('pushes configurable client notifications and updates app badge count', async () => {
-    const { clientNotifications, clientNotificationUnreadCount, pushClientNotification } = await import(
-      '@/services/clientNotifications'
-    )
+    const {
+      clientNotifications,
+      clientNotificationDeliveryState,
+      clientNotificationUnreadCount,
+      pushClientNotification
+    } = await import('@/services/clientNotifications')
 
     await pushClientNotification({
       id: 'alert-notification-1',
@@ -60,6 +72,10 @@ describe('clientNotifications', () => {
     expect(clientNotificationUnreadCount.value).toBe(1)
     expect(invokeMock).toHaveBeenLastCalledWith('set_badge_count', { count: 1 })
     expect(sendNotificationMock).toHaveBeenCalledWith({ title: '严重告警', body: 'CPU 超过阈值' })
+    expect(clientNotificationDeliveryState.value.latestByDedupeKey['alert-notification-1']).toMatchObject({
+      status: 'sent',
+      permissionStatus: 'granted'
+    })
   })
 
   it('hides transient popups without clearing unread badge state', async () => {
@@ -93,5 +109,119 @@ describe('clientNotifications', () => {
 
     expect(clientNotificationUnreadCount.value).toBe(1)
     expect(invokeMock).not.toHaveBeenCalled()
+  })
+
+  it('deduplicates realtime and polling notifications by shared alert key', async () => {
+    const { clientNotifications, pushClientNotification } = await import('@/services/clientNotifications')
+
+    await pushClientNotification({
+      id: 'alert-shared-id',
+      dedupeKey: 'alert-shared-id',
+      source: 'alerts',
+      title: '实时告警',
+      body: 'CPU 超过阈值',
+      native: true
+    })
+    await pushClientNotification({
+      id: 'alert-shared-id',
+      dedupeKey: 'alert-shared-id',
+      source: 'alerts',
+      title: '轮询告警',
+      body: 'CPU 超过阈值',
+      native: true
+    })
+
+    expect(clientNotifications.value).toHaveLength(1)
+    expect(sendNotificationMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('retains the in-app notification without requesting permission during alert delivery', async () => {
+    isPermissionGrantedMock.mockResolvedValue(false)
+    requestPermissionMock.mockResolvedValue('denied')
+    const { clientNotificationDeliveryState, pushClientNotification } = await import('@/services/clientNotifications')
+
+    await pushClientNotification({ id: 'permission-denied', title: '权限', body: '用户拒绝', native: true })
+
+    expect(clientNotificationDeliveryState.value.latestByDedupeKey['permission-denied']).toMatchObject({
+      status: 'permission-default',
+      notificationId: 'permission-denied'
+    })
+    expect(requestPermissionMock).not.toHaveBeenCalled()
+    expect(sendNotificationMock).not.toHaveBeenCalled()
+  })
+
+  it('recovers an iOS denial after remounting and clears it when Settings grants permission', async () => {
+    platformType = 'ios'
+    isPermissionGrantedMock.mockResolvedValue(false)
+    requestPermissionMock.mockResolvedValue('denied')
+    const { requestClientNotificationPermission } = await import('@/services/clientNotifications')
+
+    await expect(requestClientNotificationPermission()).resolves.toEqual({ status: 'denied' })
+    expect(storage.get('starlight_client_notification_ios_permission_v1')).toBe('{"version":1,"status":"denied"}')
+
+    vi.resetModules()
+    const recovered = await import('@/services/clientNotifications')
+    await expect(recovered.getClientNotificationPermission()).resolves.toEqual({ status: 'denied' })
+
+    isPermissionGrantedMock.mockResolvedValue(true)
+    await expect(recovered.getClientNotificationPermission()).resolves.toEqual({ status: 'granted' })
+    expect(storage.has('starlight_client_notification_ios_permission_v1')).toBe(false)
+  })
+
+  it('reports browser fallback safely without calling the notification plugin', async () => {
+    tauri = false
+    const { getClientNotificationPermission, requestClientNotificationPermission } = await import(
+      '@/services/clientNotifications'
+    )
+
+    await expect(getClientNotificationPermission()).resolves.toEqual({ status: 'not-requested' })
+    await expect(requestClientNotificationPermission()).resolves.toEqual({ status: 'not-requested' })
+    expect(isPermissionGrantedMock).not.toHaveBeenCalled()
+    expect(requestPermissionMock).not.toHaveBeenCalled()
+  })
+
+  it('does not persist denial or invoke the iOS Settings bridge in a browser', async () => {
+    tauri = false
+    const { canOpenClientNotificationSettings, openClientNotificationSettings, requestClientNotificationPermission } =
+      await import('@/services/clientNotifications')
+
+    invokeMock.mockClear()
+    expect(canOpenClientNotificationSettings()).toBe(false)
+    await expect(openClientNotificationSettings()).resolves.toBe(false)
+    await expect(requestClientNotificationPermission()).resolves.toEqual({ status: 'not-requested' })
+    expect(invokeMock).not.toHaveBeenCalled()
+    expect(storage.has('starlight_client_notification_ios_permission_v1')).toBe(false)
+  })
+
+  it('opens the Settings bridge only for iOS Tauri', async () => {
+    platformType = 'ios'
+    const { canOpenClientNotificationSettings, openClientNotificationSettings } = await import(
+      '@/services/clientNotifications'
+    )
+
+    expect(canOpenClientNotificationSettings()).toBe(true)
+    await expect(openClientNotificationSettings()).resolves.toBe(true)
+    expect(invokeMock).toHaveBeenCalledWith('plugin:ios-foreground-notification|openNotificationSettings')
+  })
+
+  it('requests native permission only through the explicit permission helper', async () => {
+    isPermissionGrantedMock.mockResolvedValue(false)
+    requestPermissionMock.mockResolvedValue('default')
+    const { requestClientNotificationPermission } = await import('@/services/clientNotifications')
+
+    await expect(requestClientNotificationPermission()).resolves.toEqual({ status: 'default' })
+    expect(requestPermissionMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('records native send rejection while retaining the in-app notification', async () => {
+    sendNotificationMock.mockRejectedValue(new Error('native send failed'))
+    const { clientNotifications, getClientNotificationDeliveryOutcome, pushClientNotification } = await import(
+      '@/services/clientNotifications'
+    )
+
+    await pushClientNotification({ id: 'send-rejected', title: '发送', body: '插件失败', native: true })
+
+    expect(clientNotifications.value).toHaveLength(1)
+    expect(getClientNotificationDeliveryOutcome('send-rejected')).toMatchObject({ status: 'send-failed' })
   })
 })

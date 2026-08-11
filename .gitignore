@@ -23,6 +23,8 @@ dist-ssr
 src-tauri/target
 src-tauri/gen/apple/*
 src-tauri/gen/android/*
+src-tauri/plugins/*/.tauri/
+src-tauri/plugins/*/ios/.build/
 
 .history/
 

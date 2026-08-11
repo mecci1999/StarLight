@@ -112,13 +112,13 @@ cp -R "$ROOT/dist" "$SRC_TAURI/gen/apple/dist"
 
 echo '[4/5] Archiving signed arm64 iphoneos Release app...'
 if [[ "$signing_style" == "automatic" ]]; then
-  xcodebuild \
-    -project "$PROJECT" \
-    -scheme "$SCHEME" \
-    -sdk iphoneos \
-    -configuration release \
-    -destination 'generic/platform=iOS' \
-    -derivedDataPath "$DERIVED_DATA" \
+    xcodebuild \
+      -project "$PROJECT" \
+      -scheme "$SCHEME" \
+      -sdk iphoneos \
+      -configuration release \
+      -destination 'generic/platform=iOS' \
+      -derivedDataPath "$DERIVED_DATA" \
     -archivePath "$ARCHIVE_PATH" \
     CODE_SIGN_STYLE="$xcode_signing_style" \
     DEVELOPMENT_TEAM="$STARLIGHT_IOS_DEVELOPMENT_TEAM" \
@@ -127,18 +127,19 @@ if [[ "$signing_style" == "automatic" ]]; then
     CURRENT_PROJECT_VERSION="$VERSION" \
     archive
 else
-  xcodebuild \
-    -project "$PROJECT" \
-    -scheme "$SCHEME" \
-    -sdk iphoneos \
-    -configuration release \
-    -destination 'generic/platform=iOS' \
-    -derivedDataPath "$DERIVED_DATA" \
-    -archivePath "$ARCHIVE_PATH" \
-    CODE_SIGN_STYLE="$xcode_signing_style" \
-    DEVELOPMENT_TEAM="$STARLIGHT_IOS_DEVELOPMENT_TEAM" \
-    CODE_SIGN_IDENTITY="$STARLIGHT_IOS_CODE_SIGN_IDENTITY" \
-    PRODUCT_BUNDLE_IDENTIFIER="$BUNDLE_ID" \
+    xcodebuild \
+      -project "$PROJECT" \
+      -scheme "$SCHEME" \
+      -sdk iphoneos \
+      -configuration release \
+      -destination 'generic/platform=iOS' \
+      -derivedDataPath "$DERIVED_DATA" \
+      -archivePath "$ARCHIVE_PATH" \
+       CODE_SIGN_STYLE="$xcode_signing_style" \
+       DEVELOPMENT_TEAM="$STARLIGHT_IOS_DEVELOPMENT_TEAM" \
+       CODE_SIGN_IDENTITY="$STARLIGHT_IOS_CODE_SIGN_IDENTITY" \
+       PROVISIONING_PROFILE_SPECIFIER="$STARLIGHT_IOS_PROVISIONING_PROFILE_SPECIFIER" \
+       PRODUCT_BUNDLE_IDENTIFIER="$BUNDLE_ID" \
     MARKETING_VERSION="$VERSION" \
     CURRENT_PROJECT_VERSION="$VERSION" \
     archive

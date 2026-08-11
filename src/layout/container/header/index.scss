@@ -364,8 +364,9 @@
 
   &__title {
     color: var(--color-text-1);
-    font-size: var(--font-size-body-2);
+    font-size: var(--font-size-title-2);
     font-weight: var(--font-weight-semibold);
+    line-height: var(--font-size-title-2);
   }
 
   &__meta {

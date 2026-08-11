@@ -9,6 +9,7 @@ import type { NotificationItem } from '@/types/monitor'
 import type { MobileTagType } from '@/mobile/ui/MobileTag'
 import { getPreferredMetricsDatasetScope } from '@/services/authSession'
 import { parseInvestigationContext, resolveInvestigationWindow } from '@/mobile/hooks/investigationContext'
+import { useActivationRefresh } from '@/mobile/hooks/useActivationRefresh'
 import {
   didResendNotificationSucceed,
   getNextRetryCount,
@@ -170,6 +171,10 @@ export default defineComponent({
       }
     }
 
+    const shouldRefreshOnActivation = useActivationRefresh(30_000, {
+      contextKey: () => route.fullPath
+    })
+
     // ── Actions ────────────────────────────────
     const toggleExpand = (key: string) => {
       expandingId.value = expandingId.value === key ? null : key
@@ -214,7 +219,7 @@ export default defineComponent({
     onActivated(() => {
       const context = parseInvestigationContext(route.query)
       if (context.keyword !== undefined) searchText.value = context.keyword
-      void loadNotifications()
+      if (shouldRefreshOnActivation()) void loadNotifications()
     })
 
     watch(

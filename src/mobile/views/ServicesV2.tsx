@@ -2,6 +2,7 @@ import { defineComponent, ref, onActivated } from 'vue'
 import { MobileButton, MobileCard, MobileEmpty, MobileLoading, MobileTag } from '@/mobile/ui'
 import { useRouter, useRoute } from 'vue-router'
 import { fetchCatalogServices } from '@/api'
+import { useActivationRefresh } from '@/mobile/hooks/useActivationRefresh'
 
 import type { ServiceItem } from '@/types/monitor'
 import './ServicesV2.scss'
@@ -20,6 +21,9 @@ export default defineComponent({
     const total = ref(0)
     const hasMore = computed(() => services.value.length < total.value)
     const pageSize = 50
+    const shouldRefreshOnActivation = useActivationRefresh(30_000, {
+      contextKey: () => String(route.query.keyword || '')
+    })
 
     const mapServices = (items: any[]): ServiceItem[] =>
       items.map((item: any) => ({
@@ -92,7 +96,9 @@ export default defineComponent({
 
     const refresh = () => loadServices(route.query.keyword as string)
 
-    onActivated(refresh)
+    onActivated(() => {
+      if (shouldRefreshOnActivation()) refresh()
+    })
 
     return () => (
       <div class="mobile-services-v2">

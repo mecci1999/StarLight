@@ -1,0 +1,17 @@
+[package]
+name = "ios-foreground-notification"
+version = "0.1.0"
+edition = "2021"
+publish = false
+links = "ios-foreground-notification"
+build = "build.rs"
+
+[lib]
+name = "ios_foreground_notification"
+path = "src/lib.rs"
+
+[dependencies]
+tauri = { version = "2.11.5", default-features = false }
+
+[build-dependencies]
+tauri-plugin = { version = "2", features = ["build"] }

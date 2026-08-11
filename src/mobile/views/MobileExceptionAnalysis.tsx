@@ -4,6 +4,7 @@ import { PhArrowsClockwise, PhCaretDown, PhCaretUp } from '@phosphor-icons/vue'
 import { listExceptions } from '@/api'
 import type { ExceptionGroup } from '@/types/logs'
 import dayjs from 'dayjs'
+import { useActivationRefresh } from '@/mobile/hooks/useActivationRefresh'
 import './MobileExceptionAnalysis.scss'
 
 type TimeRange = '1h' | '4h' | '1d' | '7d'
@@ -82,7 +83,11 @@ export default defineComponent({
       }
     }
 
-    onActivated(loadExceptions)
+    const shouldRefreshOnActivation = useActivationRefresh(30_000)
+
+    onActivated(() => {
+      if (shouldRefreshOnActivation()) void loadExceptions()
+    })
 
     const toggleExpand = (id: string) => {
       const newSet = new Set(expandedIds.value)
