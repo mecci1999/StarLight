@@ -150,22 +150,14 @@ describe('clientNotifications', () => {
     expect(sendNotificationMock).not.toHaveBeenCalled()
   })
 
-  it('recovers an iOS denial after remounting and clears it when Settings grants permission', async () => {
+  it('reads the current native iOS denial rather than persisting a stale browser state', async () => {
     platformType = 'ios'
-    isPermissionGrantedMock.mockResolvedValue(false)
-    requestPermissionMock.mockResolvedValue('denied')
-    const { requestClientNotificationPermission } = await import('@/services/clientNotifications')
+    invokeMock.mockResolvedValueOnce({ status: 'denied', isGranted: false })
+    const { getClientNotificationPermission } = await import('@/services/clientNotifications')
 
-    await expect(requestClientNotificationPermission()).resolves.toEqual({ status: 'denied' })
-    expect(storage.get('starlight_client_notification_ios_permission_v1')).toBe('{"version":1,"status":"denied"}')
-
-    vi.resetModules()
-    const recovered = await import('@/services/clientNotifications')
-    await expect(recovered.getClientNotificationPermission()).resolves.toEqual({ status: 'denied' })
-
-    isPermissionGrantedMock.mockResolvedValue(true)
-    await expect(recovered.getClientNotificationPermission()).resolves.toEqual({ status: 'granted' })
-    expect(storage.has('starlight_client_notification_ios_permission_v1')).toBe(false)
+    await expect(getClientNotificationPermission()).resolves.toEqual({ status: 'denied' })
+    expect(invokeMock).toHaveBeenCalledWith('plugin:ios-foreground-notification|getNotificationAuthorizationStatus')
+    expect(isPermissionGrantedMock).not.toHaveBeenCalled()
   })
 
   it('reports browser fallback safely without calling the notification plugin', async () => {
@@ -180,7 +172,7 @@ describe('clientNotifications', () => {
     expect(requestPermissionMock).not.toHaveBeenCalled()
   })
 
-  it('does not persist denial or invoke the iOS Settings bridge in a browser', async () => {
+  it('does not invoke the iOS Settings bridge in a browser', async () => {
     tauri = false
     const { canOpenClientNotificationSettings, openClientNotificationSettings, requestClientNotificationPermission } =
       await import('@/services/clientNotifications')
@@ -190,7 +182,6 @@ describe('clientNotifications', () => {
     await expect(openClientNotificationSettings()).resolves.toBe(false)
     await expect(requestClientNotificationPermission()).resolves.toEqual({ status: 'not-requested' })
     expect(invokeMock).not.toHaveBeenCalled()
-    expect(storage.has('starlight_client_notification_ios_permission_v1')).toBe(false)
   })
 
   it('opens the Settings bridge only for iOS Tauri', async () => {
@@ -204,13 +195,38 @@ describe('clientNotifications', () => {
     expect(invokeMock).toHaveBeenCalledWith('plugin:ios-foreground-notification|openNotificationSettings')
   })
 
-  it('requests native permission only through the explicit permission helper', async () => {
+  it('requests desktop native permission only through the explicit permission helper', async () => {
     isPermissionGrantedMock.mockResolvedValue(false)
     requestPermissionMock.mockResolvedValue('default')
     const { requestClientNotificationPermission } = await import('@/services/clientNotifications')
 
     await expect(requestClientNotificationPermission()).resolves.toEqual({ status: 'default' })
     expect(requestPermissionMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('requests authorization and sends local notifications through the native iOS bridge', async () => {
+    platformType = 'ios'
+    invokeMock
+      .mockResolvedValueOnce({ status: 'authorized', isGranted: true })
+      .mockResolvedValueOnce({ status: 'authorized', isGranted: true })
+      .mockResolvedValueOnce({ id: 'native-ios-notification' })
+    const { requestClientNotificationPermission, pushClientNotification } = await import(
+      '@/services/clientNotifications'
+    )
+
+    await expect(requestClientNotificationPermission()).resolves.toEqual({ status: 'granted' })
+    await pushClientNotification({ id: 'ios-native', title: '原生告警', body: '由 iOS 展示', native: true })
+
+    expect(invokeMock).toHaveBeenNthCalledWith(1, 'plugin:ios-foreground-notification|requestNotificationAuthorization')
+    expect(invokeMock).toHaveBeenNthCalledWith(
+      2,
+      'plugin:ios-foreground-notification|getNotificationAuthorizationStatus'
+    )
+    expect(invokeMock).toHaveBeenNthCalledWith(3, 'plugin:ios-foreground-notification|showLocalNotification', {
+      title: '原生告警',
+      body: '由 iOS 展示'
+    })
+    expect(sendNotificationMock).not.toHaveBeenCalled()
   })
 
   it('records native send rejection while retaining the in-app notification', async () => {

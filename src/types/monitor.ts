@@ -175,7 +175,43 @@ export type AlertRuleItem = {
   level: 'critical' | 'warning' | 'info'
   enabled: boolean
   channels: string[]
+  emailRecipients?: string[]
+  notifyOnRecovery?: boolean
 }
+
+export const MANAGED_SYSTEM_SERVICES = [
+  'gateway',
+  'auth',
+  'user',
+  'file',
+  'metrics',
+  'metrics-query',
+  'metrics-alerts',
+  'metrics-compat',
+  'logs',
+  'subscription',
+  'micro-app'
+] as const
+
+export type ManagedSystemService = (typeof MANAGED_SYSTEM_SERVICES)[number]
+export type RegistryMissingSeverity = 'critical' | 'warning' | 'info'
+export type RegistryMissingChannel = 'InApp' | 'Email'
+
+export type RegistryMissingAlertRule = {
+  ruleId: string
+  ruleType: 'registry_missing'
+  name: string
+  serviceName: ManagedSystemService
+  forSeconds: number
+  deployGraceSeconds: number
+  severity: RegistryMissingSeverity
+  enabled: boolean
+  channels: RegistryMissingChannel[]
+  emailRecipients: string[]
+  notifyOnRecovery: boolean
+}
+
+export type AlertRule = AlertRuleItem | RegistryMissingAlertRule
 
 export type TopologyNode = {
   id: string

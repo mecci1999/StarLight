@@ -1,0 +1,151 @@
+[
+  {
+    "ruleType": "registry_missing",
+    "serviceName": "gateway",
+    "forSeconds": 300,
+    "deployGraceSeconds": 300,
+    "severity": "critical",
+    "enabled": true,
+    "channels": ["Email", "InApp"],
+    "emailRecipients": ["REPLACE_WITH_ONCALL_EMAIL@example.com"],
+    "notifyOnRecovery": true
+  },
+  {
+    "ruleType": "registry_missing",
+    "serviceName": "auth",
+    "forSeconds": 300,
+    "deployGraceSeconds": 300,
+    "severity": "critical",
+    "enabled": true,
+    "channels": ["Email", "InApp"],
+    "emailRecipients": ["REPLACE_WITH_ONCALL_EMAIL@example.com"],
+    "notifyOnRecovery": true
+  },
+  {
+    "ruleType": "registry_missing",
+    "serviceName": "user",
+    "forSeconds": 300,
+    "deployGraceSeconds": 300,
+    "severity": "critical",
+    "enabled": true,
+    "channels": ["Email", "InApp"],
+    "emailRecipients": ["REPLACE_WITH_ONCALL_EMAIL@example.com"],
+    "notifyOnRecovery": true
+  },
+  {
+    "ruleType": "registry_missing",
+    "serviceName": "file",
+    "forSeconds": 300,
+    "deployGraceSeconds": 300,
+    "severity": "critical",
+    "enabled": true,
+    "channels": ["Email", "InApp"],
+    "emailRecipients": ["REPLACE_WITH_ONCALL_EMAIL@example.com"],
+    "notifyOnRecovery": true
+  },
+  {
+    "ruleType": "registry_missing",
+    "serviceName": "metrics",
+    "forSeconds": 300,
+    "deployGraceSeconds": 300,
+    "severity": "critical",
+    "enabled": true,
+    "channels": ["Email", "InApp"],
+    "emailRecipients": ["REPLACE_WITH_ONCALL_EMAIL@example.com"],
+    "notifyOnRecovery": true
+  },
+  {
+    "ruleType": "registry_missing",
+    "serviceName": "metrics-query",
+    "forSeconds": 300,
+    "deployGraceSeconds": 300,
+    "severity": "critical",
+    "enabled": true,
+    "channels": ["Email", "InApp"],
+    "emailRecipients": ["REPLACE_WITH_ONCALL_EMAIL@example.com"],
+    "notifyOnRecovery": true
+  },
+  {
+    "ruleType": "registry_missing",
+    "serviceName": "metrics-alerts",
+    "forSeconds": 300,
+    "deployGraceSeconds": 300,
+    "severity": "critical",
+    "enabled": true,
+    "channels": ["Email", "InApp"],
+    "emailRecipients": ["REPLACE_WITH_ONCALL_EMAIL@example.com"],
+    "notifyOnRecovery": true
+  },
+  {
+    "ruleType": "registry_missing",
+    "serviceName": "metrics-compat",
+    "forSeconds": 300,
+    "deployGraceSeconds": 300,
+    "severity": "critical",
+    "enabled": true,
+    "channels": ["Email", "InApp"],
+    "emailRecipients": ["REPLACE_WITH_ONCALL_EMAIL@example.com"],
+    "notifyOnRecovery": true
+  },
+  {
+    "ruleType": "registry_missing",
+    "serviceName": "logs",
+    "forSeconds": 300,
+    "deployGraceSeconds": 300,
+    "severity": "critical",
+    "enabled": true,
+    "channels": ["Email", "InApp"],
+    "emailRecipients": ["REPLACE_WITH_ONCALL_EMAIL@example.com"],
+    "notifyOnRecovery": true
+  },
+  {
+    "ruleType": "registry_missing",
+    "serviceName": "subscription",
+    "forSeconds": 300,
+    "deployGraceSeconds": 300,
+    "severity": "critical",
+    "enabled": true,
+    "channels": ["Email", "InApp"],
+    "emailRecipients": ["REPLACE_WITH_ONCALL_EMAIL@example.com"],
+    "notifyOnRecovery": true
+  },
+  {
+    "ruleType": "registry_missing",
+    "serviceName": "micro-app",
+    "forSeconds": 300,
+    "deployGraceSeconds": 300,
+    "severity": "critical",
+    "enabled": true,
+    "channels": ["Email", "InApp"],
+    "emailRecipients": ["REPLACE_WITH_ONCALL_EMAIL@example.com"],
+    "notifyOnRecovery": true
+  },
+  {
+    "name": "全服务错误率严重告警",
+    "service": "all",
+    "metric": "service.error.rate",
+    "operator": ">",
+    "threshold": 10,
+    "unit": "%",
+    "duration": 5,
+    "level": "critical",
+    "enabled": true,
+    "channels": ["Email", "InApp"],
+    "emailRecipients": ["REPLACE_WITH_ONCALL_EMAIL@example.com"],
+    "notifyOnRecovery": true
+  },
+  {
+    "name": "全服务响应时间严重告警",
+    "service": "all",
+    "metric": "service.response.time",
+    "operator": ">",
+    "threshold": 5000,
+    "unit": "ms",
+    "duration": 5,
+    "level": "critical",
+    "enabled": true,
+    "channels": ["Email", "InApp"],
+    "emailRecipients": ["REPLACE_WITH_ONCALL_EMAIL@example.com"],
+    "notifyOnRecovery": true
+  }
+]

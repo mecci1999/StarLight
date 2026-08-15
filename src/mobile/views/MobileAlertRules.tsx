@@ -88,7 +88,9 @@ export default defineComponent({
       duration: 5,
       level: 'warning' as string,
       enabled: true,
-      notificationChannels: [] as string[]
+      notificationChannels: [] as string[],
+      emailRecipients: '',
+      notifyOnRecovery: true
     })
 
     // ── Data loading ────────────────────────
@@ -188,7 +190,9 @@ export default defineComponent({
         duration: 5,
         level: 'warning',
         enabled: true,
-        notificationChannels: []
+        notificationChannels: [],
+        emailRecipients: '',
+        notifyOnRecovery: true
       }
       editingRule.value = null
       showAddModal.value = true
@@ -205,7 +209,9 @@ export default defineComponent({
         duration: rule.duration,
         level: rule.level,
         enabled: rule.enabled,
-        notificationChannels: Array.isArray(rule.channels) ? [...rule.channels] : []
+        notificationChannels: Array.isArray(rule.channels) ? [...rule.channels] : [],
+        emailRecipients: (rule.emailRecipients || []).join(', '),
+        notifyOnRecovery: rule.notifyOnRecovery !== false
       }
       showEditModal.value = true
     }
@@ -246,6 +252,11 @@ export default defineComponent({
             operator: formData.value.operator as AlertRuleItem['operator'],
             level: formData.value.level as AlertRuleItem['level'],
             channels: formData.value.notificationChannels,
+            emailRecipients: formData.value.emailRecipients
+              .split(/[\n,;]+/)
+              .map((recipient) => recipient.trim().toLowerCase())
+              .filter(Boolean),
+            notifyOnRecovery: formData.value.notifyOnRecovery,
             threshold: Number(formData.value.threshold),
             duration: Number(formData.value.duration)
           }
@@ -262,7 +273,12 @@ export default defineComponent({
             duration: Number(formData.value.duration),
             level: formData.value.level as AlertRuleItem['level'],
             enabled: formData.value.enabled,
-            channels: formData.value.notificationChannels
+            channels: formData.value.notificationChannels,
+            emailRecipients: formData.value.emailRecipients
+              .split(/[\n,;]+/)
+              .map((recipient) => recipient.trim().toLowerCase())
+              .filter(Boolean),
+            notifyOnRecovery: formData.value.notifyOnRecovery
           }
           const saved = await saveAlertRule(ruleToSave)
           rules.value.push(saved)

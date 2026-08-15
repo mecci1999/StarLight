@@ -41,10 +41,10 @@ export default defineComponent({
       error.value = false
       try {
         const context = parseInvestigationContext(route.query)
-        const detailRes = await fetchServiceDetailSummary(
-          serviceId,
-          context.range ? { timeRange: `-${context.range}` } : undefined
-        )
+        const detailRes = await fetchServiceDetailSummary(serviceId, {
+          scope: 'system',
+          ...(context.range ? { timeRange: `-${context.range}` } : {})
+        })
         if (requestId !== detailRequestId) return
         const identity = detailRes?.identity
         const detailSummary = detailRes?.summary

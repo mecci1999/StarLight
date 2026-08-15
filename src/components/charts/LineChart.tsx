@@ -184,7 +184,6 @@ export default defineComponent({
     const chartTextColor = computed(() => resolveCssColor('var(--color-text-3)', '#86909c'))
     const chartMutedColor = computed(() => resolveCssColor('var(--color-text-4)', '#c9cdd4'))
     const softBorderColor = computed(() => resolveCssColor('var(--color-border-1)', '#f2f3f5'))
-    const surfaceColor = computed(() => resolveCssColor('var(--color-bg-2)', '#ffffff'))
 
     const resolvedSeries = computed(() =>
       props.series && props.series.length > 0
@@ -338,6 +337,10 @@ export default defineComponent({
               color: chartTextColor.value,
               fontSize: 11
             },
+            icon: 'circle',
+            itemStyle: {
+              borderWidth: 0
+            },
             itemGap: 12
           }
         : undefined,
@@ -425,7 +428,7 @@ export default defineComponent({
         },
         splitLine: {
           lineStyle: {
-            color: toRgba(softBorderColor.value, props.mutedGrid ? 0.22 : isMonitor.value ? 0.4 : 0.58),
+            color: toRgba(softBorderColor.value, props.mutedGrid ? 0.12 : isMonitor.value ? 0.24 : 0.32),
             width: 1,
             type: 'dashed',
             dashOffset: 1.5
@@ -480,8 +483,7 @@ export default defineComponent({
         },
         itemStyle: {
           color: seriesItem.color,
-          borderWidth: 1.5,
-          borderColor: surfaceColor.value
+          borderWidth: 0
         },
         data: seriesItem.data.map((item) => ({
           value: item.value,

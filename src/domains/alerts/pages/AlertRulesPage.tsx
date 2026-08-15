@@ -1,49 +1,132 @@
 import {
-  NCard,
-  NTag,
-  NSpace,
   NButton,
-  NModal,
-  NTabs,
-  NTabPane,
+  NCard,
   NForm,
   NFormItem,
-  NInput,
-  NSelect,
-  NInputNumber,
-  NSwitch,
-  NSpin,
   NGrid,
   NGridItem,
+  NInput,
+  NInputNumber,
+  NModal,
+  NSelect,
+  NSpace,
+  NSpin,
+  NSwitch,
+  NTag,
+  NTabPane,
+  NTabs,
   useMessage
 } from 'naive-ui'
-import { ref, h, onMounted, computed } from 'vue'
+import { computed, defineComponent, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import PageHeader from '@/shared/layout/PageHeader'
 import ResultTable from '@/shared/components/ResultTable'
 import {
-  fetchAlertRules,
-  saveAlertRule,
-  updateAlertRule,
   deleteAlertRule,
-  bulkUpdateAlertRules,
+  deleteRegistryMissingAlertRule,
   exportAlertRules,
-  importAlertRules
+  fetchAlertRules,
+  fetchRegistryMissingAlertRules,
+  importAlertRules,
+  saveAlertRule,
+  saveRegistryMissingAlertRule,
+  updateAlertRule,
+  updateRegistryMissingAlertRule
 } from '@/api/alerts'
-import { fetchCatalogServices, getDashboardState, saveDashboardState, type MetricsDatasetScope } from '@/api/metrics'
+import { fetchCatalogServices, type MetricsDatasetScope } from '@/api/metrics'
 import { getPreferredMetricsDatasetScope } from '@/services/authSession'
-import type { AlertRuleItem } from '@/types/monitor'
 import {
-  CUSTOM_DASHBOARD_STORAGE_KEY,
-  OVERVIEW_PANEL_STATE_STORAGE_KEY,
-  removeCustomDashboardWidgetsAlertRule,
-  removeOverviewPanelStateAlertRule,
-  syncCustomDashboardWidgetsWithAlertRule,
-  syncOverviewPanelStateWithAlertRule,
-  type PersistedCustomDashboardWidget,
-  type PersistedOverviewPanelState
-} from '@/domains/alerts/alertRuleOverviewSync'
+  MANAGED_SYSTEM_SERVICES,
+  type AlertRule,
+  type AlertRuleItem,
+  type ManagedSystemService,
+  type RegistryMissingAlertRule,
+  type RegistryMissingChannel,
+  type RegistryMissingSeverity
+} from '@/types/monitor'
 import './AlertRulesPage.scss'
+
+type RuleCategory = 'all' | 'metrics' | 'logs' | 'trace' | 'quota' | 'registry_missing'
+type MetricOperator = '>' | '<' | '=' | '>=' | '<='
+type MetricLevel = 'critical' | 'warning' | 'info'
+type RuleForm = {
+  ruleType: 'metric' | 'registry_missing'
+  name: string
+  service: string
+  metric: string
+  operator: MetricOperator
+  threshold: number
+  duration: number
+  level: MetricLevel
+  enabled: boolean
+  notificationChannels: string[]
+  serviceName: ManagedSystemService | ''
+  forSeconds: number | null
+  deployGraceSeconds: number | null
+  severity: RegistryMissingSeverity
+  emailRecipients: string
+  notifyOnRecovery: boolean
+}
+
+const metricOptions = [
+  { label: 'CPU使用率', value: 'cpu_usage' },
+  { label: '内存使用率', value: 'memory_usage' },
+  { label: '响应时间', value: 'response_time' },
+  { label: 'QPS', value: 'qps' },
+  { label: '错误率', value: 'error_rate' },
+  { label: '磁盘使用率', value: 'disk_usage' }
+]
+const operatorOptions = [
+  { label: '大于', value: '>' },
+  { label: '小于', value: '<' },
+  { label: '等于', value: '=' },
+  { label: '大于等于', value: '>=' },
+  { label: '小于等于', value: '<=' }
+]
+const levelOptions = [
+  { label: '严重', value: 'critical' },
+  { label: '警告', value: 'warning' },
+  { label: '信息', value: 'info' }
+]
+const registryChannelOptions = [
+  { label: 'Email', value: 'Email' },
+  { label: '站内通知', value: 'InApp' }
+]
+const metricChannelOptions = [...registryChannelOptions, { label: 'Webhook', value: 'Webhook' }]
+
+const isRegistryRule = (rule: AlertRule): rule is RegistryMissingAlertRule =>
+  'ruleType' in rule && rule.ruleType === 'registry_missing'
+const isRegistryChannel = (channel: string): channel is RegistryMissingChannel =>
+  channel === 'Email' || channel === 'InApp'
+const normalizeRecipients = (value: string) =>
+  [
+    ...new Set(
+      value
+        .split(/[\n,;]+/)
+        .map((recipient) => recipient.trim().toLowerCase())
+        .filter(Boolean)
+    )
+  ].sort()
+const isValidEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
+
+const emptyForm = (ruleType: RuleForm['ruleType'] = 'metric'): RuleForm => ({
+  ruleType,
+  name: '',
+  service: '',
+  metric: 'cpu_usage',
+  operator: '>',
+  threshold: 0,
+  duration: 5,
+  level: 'warning',
+  enabled: true,
+  notificationChannels: [],
+  serviceName: '',
+  forSeconds: 300,
+  deployGraceSeconds: 300,
+  severity: 'warning',
+  emailRecipients: '',
+  notifyOnRecovery: true
+})
 
 export default defineComponent({
   name: 'AlertRulesPage',
@@ -51,284 +134,77 @@ export default defineComponent({
     const message = useMessage()
     const route = useRoute()
     const datasetScope = computed<MetricsDatasetScope>(() => getPreferredMetricsDatasetScope())
-    const routeServiceId = computed(() => {
-      const serviceId = typeof route.query.serviceId === 'string' ? route.query.serviceId.trim() : ''
-      if (!serviceId || serviceId === 'undefined' || serviceId === 'null') return undefined
-      return serviceId
-    })
-    const showAddModal = ref(false)
-    const showEditModal = ref(false)
+    const routeServiceId = computed(() =>
+      typeof route.query.serviceId === 'string' ? route.query.serviceId.trim() : ''
+    )
+    const showEditor = ref(false)
     const showImportModal = ref(false)
-    const editingRule = ref<any>(null)
+    const editingRule = ref<AlertRule | null>(null)
     const importPayload = ref('[]')
-    const selectedRuleType = ref<'all' | 'metrics' | 'logs' | 'trace' | 'quota'>('all')
+    const selectedRuleType = ref<RuleCategory>('all')
+    const formData = ref<RuleForm>(emptyForm())
+    const loading = ref(false)
+    const rulesData = ref<AlertRule[]>([])
+    const serviceLabelMap = ref(new Map<string, string>())
 
-    const formData = ref({
-      name: '',
-      service: '',
-      metric: '',
-      operator: '',
-      threshold: 0,
-      duration: 5,
-      level: 'warning',
-      enabled: true,
-      notificationChannels: [] as string[]
-    })
-
-    const serviceOptions = ref([{ label: '全部服务', value: 'all' }])
-    const serviceLabelMap = computed(() => new Map(serviceOptions.value.map((item) => [item.value, item.label])))
-
-    const loadServiceOptions = async () => {
+    const loadServiceLabels = async () => {
       try {
-        const res = await fetchCatalogServices({ page: 1, pageSize: 200, scope: datasetScope.value })
-        const items = res?.items || []
-        serviceOptions.value = [
-          { label: '全部服务', value: 'all' },
-          ...items.map((item: any) => ({
-            label: item.identity?.name || item.identity?.id,
-            value: item.identity?.id || 'all'
-          }))
-        ]
-      } catch (e) {
-        console.error('Failed to fetch services', e)
+        const response = await fetchCatalogServices({ page: 1, pageSize: 200, scope: 'system' })
+        const labels = new Map<string, string>()
+        response.items.forEach((item: { identity?: { id?: string; name?: string }; displayName?: string }) => {
+          const id = item.identity?.id
+          const displayName = item.displayName || item.identity?.name
+          if (id && displayName) labels.set(id, displayName)
+        })
+        serviceLabelMap.value = labels
+      } catch (error) {
+        console.error('Failed to fetch system service display names', error)
       }
     }
 
-    onMounted(() => {
-      loadServiceOptions()
-    })
-
-    const metricOptions = [
-      { label: 'CPU使用率', value: 'cpu_usage' },
-      { label: '内存使用率', value: 'memory_usage' },
-      { label: '响应时间', value: 'response_time' },
-      { label: 'QPS', value: 'qps' },
-      { label: '错误率', value: 'error_rate' },
-      { label: '磁盘使用率', value: 'disk_usage' }
-    ]
-
-    const operatorOptions = [
-      { label: '大于', value: '>' },
-      { label: '小于', value: '<' },
-      { label: '等于', value: '=' },
-      { label: '大于等于', value: '>=' },
-      { label: '小于等于', value: '<=' }
-    ]
-
-    const levelOptions = [
-      { label: '严重', value: 'critical' },
-      { label: '警告', value: 'warning' },
-      { label: '信息', value: 'info' }
-    ]
-
-    const channelOptions = [
-      { label: 'Email', value: 'Email' },
-      { label: 'Webhook', value: 'Webhook' },
-      { label: '站内通知', value: 'InApp' }
-    ]
-
-    const columns = [
-      {
-        title: '规则名称',
-        key: 'name',
-        fixed: 'left',
-        width: 260,
-        render(row: AlertRuleItem) {
-          return (
-            <div class="alert-rules-page__rule-cell">
-              <strong>{row.name || '未命名规则'}</strong>
-              <span>{row.id || 'pending-rule'}</span>
-            </div>
-          )
-        }
-      },
-      {
-        title: '服务',
-        key: 'service',
-        fixed: 'left',
-        width: 190,
-        render(row: AlertRuleItem) {
-          return (
-            <div class="alert-rules-page__service-cell">
-              <strong>{serviceLabelMap.value.get(row.service) || row.service || '全部服务'}</strong>
-              <span>{row.service === 'all' ? '全局规则' : row.service || 'all'}</span>
-            </div>
-          )
-        }
-      },
-      {
-        title: '监控指标',
-        key: 'metric',
-        width: 190,
-        render(row: AlertRuleItem) {
-          return <span class="alert-rules-page__metric-token">{row.metric || '-'}</span>
-        }
-      },
-      {
-        title: '条件',
-        key: 'condition',
-        width: 150,
-        render(row: AlertRuleItem) {
-          return (
-            <span class="alert-rules-page__condition-pill">
-              {row.operator} {row.threshold}
-              {row.unit || ''}
-            </span>
-          )
-        }
-      },
-      {
-        title: '持续时间',
-        key: 'duration',
-        width: 100,
-        render(row: any) {
-          return `${row.duration}分钟`
-        }
-      },
-      {
-        title: '告警等级',
-        key: 'level',
-        width: 100,
-        render(row: any) {
-          const levelMap = {
-            critical: { type: 'error', text: '严重' },
-            warning: { type: 'warning', text: '警告' },
-            info: { type: 'info', text: '信息' }
-          }
-          const config = levelMap[row.level as keyof typeof levelMap]
-          return h(NTag, { type: config.type as any }, { default: () => config.text })
-        }
-      },
-      {
-        title: '状态',
-        key: 'enabled',
-        width: 80,
-        render(row: any) {
-          return h(
-            NTag,
-            { type: row.enabled ? 'success' : 'default' },
-            { default: () => (row.enabled ? '启用' : '禁用') }
-          )
-        }
-      },
-      {
-        title: '通知渠道',
-        key: 'channels',
-        width: 180,
-        render(row: AlertRuleItem) {
-          return (
-            <span class="alert-rules-page__channel-list">{row.channels?.length ? row.channels.join(', ') : '-'}</span>
-          )
-        }
-      },
-      {
-        title: '操作',
-        key: 'actions',
-        fixed: 'right',
-        width: 230,
-        render(row: AlertRuleItem) {
-          return (
-            <div class="alert-rules-page__table-actions">
-              <NButton size="small" type="primary" secondary onClick={() => handleEdit(row)}>
-                编辑
-              </NButton>
-              <NButton
-                size="small"
-                type={row.enabled ? 'warning' : 'success'}
-                secondary
-                onClick={() => handleToggle(row)}>
-                {row.enabled ? '禁用' : '启用'}
-              </NButton>
-              <NButton size="small" type="error" secondary onClick={() => handleDelete(row)}>
-                删除
-              </NButton>
-            </div>
-          )
-        }
-      }
-    ]
-
-    const loading = ref(false)
-    const rulesData = ref<AlertRuleItem[]>([])
-    const enabledCount = computed(() => rulesData.value.filter((rule) => rule.enabled).length)
-    const criticalCount = computed(() => rulesData.value.filter((rule) => rule.level === 'critical').length)
-    const coveredServiceCount = computed(
-      () => new Set(rulesData.value.map((rule) => rule.service).filter(Boolean)).size
+    const registryServiceOptions = computed(() =>
+      MANAGED_SYSTEM_SERVICES.map((serviceName) => ({
+        value: serviceName,
+        label: serviceLabelMap.value.get(serviceName) || serviceName
+      }))
     )
-    const scopeLabel = computed(() => (datasetScope.value === 'system' ? 'Darwin 系统' : '用户接入'))
-
-    const resolveRuleType = (metric: string) => {
-      const normalizedMetric = metric.toLowerCase()
-      if (normalizedMetric.includes('log')) return 'logs'
-      if (normalizedMetric.includes('trace') || normalizedMetric.includes('response.time')) return 'trace'
-      if (normalizedMetric.includes('qps') || normalizedMetric.includes('quota')) return 'quota'
+    const metricServiceOptions = computed(() => [{ label: '全部服务', value: 'all' }, ...registryServiceOptions.value])
+    const enabledCount = computed(() => rulesData.value.filter((rule) => rule.enabled).length)
+    const criticalCount = computed(
+      () => rulesData.value.filter((rule) => (isRegistryRule(rule) ? rule.severity : rule.level) === 'critical').length
+    )
+    const coveredServiceCount = computed(
+      () =>
+        new Set(rulesData.value.map((rule) => (isRegistryRule(rule) ? rule.serviceName : rule.service)).filter(Boolean))
+          .size
+    )
+    const resolveRuleType = (
+      rule: AlertRule
+    ): Exclude<RuleCategory, 'all' | 'registry_missing'> | 'registry_missing' => {
+      if (isRegistryRule(rule)) return 'registry_missing'
+      const metric = rule.metric.toLowerCase()
+      if (metric.includes('log')) return 'logs'
+      if (metric.includes('trace') || metric.includes('response.time')) return 'trace'
+      if (metric.includes('qps') || metric.includes('quota')) return 'quota'
       return 'metrics'
     }
-
-    const filteredRules = computed(() => {
-      let list = rulesData.value
-      if (routeServiceId.value) {
-        list = list.filter((rule) => rule.service === routeServiceId.value)
-      }
-      if (selectedRuleType.value === 'all') return list
-      return list.filter((rule) => resolveRuleType(rule.metric) === selectedRuleType.value)
-    })
-
-    const syncOverviewCardsForAlertRule = async (rule: AlertRuleItem) => {
-      let synced = false
-      const saved = await getDashboardState<PersistedOverviewPanelState | null>(OVERVIEW_PANEL_STATE_STORAGE_KEY, null)
-      if (saved?.panels?.length) {
-        const { changed, state } = syncOverviewPanelStateWithAlertRule(saved, rule)
-        if (changed) {
-          await saveDashboardState<PersistedOverviewPanelState>(OVERVIEW_PANEL_STATE_STORAGE_KEY, state)
-          synced = true
-        }
-      }
-
-      const customWidgets = await getDashboardState<PersistedCustomDashboardWidget[]>(CUSTOM_DASHBOARD_STORAGE_KEY, [])
-      if (customWidgets.length) {
-        const { changed, widgets } = syncCustomDashboardWidgetsWithAlertRule(customWidgets, rule)
-        if (changed) {
-          await saveDashboardState<PersistedCustomDashboardWidget[]>(CUSTOM_DASHBOARD_STORAGE_KEY, widgets)
-          synced = true
-        }
-      }
-
-      return synced
-    }
-
-    const removeAlertRuleFromOverviewCards = async (ruleId: string) => {
-      let synced = false
-      const saved = await getDashboardState<PersistedOverviewPanelState | null>(OVERVIEW_PANEL_STATE_STORAGE_KEY, null)
-      if (saved?.panels?.length) {
-        const { changed, state } = removeOverviewPanelStateAlertRule(saved, ruleId)
-        if (changed) {
-          await saveDashboardState<PersistedOverviewPanelState>(OVERVIEW_PANEL_STATE_STORAGE_KEY, state)
-          synced = true
-        }
-      }
-
-      const customWidgets = await getDashboardState<PersistedCustomDashboardWidget[]>(CUSTOM_DASHBOARD_STORAGE_KEY, [])
-      if (customWidgets.length) {
-        const { changed, widgets } = removeCustomDashboardWidgetsAlertRule(customWidgets, ruleId)
-        if (changed) {
-          await saveDashboardState<PersistedCustomDashboardWidget[]>(CUSTOM_DASHBOARD_STORAGE_KEY, widgets)
-          synced = true
-        }
-      }
-
-      return synced
-    }
+    const filteredRules = computed(() =>
+      rulesData.value.filter((rule) => {
+        if (routeServiceId.value && !isRegistryRule(rule) && rule.service !== routeServiceId.value) return false
+        return selectedRuleType.value === 'all' || resolveRuleType(rule) === selectedRuleType.value
+      })
+    )
 
     const loadRules = async () => {
       loading.value = true
       try {
-        rulesData.value = await fetchAlertRules({
-          serviceId: routeServiceId.value,
-          scope: datasetScope.value
-        })
+        const [metricRules, registryRules] = await Promise.all([
+          fetchAlertRules({ serviceId: routeServiceId.value || undefined, scope: datasetScope.value }),
+          fetchRegistryMissingAlertRules()
+        ])
+        rulesData.value = [...metricRules, ...registryRules]
       } catch (error) {
-        console.error('Failed to load alert rules:', error)
+        console.error('Failed to load alert rules', error)
         rulesData.value = []
         message.error('加载告警规则失败，请稍后重试')
       } finally {
@@ -336,184 +212,327 @@ export default defineComponent({
       }
     }
 
-    onMounted(() => {
-      if (routeServiceId.value) {
-        formData.value.service = routeServiceId.value
-      }
-      loadServiceOptions()
-      loadRules()
-    })
-
-    const handleAdd = () => {
-      formData.value = {
-        name: '',
-        service: '',
-        metric:
-          selectedRuleType.value === 'all' || selectedRuleType.value === 'metrics'
-            ? 'cpu_usage'
-            : selectedRuleType.value === 'logs'
-              ? 'error_rate'
-              : selectedRuleType.value === 'trace'
-                ? 'response_time'
-                : 'qps',
-        operator: '',
-        threshold: 0,
-        duration: 5,
-        level: 'warning',
-        enabled: true,
-        notificationChannels: []
-      }
-      showAddModal.value = true
+    const openAdd = () => {
+      const type = selectedRuleType.value === 'registry_missing' ? 'registry_missing' : 'metric'
+      formData.value = emptyForm(type)
+      if (type === 'metric' && routeServiceId.value) formData.value.service = routeServiceId.value
+      showEditor.value = true
     }
-
-    const handleEdit = (rule: any) => {
+    const openEdit = (rule: AlertRule) => {
       editingRule.value = rule
-      formData.value = {
-        ...rule,
-        notificationChannels: Array.isArray(rule.notificationChannels)
-          ? rule.notificationChannels
-          : Array.isArray(rule.channels)
-            ? rule.channels
-            : []
-      }
-      showEditModal.value = true
+      formData.value = isRegistryRule(rule)
+        ? {
+            ...emptyForm('registry_missing'),
+            ruleType: 'registry_missing',
+            name: rule.name,
+            serviceName: rule.serviceName,
+            forSeconds: rule.forSeconds,
+            deployGraceSeconds: rule.deployGraceSeconds,
+            severity: rule.severity,
+            enabled: rule.enabled,
+            notificationChannels: rule.channels,
+            emailRecipients: (rule.emailRecipients || []).join(', '),
+            notifyOnRecovery: rule.notifyOnRecovery !== false
+          }
+        : {
+            ...emptyForm(),
+            ...rule,
+            ruleType: 'metric',
+            notificationChannels: rule.channels,
+            emailRecipients: (rule.emailRecipients || []).join(', '),
+            notifyOnRecovery: rule.notifyOnRecovery !== false
+          }
+      showEditor.value = true
     }
-
-    const handleToggle = async (rule: AlertRuleItem) => {
-      const updated = await updateAlertRule({ ...rule, enabled: !rule.enabled })
-      Object.assign(rule, updated)
-      try {
-        await syncOverviewCardsForAlertRule(updated)
-      } catch (error) {
-        console.error('Failed to sync overview card alert rule status:', error)
-        message.warning('规则状态已更新，但同步到看板卡片失败，请稍后重试')
+    const validateRegistryForm = () => {
+      const { serviceName, forSeconds, deployGraceSeconds, notificationChannels } = formData.value
+      const recipients = normalizeRecipients(formData.value.emailRecipients)
+      if (!serviceName) return '请选择目标服务'
+      if (!Number.isInteger(forSeconds) || (forSeconds ?? 0) < 60 || (forSeconds ?? 0) > 86400) {
+        return '缺失持续时间必须为 60 到 86400 秒的整数'
+      }
+      if (
+        !Number.isInteger(deployGraceSeconds) ||
+        (deployGraceSeconds ?? -1) < 0 ||
+        (deployGraceSeconds ?? 0) > 86400
+      ) {
+        return '发布宽限期必须为 0 到 86400 秒的整数'
+      }
+      if (
+        notificationChannels.includes('Email') &&
+        (!recipients.length || recipients.some((recipient) => !isValidEmail(recipient)))
+      ) {
+        return '选择 Email 时至少需要一个有效收件人'
+      }
+      return ''
+    }
+    const validateMetricForm = () => {
+      const recipients = normalizeRecipients(formData.value.emailRecipients)
+      if (
+        formData.value.notificationChannels.includes('Email') &&
+        (!recipients.length || recipients.some((recipient) => !isValidEmail(recipient)))
+      ) {
+        return '选择 Email 时至少需要一个有效收件人'
+      }
+      return ''
+    }
+    const buildRegistryRule = (): Omit<RegistryMissingAlertRule, 'ruleId'> | null => {
+      const validationMessage = validateRegistryForm()
+      if (validationMessage) {
+        message.error(validationMessage)
+        return null
+      }
+      const recipients = normalizeRecipients(formData.value.emailRecipients)
+      return {
+        ruleType: 'registry_missing',
+        name: formData.value.name.trim() || `${formData.value.serviceName} 服务注册缺失`,
+        serviceName: formData.value.serviceName as ManagedSystemService,
+        forSeconds: formData.value.forSeconds as number,
+        deployGraceSeconds: formData.value.deployGraceSeconds as number,
+        severity: formData.value.severity,
+        enabled: formData.value.enabled,
+        channels: formData.value.notificationChannels.filter(isRegistryChannel),
+        emailRecipients: recipients,
+        notifyOnRecovery: formData.value.notifyOnRecovery
       }
     }
-
-    const handleDelete = async (rule: AlertRuleItem) => {
-      await deleteAlertRule(rule.id)
-      try {
-        await removeAlertRuleFromOverviewCards(rule.id)
-      } catch (error) {
-        console.error('Failed to remove overview card alert rule:', error)
-        message.warning('规则已删除，但同步移除看板卡片规则失败，请稍后重试')
+    const handleSave = async () => {
+      if (formData.value.ruleType === 'registry_missing') {
+        const draft = buildRegistryRule()
+        if (!draft) return
+        const saved =
+          editingRule.value && isRegistryRule(editingRule.value)
+            ? await updateRegistryMissingAlertRule({ ...draft, ruleId: editingRule.value.ruleId })
+            : await saveRegistryMissingAlertRule(draft)
+        rulesData.value = editingRule.value
+          ? rulesData.value.map((rule) => (isRegistryRule(rule) && rule.ruleId === saved.ruleId ? saved : rule))
+          : [...rulesData.value, saved]
+      } else {
+        const validationMessage = validateMetricForm()
+        if (validationMessage) {
+          message.error(validationMessage)
+          return
+        }
+        const metricRule: Omit<AlertRuleItem, 'id'> = {
+          name: formData.value.name,
+          service: formData.value.service,
+          metric: formData.value.metric,
+          operator: formData.value.operator,
+          threshold: formData.value.threshold,
+          duration: formData.value.duration,
+          level: formData.value.level,
+          enabled: formData.value.enabled,
+          channels: formData.value.notificationChannels,
+          emailRecipients: normalizeRecipients(formData.value.emailRecipients),
+          notifyOnRecovery: formData.value.notifyOnRecovery
+        }
+        const saved =
+          editingRule.value && !isRegistryRule(editingRule.value)
+            ? await updateAlertRule({ ...metricRule, id: editingRule.value.id })
+            : await saveAlertRule(metricRule)
+        rulesData.value = editingRule.value
+          ? rulesData.value.map((rule) => (!isRegistryRule(rule) && rule.id === saved.id ? saved : rule))
+          : [...rulesData.value, saved]
       }
-      const index = rulesData.value.findIndex((r) => r.id === rule.id)
-      if (index > -1) rulesData.value.splice(index, 1)
+      showEditor.value = false
+      editingRule.value = null
+      message.success('规则保存成功')
     }
-
-    const handleBulkToggle = async (enabled: boolean) => {
-      const ids = filteredRules.value.map((rule) => rule.id)
-      if (!ids.length) {
-        message.info('当前没有可批量处理的规则')
-        return
-      }
-      const updated = await bulkUpdateAlertRules({ ids, enabled })
-      const updateMap = new Map(updated.map((item) => [item.id, item]))
-      rulesData.value = rulesData.value.map((rule) => updateMap.get(rule.id) || rule)
-      try {
-        await Promise.all(updated.map((rule) => syncOverviewCardsForAlertRule(rule)))
-      } catch (error) {
-        console.error('Failed to sync overview card alert rule statuses:', error)
-        message.warning('规则状态已批量更新，但同步到看板卡片失败，请稍后重试')
-      }
-      message.success(enabled ? '批量启用成功' : '批量禁用成功')
+    const handleDelete = async (rule: AlertRule) => {
+      if (isRegistryRule(rule)) await deleteRegistryMissingAlertRule(rule.ruleId)
+      else await deleteAlertRule(rule.id)
+      rulesData.value = rulesData.value.filter(
+        (item) => (isRegistryRule(item) ? item.ruleId : item.id) !== (isRegistryRule(rule) ? rule.ruleId : rule.id)
+      )
+      message.success('规则已删除')
     }
-
+    const handleToggle = async (rule: AlertRule) => {
+      const updated = isRegistryRule(rule)
+        ? await updateRegistryMissingAlertRule({ ...rule, enabled: !rule.enabled })
+        : await updateAlertRule({ ...rule, enabled: !rule.enabled })
+      rulesData.value = rulesData.value.map((item) =>
+        (isRegistryRule(item) ? item.ruleId : item.id) === (isRegistryRule(updated) ? updated.ruleId : updated.id)
+          ? updated
+          : item
+      )
+    }
     const handleExport = async () => {
-      const exported = await exportAlertRules({
-        serviceId: routeServiceId.value,
+      const metricExport = await exportAlertRules({
+        serviceId: routeServiceId.value || undefined,
         scope: datasetScope.value
       })
-      const blob = new Blob([JSON.stringify(exported.rules, null, 2)], { type: 'application/json' })
+      const rules = [...metricExport.rules, ...rulesData.value.filter(isRegistryRule)]
+      const blob = new Blob([JSON.stringify(rules, null, 2)], { type: 'application/json' })
       const downloadUrl = URL.createObjectURL(blob)
       const link = document.createElement('a')
       link.href = downloadUrl
       link.download = `alert-rules-${Date.now()}.json`
-      document.body.appendChild(link)
       link.click()
-      document.body.removeChild(link)
       URL.revokeObjectURL(downloadUrl)
       message.success('导出规则成功')
     }
-
     const handleImport = async () => {
-      const parsed = JSON.parse(importPayload.value)
-      const imported = await importAlertRules({ rules: parsed })
-      rulesData.value = [
-        ...imported,
-        ...rulesData.value.filter((rule) => !imported.some((item) => item.id === rule.id))
-      ]
-      showImportModal.value = false
-      importPayload.value = '[]'
-      message.success('导入规则成功')
-    }
-
-    const handleSave = async () => {
-      if (editingRule.value) {
-        const ruleToUpdate: AlertRuleItem = {
-          ...editingRule.value,
-          ...formData.value,
-          operator: formData.value.operator as any,
-          level: formData.value.level as any,
-          channels: formData.value.notificationChannels
-        }
-        const updated = await updateAlertRule(ruleToUpdate)
-        Object.assign(editingRule.value, updated)
-        try {
-          await syncOverviewCardsForAlertRule(updated)
-        } catch (error) {
-          console.error('Failed to sync overview card alert rule:', error)
-          message.warning('规则已更新，但同步到看板卡片失败，请稍后重试')
-        }
-        showEditModal.value = false
-      } else {
-        const ruleToSave: Omit<AlertRuleItem, 'id'> = {
-          ...formData.value,
-          operator: formData.value.operator as any,
-          level: formData.value.level as any,
-          channels: formData.value.notificationChannels
-        }
-        const saved = await saveAlertRule(ruleToSave)
-        rulesData.value.push(saved)
-        showAddModal.value = false
+      try {
+        const parsed: unknown = JSON.parse(importPayload.value)
+        if (!Array.isArray(parsed)) throw new Error('rules must be an array')
+        const registryRules = parsed.filter(
+          (rule): rule is RegistryMissingAlertRule =>
+            typeof rule === 'object' && rule !== null && 'ruleType' in rule && rule.ruleType === 'registry_missing'
+        )
+        const metricRules = parsed.filter(
+          (rule): rule is Partial<AlertRuleItem> =>
+            typeof rule === 'object' && rule !== null && !('ruleType' in rule && rule.ruleType === 'registry_missing')
+        )
+        const [importedMetrics, importedRegistry] = await Promise.all([
+          metricRules.length ? importAlertRules({ rules: metricRules }) : Promise.resolve([]),
+          Promise.all(
+            registryRules.map((rule) => {
+              const { ruleId: _, ...newRule } = rule
+              return saveRegistryMissingAlertRule(newRule)
+            })
+          )
+        ])
+        rulesData.value = [...rulesData.value, ...importedMetrics, ...importedRegistry]
+        showImportModal.value = false
+        importPayload.value = '[]'
+        message.success('导入规则成功')
+      } catch (error) {
+        console.error('Failed to import alert rules', error)
+        message.error('导入失败，请检查规则 JSON')
       }
-      editingRule.value = null
     }
 
-    return () => (
-      <div class="alert-rules-page">
-        <PageHeader title="告警规则配置" subtitle="配置阈值触发条件、通知渠道与批量启停策略" />
-
-        <section class="alert-rules-page__context-card">
-          <div>
-            <div class="alert-rules-page__context-title">规则工作台</div>
-            <div class="alert-rules-page__context-desc">
-              当前范围：{scopeLabel.value} · {routeServiceId.value ? `服务 ${routeServiceId.value}` : '全部服务'}
-            </div>
+    const columns = [
+      {
+        title: '规则名称',
+        key: 'name',
+        fixed: 'left',
+        width: 240,
+        render: (row: AlertRule) => (
+          <div class="alert-rules-page__rule-cell">
+            <strong>{row.name || '未命名规则'}</strong>
+            <span>{isRegistryRule(row) ? '服务注册缺失' : row.id}</span>
           </div>
-          <NTag type={routeServiceId.value ? 'info' : 'success'} bordered={false}>
-            {routeServiceId.value ? '服务上下文' : '全局规则'}
+        )
+      },
+      {
+        title: '类型',
+        key: 'type',
+        width: 130,
+        render: (row: AlertRule) => (
+          <NTag type={isRegistryRule(row) ? 'warning' : 'info'} bordered={false}>
+            {isRegistryRule(row) ? '服务注册缺失' : '指标规则'}
           </NTag>
-        </section>
-
-        <div class="alert-rules-page__toolbar-card">
-          <div class="alert-rules-page__toolbar-primary">
-            <NTabs v-model:value={selectedRuleType.value} class="alert-rules-page__tabs">
-              <NTabPane name="all" tab="全部规则" />
-              <NTabPane name="metrics" tab="指标规则" />
-              <NTabPane name="logs" tab="日志规则" />
-              <NTabPane name="trace" tab="链路规则" />
-              <NTabPane name="quota" tab="配额规则" />
-            </NTabs>
-          </div>
-          <div class="alert-rules-page__toolbar-secondary">
-            <NButton loading={loading.value} onClick={loadRules}>
-              刷新规则
+        )
+      },
+      {
+        title: '目标',
+        key: 'target',
+        width: 190,
+        render: (row: AlertRule) => {
+          const service = isRegistryRule(row) ? row.serviceName : row.service
+          return (
+            <div class="alert-rules-page__service-cell">
+              <strong>{serviceLabelMap.value.get(service) || service || '全部服务'}</strong>
+              <span>{isRegistryRule(row) ? 'Node-Universe 服务' : service}</span>
+            </div>
+          )
+        }
+      },
+      {
+        title: '触发条件',
+        key: 'condition',
+        width: 210,
+        render: (row: AlertRule) =>
+          isRegistryRule(row) ? (
+            <span class="alert-rules-page__condition-pill">
+              缺失 {row.forSeconds}s · 宽限 {row.deployGraceSeconds}s
+            </span>
+          ) : (
+            <span class="alert-rules-page__condition-pill">
+              {row.metric} {row.operator} {row.threshold}
+              {row.unit || ''}
+            </span>
+          )
+      },
+      {
+        title: '告警等级',
+        key: 'level',
+        width: 110,
+        render: (row: AlertRule) => (
+          <NTag
+            type={
+              (isRegistryRule(row) ? row.severity : row.level) === 'critical'
+                ? 'error'
+                : (isRegistryRule(row) ? row.severity : row.level) === 'warning'
+                  ? 'warning'
+                  : 'info'
+            }>
+            {(isRegistryRule(row) ? row.severity : row.level) === 'critical'
+              ? '严重'
+              : (isRegistryRule(row) ? row.severity : row.level) === 'warning'
+                ? '警告'
+                : '信息'}
+          </NTag>
+        )
+      },
+      {
+        title: '通知渠道',
+        key: 'channels',
+        width: 160,
+        render: (row: AlertRule) => (
+          <span class="alert-rules-page__channel-list">{row.channels.length ? row.channels.join(', ') : '-'}</span>
+        )
+      },
+      {
+        title: '状态',
+        key: 'enabled',
+        width: 80,
+        render: (row: AlertRule) => (
+          <NTag type={row.enabled ? 'success' : 'default'}>{row.enabled ? '启用' : '禁用'}</NTag>
+        )
+      },
+      {
+        title: '操作',
+        key: 'actions',
+        fixed: 'right',
+        width: 210,
+        render: (row: AlertRule) => (
+          <div class="alert-rules-page__table-actions">
+            <NButton size="small" type="primary" secondary onClick={() => openEdit(row)}>
+              编辑
+            </NButton>
+            <NButton size="small" secondary onClick={() => handleToggle(row)}>
+              {row.enabled ? '禁用' : '启用'}
+            </NButton>
+            <NButton size="small" type="error" secondary onClick={() => handleDelete(row)}>
+              删除
             </NButton>
           </div>
-        </div>
+        )
+      }
+    ]
 
+    onMounted(() => {
+      loadServiceLabels()
+      loadRules()
+    })
+    return () => (
+      <div class="alert-rules-page">
+        <PageHeader title="告警规则配置" subtitle="配置指标阈值与 Node-Universe 服务注册缺失通知" />
+        <section class="alert-rules-page__toolbar-card">
+          <NTabs v-model:value={selectedRuleType.value} class="alert-rules-page__tabs">
+            <NTabPane name="all" tab="全部规则" />
+            <NTabPane name="metrics" tab="指标规则" />
+            <NTabPane name="registry_missing" tab="服务注册缺失" />
+            <NTabPane name="logs" tab="日志规则" />
+            <NTabPane name="trace" tab="链路规则" />
+            <NTabPane name="quota" tab="配额规则" />
+          </NTabs>
+          <NButton loading={loading.value} onClick={loadRules}>
+            刷新规则
+          </NButton>
+        </section>
         <NGrid cols={4} xGap={16} class="alert-rules-page__summary-grid">
           {[
             { label: '总规则数', value: rulesData.value.length },
@@ -529,34 +548,52 @@ export default defineComponent({
             </NGridItem>
           ))}
         </NGrid>
-
         <NCard bordered={false} class="alert-rules-page__preview-card" title="当前编辑预览">
-          <div class="alert-rules-page__preview-note">预览会跟随新增/编辑表单变化，用于确认触发条件与通知范围。</div>
+          <div class="alert-rules-page__preview-note">预览会跟随新增或编辑表单变化，确认后才会保存规则。</div>
           <div class="alert-rules-page__preview-grid">
-            <div class="alert-rules-page__preview-item">
-              <span>名称</span>
-              {formData.value.name || '-'}
-            </div>
-            <div class="alert-rules-page__preview-item">
-              <span>服务</span>
-              {formData.value.service || '-'}
-            </div>
-            <div class="alert-rules-page__preview-item">
-              <span>指标</span>
-              {formData.value.metric || '-'}
-            </div>
-            <div class="alert-rules-page__preview-item">
-              <span>条件</span>
-              {formData.value.operator ? `${formData.value.operator} ${formData.value.threshold}` : '-'}
-            </div>
-            <div class="alert-rules-page__preview-item">
-              <span>持续时间</span>
-              {formData.value.duration ? `${formData.value.duration}分钟` : '-'}
-            </div>
-            <div class="alert-rules-page__preview-item">
-              <span>等级</span>
-              {formData.value.level || '-'}
-            </div>
+            {formData.value.ruleType === 'registry_missing' ? (
+              <>
+                <div class="alert-rules-page__preview-item">
+                  <span>规则类型</span>服务注册缺失
+                </div>
+                <div class="alert-rules-page__preview-item">
+                  <span>目标服务</span>
+                  {serviceLabelMap.value.get(formData.value.serviceName) || formData.value.serviceName || '-'}
+                </div>
+                <div class="alert-rules-page__preview-item">
+                  <span>触发时间</span>
+                  {formData.value.forSeconds ? `${formData.value.forSeconds} 秒` : '-'}
+                </div>
+                <div class="alert-rules-page__preview-item">
+                  <span>发布宽限期</span>
+                  {formData.value.deployGraceSeconds ?? '-'}
+                  {formData.value.deployGraceSeconds !== null ? ' 秒' : ''}
+                </div>
+                <div class="alert-rules-page__preview-item">
+                  <span>等级</span>
+                  {formData.value.severity}
+                </div>
+                <div class="alert-rules-page__preview-item">
+                  <span>恢复通知</span>
+                  {formData.value.notifyOnRecovery ? '开启' : '关闭'}
+                </div>
+              </>
+            ) : (
+              <>
+                <div class="alert-rules-page__preview-item">
+                  <span>服务</span>
+                  {formData.value.service || '-'}
+                </div>
+                <div class="alert-rules-page__preview-item">
+                  <span>指标</span>
+                  {formData.value.metric || '-'}
+                </div>
+                <div class="alert-rules-page__preview-item">
+                  <span>条件</span>
+                  {`${formData.value.operator} ${formData.value.threshold}`}
+                </div>
+              </>
+            )}
             <div class="alert-rules-page__preview-grid-wide">
               <span>通知渠道</span>
               <strong>
@@ -565,34 +602,27 @@ export default defineComponent({
             </div>
           </div>
         </NCard>
-
         <NCard bordered={false} class="alert-rules-page__action-card">
           <div class="alert-rules-page__action-row">
-            <div class="alert-rules-page__action-copy">
+            <div>
               <div class="alert-rules-page__action-title">规则操作</div>
-              <div class="alert-rules-page__action-desc">对当前类型下的规则进行新增、导入导出或批量启停。</div>
+              <div class="alert-rules-page__action-desc">导入和导出会保留指标规则与服务注册缺失规则。</div>
             </div>
-            <NSpace class="alert-rules-page__action-buttons">
-              <NButton type="primary" onClick={handleAdd}>
+            <NSpace>
+              <NButton type="primary" onClick={openAdd}>
                 + 添加规则
               </NButton>
-              <NButton onClick={() => handleBulkToggle(true)}>批量启用</NButton>
-              <NButton onClick={() => handleBulkToggle(false)}>批量禁用</NButton>
               <NButton onClick={() => (showImportModal.value = true)}>导入规则</NButton>
               <NButton onClick={handleExport}>导出规则</NButton>
             </NSpace>
           </div>
         </NCard>
-
         <section class="alert-rules-page__table-card">
           <div class="alert-rules-page__table-header">
             <div>
               <div class="alert-rules-page__section-title">规则清单</div>
-              <div class="alert-rules-page__section-desc">
-                规则名称、服务与操作列已固定，中间条件与通知列可横向滑动查看。
-              </div>
+              <div class="alert-rules-page__section-desc">服务注册缺失规则使用独立条件和通知配置，不包含指标阈值。</div>
             </div>
-            <NTag bordered={false}>横向滚动</NTag>
           </div>
           {loading.value ? (
             <div class="alert-rules-page__table-loading">
@@ -607,100 +637,146 @@ export default defineComponent({
                 pagination={{ pageSize: 10, showSizePicker: true, pageSizes: [10, 20, 50] }}
                 bordered={false}
                 singleLine={false}
-                scrollX={1510}
+                scrollX={1340}
                 flexHeight={false}
-                rowKey={(row: any) => row.id}
+                rowKey={(row: AlertRule) => (isRegistryRule(row) ? row.ruleId : row.id)}
               />
             </div>
           )}
         </section>
-
-        <NModal v-model:show={showAddModal.value} title="添加规则" preset="card" style={{ width: '600px' }}>
-          <NForm model={formData.value} labelPlacement="left" labelWidth={100}>
-            <NFormItem label="规则名称">
-              <NInput v-model:value={formData.value.name} placeholder="请输入规则名称" />
-            </NFormItem>
-            <NFormItem label="监控服务">
-              <NSelect v-model:value={formData.value.service} options={serviceOptions.value} placeholder="选择服务" />
-            </NFormItem>
-            <NFormItem label="监控指标">
-              <NSelect v-model:value={formData.value.metric} options={metricOptions} placeholder="选择指标" />
-            </NFormItem>
-            <NFormItem label="触发条件">
-              <NSpace>
-                <NSelect v-model:value={formData.value.operator} options={operatorOptions} style={{ width: '120px' }} />
-                <NInputNumber v-model:value={formData.value.threshold} placeholder="阈值" style={{ width: '150px' }} />
-              </NSpace>
-            </NFormItem>
-            <NFormItem label="持续时间">
-              <NInputNumber v-model:value={formData.value.duration} placeholder="分钟" style={{ width: '150px' }} />
-            </NFormItem>
-            <NFormItem label="告警等级">
-              <NSelect v-model:value={formData.value.level} options={levelOptions} placeholder="选择等级" />
-            </NFormItem>
-            <NFormItem label="通知渠道">
+        <NModal
+          v-model:show={showEditor.value}
+          title={editingRule.value ? '编辑规则' : '添加规则'}
+          preset="card"
+          style={{ width: '620px' }}>
+          <NForm labelPlacement="left" labelWidth={110}>
+            <NFormItem label="规则类型">
               <NSelect
-                v-model:value={formData.value.notificationChannels}
-                options={channelOptions}
-                multiple
-                placeholder="选择通知渠道"
+                v-model:value={formData.value.ruleType}
+                options={[
+                  { label: '指标规则', value: 'metric' },
+                  { label: '服务注册缺失', value: 'registry_missing' }
+                ]}
+                disabled={Boolean(editingRule.value)}
               />
             </NFormItem>
+            <NFormItem label="规则名称">
+              <NInput
+                v-model:value={formData.value.name}
+                placeholder={formData.value.ruleType === 'registry_missing' ? '留空将按目标服务生成' : '请输入规则名称'}
+              />
+            </NFormItem>
+            {formData.value.ruleType === 'registry_missing' ? (
+              <>
+                <NFormItem label="目标服务">
+                  <NSelect
+                    v-model:value={formData.value.serviceName}
+                    options={registryServiceOptions.value}
+                    placeholder="选择 Node-Universe 服务"
+                    filterable
+                  />
+                </NFormItem>
+                <NFormItem label="缺失持续时间">
+                  <NInputNumber
+                    v-model:value={formData.value.forSeconds}
+                    min={60}
+                    max={86400}
+                    placeholder="60 - 86400 秒"
+                  />
+                </NFormItem>
+                <NFormItem label="发布宽限期">
+                  <NInputNumber
+                    v-model:value={formData.value.deployGraceSeconds}
+                    min={0}
+                    max={86400}
+                    placeholder="0 - 86400 秒"
+                  />
+                </NFormItem>
+                <NFormItem label="告警等级">
+                  <NSelect v-model:value={formData.value.severity} options={levelOptions} />
+                </NFormItem>
+                <NFormItem label="通知渠道">
+                  <NSelect
+                    v-model:value={formData.value.notificationChannels}
+                    options={registryChannelOptions}
+                    multiple
+                  />
+                </NFormItem>
+                {formData.value.notificationChannels.includes('Email') ? (
+                  <NFormItem label="Email 收件人">
+                    <NInput
+                      v-model:value={formData.value.emailRecipients}
+                      type="textarea"
+                      rows={3}
+                      placeholder="多个地址用逗号、分号或换行分隔"
+                    />
+                  </NFormItem>
+                ) : null}
+                <NFormItem label="恢复时通知">
+                  <NSwitch v-model:value={formData.value.notifyOnRecovery} />
+                </NFormItem>
+              </>
+            ) : (
+              <>
+                <NFormItem label="监控服务">
+                  <NSelect
+                    v-model:value={formData.value.service}
+                    options={metricServiceOptions.value}
+                    placeholder="选择服务"
+                  />
+                </NFormItem>
+                <NFormItem label="监控指标">
+                  <NSelect v-model:value={formData.value.metric} options={metricOptions} />
+                </NFormItem>
+                <NFormItem label="触发条件">
+                  <NSpace>
+                    <NSelect
+                      v-model:value={formData.value.operator}
+                      options={operatorOptions}
+                      style={{ width: '120px' }}
+                    />
+                    <NInputNumber v-model:value={formData.value.threshold} />
+                  </NSpace>
+                </NFormItem>
+                <NFormItem label="持续时间">
+                  <NInputNumber v-model:value={formData.value.duration} min={1} />
+                </NFormItem>
+                <NFormItem label="告警等级">
+                  <NSelect v-model:value={formData.value.level} options={levelOptions} />
+                </NFormItem>
+                <NFormItem label="通知渠道">
+                  <NSelect
+                    v-model:value={formData.value.notificationChannels}
+                    options={metricChannelOptions}
+                    multiple
+                  />
+                </NFormItem>
+                {formData.value.notificationChannels.includes('Email') ? (
+                  <NFormItem label="Email 收件人">
+                    <NInput
+                      v-model:value={formData.value.emailRecipients}
+                      type="textarea"
+                      rows={3}
+                      placeholder="多个地址用逗号、分号或换行分隔"
+                    />
+                  </NFormItem>
+                ) : null}
+                <NFormItem label="恢复时通知">
+                  <NSwitch v-model:value={formData.value.notifyOnRecovery} />
+                </NFormItem>
+              </>
+            )}
             <NFormItem label="启用状态">
               <NSwitch v-model:value={formData.value.enabled} />
             </NFormItem>
           </NForm>
           <div class="alert-rules-page__modal-actions">
-            <NButton onClick={() => (showAddModal.value = false)}>取消</NButton>
+            <NButton onClick={() => (showEditor.value = false)}>取消</NButton>
             <NButton type="primary" onClick={handleSave}>
               保存
             </NButton>
           </div>
         </NModal>
-
-        <NModal v-model:show={showEditModal.value} title="编辑规则" preset="card" style={{ width: '600px' }}>
-          <NForm model={formData.value} labelPlacement="left" labelWidth={100}>
-            <NFormItem label="规则名称">
-              <NInput v-model:value={formData.value.name} placeholder="请输入规则名称" />
-            </NFormItem>
-            <NFormItem label="监控服务">
-              <NSelect v-model:value={formData.value.service} options={serviceOptions.value} placeholder="选择服务" />
-            </NFormItem>
-            <NFormItem label="监控指标">
-              <NSelect v-model:value={formData.value.metric} options={metricOptions} placeholder="选择指标" />
-            </NFormItem>
-            <NFormItem label="触发条件">
-              <NSpace>
-                <NSelect v-model:value={formData.value.operator} options={operatorOptions} style={{ width: '120px' }} />
-                <NInputNumber v-model:value={formData.value.threshold} placeholder="阈值" style={{ width: '150px' }} />
-              </NSpace>
-            </NFormItem>
-            <NFormItem label="持续时间">
-              <NInputNumber v-model:value={formData.value.duration} placeholder="分钟" style={{ width: '150px' }} />
-            </NFormItem>
-            <NFormItem label="告警等级">
-              <NSelect v-model:value={formData.value.level} options={levelOptions} placeholder="选择等级" />
-            </NFormItem>
-            <NFormItem label="通知渠道">
-              <NSelect
-                v-model:value={formData.value.notificationChannels}
-                options={channelOptions}
-                multiple
-                placeholder="选择通知渠道"
-              />
-            </NFormItem>
-            <NFormItem label="启用状态">
-              <NSwitch v-model:value={formData.value.enabled} />
-            </NFormItem>
-          </NForm>
-          <div class="alert-rules-page__modal-actions">
-            <NButton onClick={() => (showEditModal.value = false)}>取消</NButton>
-            <NButton type="primary" onClick={handleSave}>
-              保存
-            </NButton>
-          </div>
-        </NModal>
-
         <NModal v-model:show={showImportModal.value} title="导入规则" preset="card" style={{ width: '680px' }}>
           <NForm>
             <NFormItem label="规则 JSON">
@@ -708,7 +784,7 @@ export default defineComponent({
                 v-model:value={importPayload.value}
                 type="textarea"
                 rows={12}
-                placeholder='[{"name":"CPU 告警","service":"svc-growth"}]'
+                placeholder='[{"ruleType":"registry_missing","serviceName":"auth"}]'
               />
             </NFormItem>
           </NForm>

@@ -77,39 +77,42 @@ const NOTIFICATION_LIMIT = 5
 const DELIVERY_OUTCOME_LIMIT = 99
 const DEFAULT_DURATION_MS = 7000
 const UNREAD_STORAGE_KEY = 'starlight_client_notification_unread_ids_v1'
-const IOS_DENIED_PERMISSION_STORAGE_KEY = 'starlight_client_notification_ios_permission_v1'
-const IOS_DENIED_PERMISSION_RECORD = JSON.stringify({ version: 1, status: 'denied' })
-
-const hasStoredIosNotificationDenial = () => {
-  if (typeof localStorage === 'undefined') return false
-  try {
-    return localStorage.getItem(IOS_DENIED_PERMISSION_STORAGE_KEY) === IOS_DENIED_PERMISSION_RECORD
-  } catch {
-    return false
-  }
-}
-
-const persistIosNotificationDenial = () => {
-  if (typeof localStorage === 'undefined') return
-  try {
-    localStorage.setItem(IOS_DENIED_PERMISSION_STORAGE_KEY, IOS_DENIED_PERMISSION_RECORD)
-  } catch {
-    if (import.meta.env.PROD) console.warn('iOS notification permission state could not be persisted')
-  }
-}
-
-const clearStoredIosNotificationDenial = () => {
-  if (typeof localStorage === 'undefined') return
-  try {
-    localStorage.removeItem(IOS_DENIED_PERMISSION_STORAGE_KEY)
-  } catch {
-    if (import.meta.env.PROD) console.warn('iOS notification permission state could not be cleared')
-  }
-}
-
 const isIosTauri = () => isTauri() && getPlatformType() === 'ios'
 
 export const canOpenClientNotificationSettings = () => isIosTauri()
+
+type IosNotificationAuthorizationStatus = {
+  status: 'notDetermined' | 'denied' | 'authorized' | 'provisional' | 'ephemeral' | 'unknown'
+  isGranted: boolean
+}
+
+type IosLocalNotificationResult = {
+  id: string
+}
+
+const getIosNotificationPermission = async (): Promise<ClientNotificationPermissionResult> => {
+  try {
+    const authorization = await invoke<IosNotificationAuthorizationStatus>(
+      'plugin:ios-foreground-notification|getNotificationAuthorizationStatus'
+    )
+    if (authorization.isGranted) return { status: 'granted' }
+    return { status: authorization.status === 'denied' ? 'denied' : 'default' }
+  } catch {
+    return { status: 'check-failed' }
+  }
+}
+
+const requestIosNotificationPermission = async (): Promise<ClientNotificationPermissionResult> => {
+  try {
+    const authorization = await invoke<IosNotificationAuthorizationStatus>(
+      'plugin:ios-foreground-notification|requestNotificationAuthorization'
+    )
+    if (authorization.isGranted) return { status: 'granted' }
+    return { status: authorization.status === 'denied' ? 'denied' : 'default' }
+  } catch {
+    return { status: 'request-failed' }
+  }
+}
 
 const readStoredUnreadIds = () => {
   if (typeof localStorage === 'undefined') return []
@@ -134,7 +137,7 @@ const persistUnreadIds = (ids: string[]) => {
 const updateAppBadgeCount = async (count: number) => {
   try {
     const platform = getPlatformType()
-    if (platform === 'windows') return
+    if (platform === 'windows' || platform === 'ios') return
     await invoke('set_badge_count', { count: count > 0 ? count : null })
   } catch (error) {
     if (import.meta.env.PROD) console.error('Failed to update app badge count:', error)
@@ -155,13 +158,10 @@ const isPromiseLike = (value: unknown): value is PromiseLike<unknown> =>
 
 export const getClientNotificationPermission = async (): Promise<ClientNotificationPermissionResult> => {
   if (!isTauri()) return { status: 'not-requested' }
+  if (isIosTauri()) return getIosNotificationPermission()
 
   try {
-    if (await isPermissionGranted()) {
-      clearStoredIosNotificationDenial()
-      return { status: 'granted' }
-    }
-    return { status: isIosTauri() && hasStoredIosNotificationDenial() ? 'denied' : 'default' }
+    return { status: (await isPermissionGranted()) ? 'granted' : 'default' }
   } catch {
     return { status: 'check-failed' }
   }
@@ -169,6 +169,7 @@ export const getClientNotificationPermission = async (): Promise<ClientNotificat
 
 export const requestClientNotificationPermission = async (): Promise<ClientNotificationPermissionResult> => {
   if (!isTauri()) return { status: 'not-requested' }
+  if (isIosTauri()) return requestIosNotificationPermission()
 
   try {
     if (await isPermissionGranted()) return { status: 'granted' }
@@ -178,8 +179,6 @@ export const requestClientNotificationPermission = async (): Promise<ClientNotif
 
   try {
     const status = await requestPermission()
-    if (isIosTauri() && status === 'denied') persistIosNotificationDenial()
-    if (status === 'granted') clearStoredIosNotificationDenial()
     return { status }
   } catch {
     return { status: 'request-failed' }
@@ -231,6 +230,13 @@ const showNativeNotification = async (
   }
 
   try {
+    if (isIosTauri()) {
+      await invoke<IosLocalNotificationResult>('plugin:ios-foreground-notification|showLocalNotification', {
+        title: notification.title,
+        body: notification.body
+      })
+      return outcome('sent', 'granted')
+    }
     const sendResult: unknown = sendNotification({
       title: notification.title,
       body: notification.body

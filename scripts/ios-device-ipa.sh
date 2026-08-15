@@ -118,6 +118,7 @@ if [[ "$signing_style" == "automatic" ]]; then
       -sdk iphoneos \
       -configuration release \
       -destination 'generic/platform=iOS' \
+      -allowProvisioningUpdates \
       -derivedDataPath "$DERIVED_DATA" \
     -archivePath "$ARCHIVE_PATH" \
     CODE_SIGN_STYLE="$xcode_signing_style" \

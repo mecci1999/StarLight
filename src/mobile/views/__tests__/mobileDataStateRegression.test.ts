@@ -22,6 +22,11 @@ describe('mobile data-state regressions', () => {
     expect(source).toContain('() => void loadServiceDetail()')
     expect(source).toContain('let detailRequestId = 0')
     expect(source).toContain('if (requestId !== detailRequestId) return')
+    const detailRequest = source.slice(
+      source.indexOf('const detailRes = await fetchServiceDetailSummary('),
+      source.indexOf('if (requestId !== detailRequestId) return')
+    )
+    expect(detailRequest).toContain("scope: 'system'")
   })
 
   it('passes the selected exception range as concrete request boundaries', async () => {

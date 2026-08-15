@@ -2,6 +2,8 @@ import { Popup } from 'vant'
 import type { PopupPosition } from 'vant'
 import './MobileUI.scss'
 
+export const MOBILE_SHEET_Z_INDEX = 200
+
 export interface MobileSheetProps {
   show?: boolean
   position?: PopupPosition
@@ -44,6 +46,8 @@ export default defineComponent({
         closeable={false}
         closeOnClickOverlay={props.closeOnClickOverlay}
         safeAreaInsetBottom={props.safeAreaInsetBottom}
+        zIndex={MOBILE_SHEET_Z_INDEX}
+        teleport="body"
         overlayClass="mobile-sheet__overlay"
         class={popupClass.value}
         v-slots={{

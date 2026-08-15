@@ -178,8 +178,9 @@
   &__title {
     margin-bottom: var(--spacing-3);
     color: var(--color-text-1);
-    font-size: var(--font-size-title-1);
-    font-weight: var(--font-weight-semibold);
+    font-size: var(--font-size-body-3);
+    font-weight: var(--font-size-body-3);
+    display: inline-block;
   }
 
   &__list {

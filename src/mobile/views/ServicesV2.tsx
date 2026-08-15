@@ -28,7 +28,7 @@ export default defineComponent({
     const mapServices = (items: any[]): ServiceItem[] =>
       items.map((item: any) => ({
         id: item.identity?.id,
-        name: item.identity?.name,
+        name: item.identity?.displayName || item.identity?.name,
         owner: item.identity?.owner,
         region: item.identity?.region,
         version: item.identity?.runtime,

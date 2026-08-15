@@ -165,7 +165,7 @@
     align-items: center;
     gap: var(--spacing-1);
     padding: var(--spacing-1) var(--spacing-1) var(--spacing-1) var(--spacing-2);
-    border-radius: var(--radius-full);
+    border-radius: 4px;
     background: color-mix(in srgb, var(--color-primary-6) 10%, transparent);
     font-size: var(--font-size-body-1);
     color: var(--color-primary-6);
@@ -241,11 +241,12 @@
   &__list-wrapper {
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-3);
+    gap: var(--spacing-2);
+    margin-top: var(--spacing-2);
   }
 
   &__card {
-    padding: var(--spacing-3);
+    padding: var(--spacing-2);
     border-radius: var(--radius-lg);
     background: var(--color-bg-2);
     border: 1px solid var(--color-border-1);
@@ -260,7 +261,6 @@
       background: var(--color-fill-2);
       border-color: var(--color-border-2);
     }
-
   }
 
   &__card-header {

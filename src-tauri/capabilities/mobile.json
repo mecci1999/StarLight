@@ -41,6 +41,9 @@
     "notification:allow-create-channel",
     "notification:allow-permission-state",
     "ios-foreground-notification:allow-open-notification-settings",
+    "ios-foreground-notification:allow-get-notification-authorization-status",
+    "ios-foreground-notification:allow-request-notification-authorization",
+    "ios-foreground-notification:allow-show-local-notification",
     {
       "identifier": "shell:allow-execute",
       "allow": [

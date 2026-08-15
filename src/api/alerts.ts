@@ -1,7 +1,20 @@
 import request from '@/services/request'
 import url from '@/api/url'
-import type { AlertItem, AlertRuleItem, NotificationItem } from '@/types/monitor'
+import type { AlertItem, AlertRuleItem, NotificationItem, RegistryMissingAlertRule } from '@/types/monitor'
 import type { MetricsDatasetScope } from './metrics'
+
+type RegistryMissingAlertRulePayload = Omit<RegistryMissingAlertRule, 'ruleType' | 'name'>
+
+const toRegistryMissingAlertRule = (rule: RegistryMissingAlertRulePayload): RegistryMissingAlertRule => ({
+  ...rule,
+  name: `${rule.serviceName} 服务注册缺失`,
+  ruleType: 'registry_missing'
+})
+
+const toRegistryMissingAlertRulePayload = (rule: RegistryMissingAlertRule): RegistryMissingAlertRulePayload => {
+  const { ruleType: _, name: __, ...payload } = rule
+  return payload
+}
 
 const cleanAlertQueryParams = <T extends Record<string, unknown>>(params?: T) =>
   Object.fromEntries(
@@ -91,6 +104,34 @@ export function importAlertRules(params: { rules: Array<Partial<AlertRuleItem>> 
 // 删除告警规则
 export function deleteAlertRule(id: string) {
   return request.delete<boolean | { success?: boolean }>(`${url.metricsAlertRules}/${id}/delete`, {})
+}
+
+export function fetchRegistryMissingAlertRules() {
+  return request
+    .get<RegistryMissingAlertRulePayload[]>(url.registryMissingAlertRules, {})
+    .then((rules) => rules.map(toRegistryMissingAlertRule))
+}
+
+export function saveRegistryMissingAlertRule(rule: Omit<RegistryMissingAlertRule, 'ruleId'>) {
+  return request
+    .post<RegistryMissingAlertRulePayload>(
+      `${url.registryMissingAlertRules}/create`,
+      toRegistryMissingAlertRulePayload({ ...rule, ruleId: '' })
+    )
+    .then(toRegistryMissingAlertRule)
+}
+
+export function updateRegistryMissingAlertRule(rule: RegistryMissingAlertRule) {
+  return request
+    .put<RegistryMissingAlertRulePayload>(
+      url.updateRegistryMissingAlertRule(rule.ruleId),
+      toRegistryMissingAlertRulePayload(rule)
+    )
+    .then(toRegistryMissingAlertRule)
+}
+
+export function deleteRegistryMissingAlertRule(id: string) {
+  return request.delete<{ id: string }>(url.deleteRegistryMissingAlertRule(id), {})
 }
 
 // 获取通知历史

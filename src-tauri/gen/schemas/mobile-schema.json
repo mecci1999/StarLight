@@ -6567,16 +6567,52 @@
           "markdownDescription": "Denies the fetch_send command without any pre-configured scope."
         },
         {
+          "description": "Enables the get_notification_authorization_status command without any pre-configured scope.",
+          "type": "string",
+          "const": "ios-foreground-notification:allow-get-notification-authorization-status",
+          "markdownDescription": "Enables the get_notification_authorization_status command without any pre-configured scope."
+        },
+        {
           "description": "Enables the open_notification_settings command without any pre-configured scope.",
           "type": "string",
           "const": "ios-foreground-notification:allow-open-notification-settings",
           "markdownDescription": "Enables the open_notification_settings command without any pre-configured scope."
         },
         {
+          "description": "Enables the request_notification_authorization command without any pre-configured scope.",
+          "type": "string",
+          "const": "ios-foreground-notification:allow-request-notification-authorization",
+          "markdownDescription": "Enables the request_notification_authorization command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the show_local_notification command without any pre-configured scope.",
+          "type": "string",
+          "const": "ios-foreground-notification:allow-show-local-notification",
+          "markdownDescription": "Enables the show_local_notification command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the get_notification_authorization_status command without any pre-configured scope.",
+          "type": "string",
+          "const": "ios-foreground-notification:deny-get-notification-authorization-status",
+          "markdownDescription": "Denies the get_notification_authorization_status command without any pre-configured scope."
+        },
+        {
           "description": "Denies the open_notification_settings command without any pre-configured scope.",
           "type": "string",
           "const": "ios-foreground-notification:deny-open-notification-settings",
           "markdownDescription": "Denies the open_notification_settings command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the request_notification_authorization command without any pre-configured scope.",
+          "type": "string",
+          "const": "ios-foreground-notification:deny-request-notification-authorization",
+          "markdownDescription": "Denies the request_notification_authorization command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the show_local_notification command without any pre-configured scope.",
+          "type": "string",
+          "const": "ios-foreground-notification:deny-show-local-notification",
+          "markdownDescription": "Denies the show_local_notification command without any pre-configured scope."
         },
         {
           "description": "This permission set configures which\nnotification features are by default exposed.\n\n#### Granted Permissions\n\nIt allows all notification related features.\n\n\n#### This default permission set includes:\n\n- `allow-is-permission-granted`\n- `allow-request-permission`\n- `allow-notify`\n- `allow-register-action-types`\n- `allow-register-listener`\n- `allow-cancel`\n- `allow-get-pending`\n- `allow-remove-active`\n- `allow-get-active`\n- `allow-check-permissions`\n- `allow-show`\n- `allow-batch`\n- `allow-list-channels`\n- `allow-delete-channel`\n- `allow-create-channel`\n- `allow-permission-state`",

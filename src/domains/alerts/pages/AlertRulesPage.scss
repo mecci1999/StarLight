@@ -326,6 +326,10 @@
     margin-top: var(--spacing-4);
   }
 
+  :deep(.n-modal) {
+    max-width: calc(100vw - var(--spacing-6));
+  }
+
   :deep(.n-card-header) {
     padding-bottom: var(--spacing-3);
   }
@@ -388,6 +392,11 @@
 
     &__preview-grid-wide {
       grid-column: span 1;
+    }
+
+    &__action-buttons,
+    &__modal-actions {
+      flex-wrap: wrap;
     }
   }
 }

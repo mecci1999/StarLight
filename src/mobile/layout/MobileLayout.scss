@@ -13,7 +13,7 @@
   &__content {
     flex: 1;
     min-height: 0;
-    padding-bottom: calc(48px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: calc(60px + env(safe-area-inset-bottom, 0px));
     overflow-x: hidden;
     overflow-y: auto;
     overscroll-behavior-y: contain;
@@ -76,8 +76,9 @@
     display: flex;
     align-items: stretch;
     justify-content: space-around;
-    height: calc(48px + env(safe-area-inset-bottom, 0px));
+    height: calc(60px + env(safe-area-inset-bottom, 0px));
     padding-bottom: env(safe-area-inset-bottom, 0px);
+    box-sizing: border-box;
     background: color-mix(in srgb, var(--color-bg-1) 92%, transparent);
     backdrop-filter: blur(20px) saturate(180%);
     -webkit-backdrop-filter: blur(20px) saturate(180%);

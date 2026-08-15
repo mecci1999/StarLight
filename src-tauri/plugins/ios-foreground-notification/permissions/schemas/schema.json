@@ -295,6 +295,18 @@
       "type": "string",
       "oneOf": [
         {
+          "description": "Enables the get_notification_authorization_status command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-get-notification-authorization-status",
+          "markdownDescription": "Enables the get_notification_authorization_status command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the get_notification_authorization_status command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-get-notification-authorization-status",
+          "markdownDescription": "Denies the get_notification_authorization_status command without any pre-configured scope."
+        },
+        {
           "description": "Enables the open_notification_settings command without any pre-configured scope.",
           "type": "string",
           "const": "allow-open-notification-settings",
@@ -305,6 +317,30 @@
           "type": "string",
           "const": "deny-open-notification-settings",
           "markdownDescription": "Denies the open_notification_settings command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the request_notification_authorization command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-request-notification-authorization",
+          "markdownDescription": "Enables the request_notification_authorization command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the request_notification_authorization command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-request-notification-authorization",
+          "markdownDescription": "Denies the request_notification_authorization command without any pre-configured scope."
+        },
+        {
+          "description": "Enables the show_local_notification command without any pre-configured scope.",
+          "type": "string",
+          "const": "allow-show-local-notification",
+          "markdownDescription": "Enables the show_local_notification command without any pre-configured scope."
+        },
+        {
+          "description": "Denies the show_local_notification command without any pre-configured scope.",
+          "type": "string",
+          "const": "deny-show-local-notification",
+          "markdownDescription": "Denies the show_local_notification command without any pre-configured scope."
         }
       ]
     }

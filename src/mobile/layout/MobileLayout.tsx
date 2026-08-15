@@ -3,6 +3,7 @@ import { Badge, Image, Popup } from 'vant'
 import { PhSquaresFour, PhChartBar, PhStack, PhBell, PhUser, PhGear, PhSignOut } from '@phosphor-icons/vue'
 import { getPreferredMetricsDatasetScope, getStoredUserInfo } from '@/services/authSession'
 import { fetchAlerts } from '@/api/alerts'
+import ClientNotificationHost from '@/shared/components/ClientNotificationHost/ClientNotificationHost'
 import { useTimeStore } from '@/store/useTimeStore'
 import type { MetricsDatasetScope } from '@/api/metrics'
 import { h, KeepAlive, onErrorCaptured, provide, inject, type Component, type InjectionKey, type Ref } from 'vue'
@@ -222,6 +223,8 @@ export default defineComponent({
               )
             }}
           </Popup>
+
+          <ClientNotificationHost />
         </div>
       </MobileVantProvider>
     )
