@@ -28,6 +28,9 @@ export const useSettingStore = defineStore(StoresEnum.SETTING, {
       autoLogin: false,
       autoStartup: false
     },
+    microApps: {
+      openInNewWindow: false
+    },
     page: {
       shadow: true,
       fonts: 'PingFang',

@@ -229,6 +229,27 @@ describe('clientNotifications', () => {
     expect(sendNotificationMock).not.toHaveBeenCalled()
   })
 
+  it('uses the system notification surface for mobile alerts even when callers omit the native flag', async () => {
+    platformType = 'ios'
+    invokeMock
+      .mockResolvedValueOnce({ status: 'authorized', isGranted: true })
+      .mockResolvedValueOnce({ id: 'mobile-alert' })
+    const { clientNotifications, pushClientNotification } = await import('@/services/clientNotifications')
+
+    await pushClientNotification({
+      id: 'mobile-alert',
+      source: 'alerts',
+      title: '严重告警',
+      body: 'CPU 超过阈值'
+    })
+
+    expect(clientNotifications.value[0]).toMatchObject({ native: true, placement: 'system' })
+    expect(invokeMock).toHaveBeenNthCalledWith(2, 'plugin:ios-foreground-notification|showLocalNotification', {
+      title: '严重告警',
+      body: 'CPU 超过阈值'
+    })
+  })
+
   it('records native send rejection while retaining the in-app notification', async () => {
     sendNotificationMock.mockRejectedValue(new Error('native send failed'))
     const { clientNotifications, getClientNotificationDeliveryOutcome, pushClientNotification } = await import(

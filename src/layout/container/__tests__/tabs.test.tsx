@@ -36,6 +36,7 @@ describe('ContainerTabs', () => {
     expect(wrapper.get('[role="tablist"]').attributes('aria-label')).toBe('已打开页面')
     expect(wrapper.get('[role="tab"]').attributes('aria-selected')).toBe('true')
     expect(wrapper.get('[role="tab"]').text()).toBe('服务目录')
+    expect(wrapper.get('.container-tabs__icon')).toBeTruthy()
     expect(wrapper.get('button[aria-label="关闭服务目录"]')).toBeTruthy()
   })
 

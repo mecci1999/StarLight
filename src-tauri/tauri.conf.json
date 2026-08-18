@@ -27,7 +27,7 @@
     "windows": [],
     "security": {
       "csp": null,
-      "capabilities": ["default-capability", "mobile-capability", "desktop-capability", "micro-app-capability"]
+      "capabilities": ["default-capability", "mobile-capability", "desktop-capability", "micro-app-capability", "micro-app-host-capability"]
     },
     "macOSPrivateApi": true
   },

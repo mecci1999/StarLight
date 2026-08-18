@@ -229,8 +229,7 @@
       --n-button-border-color-hover: var(--settings-system-theme-color-hover) !important;
       --n-button-box-shadow: inset 0 0 0 1px transparent !important;
       --n-button-box-shadow-focus:
-        inset 0 0 0 1px var(--settings-system-theme-color),
-        0 0 0 2px var(--settings-system-theme-color-soft) !important;
+        inset 0 0 0 1px var(--settings-system-theme-color), 0 0 0 2px var(--settings-system-theme-color-soft) !important;
       --n-button-box-shadow-hover: inset 0 0 0 1px var(--settings-system-theme-color-hover) !important;
       --n-button-color: var(--color-bg-2) !important;
       --n-button-color-active: var(--settings-system-theme-color-soft) !important;
@@ -301,6 +300,18 @@
       --n-loading-color: var(--settings-system-theme-color);
       --n-box-shadow-focus: 0 0 0 2px var(--settings-system-theme-color-soft);
     }
+
+    &--full {
+      grid-column: 1 / -1;
+    }
+  }
+
+  &__toggle-action {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: 10px;
+    color: var(--color-text-3);
   }
 }
 

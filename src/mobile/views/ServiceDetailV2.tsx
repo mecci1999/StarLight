@@ -37,6 +37,11 @@ export default defineComponent({
     const loadServiceDetail = async () => {
       const requestId = ++detailRequestId
       const serviceId = String(route.params.serviceId || '')
+
+      // This view stays mounted in the mobile KeepAlive cache. Route watchers still
+      // run after navigation, so never turn an unrelated route into serviceId="".
+      if (route.name !== 'mobile-service-detail-v2' || !serviceId) return
+
       loading.value = true
       error.value = false
       try {

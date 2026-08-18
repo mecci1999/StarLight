@@ -34,6 +34,11 @@ declare namespace STO {
       /** 开机启动 */
       autoStartup: boolean
     }
+    /** 微应用打开方式 */
+    microApps: {
+      /** 是否在独立桌面窗口中打开 */
+      openInNewWindow: boolean
+    }
     /** 界面设置 */
     page: {
       /** 是否开启阴影 */

@@ -33,6 +33,20 @@ export type MicroAppPreviewRecord = {
   createdAt: string
 }
 
+export type MicroAppInstallRequirement = 'open' | 'download' | 'update'
+
+export const getMicroAppInstallRequirement = (
+  installed: InstalledMicroApp | null | undefined,
+  published: MicroAppVersion | null | undefined
+): MicroAppInstallRequirement => {
+  if (!installed || !published) return 'download'
+  return installed.appId === published.appId &&
+    installed.version === published.version &&
+    installed.packageSha256 === published.packageSha256
+    ? 'open'
+    : 'update'
+}
+
 type MicroAppIdentity = Pick<InstalledMicroApp, 'appId' | 'version'> & { entry?: string }
 
 const readInstalledMap = (): Record<string, InstalledMicroApp> => {

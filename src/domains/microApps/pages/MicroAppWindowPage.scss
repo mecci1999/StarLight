@@ -1,0 +1,96 @@
+.micro-app-window {
+  display: grid;
+  grid-template-rows: 44px minmax(0, 1fr);
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--color-bg-white);
+
+  > .window-action-bar {
+    position: relative;
+    z-index: 3;
+    height: 44px;
+    padding-left: 14px;
+    background: var(--color-bg-1);
+    border-bottom-color: var(--color-border-1);
+  }
+
+  &--macos > .window-action-bar {
+    padding-left: 78px;
+  }
+
+  &__identity {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 9px;
+  }
+
+  &__icon,
+  &__icon-fallback {
+    flex: 0 0 20px;
+    width: 20px;
+    height: 20px;
+    border-radius: 4px;
+  }
+
+  &__icon {
+    object-fit: cover;
+  }
+
+  &__icon-fallback {
+    position: relative;
+    background: var(--color-fill-3);
+
+    &::before,
+    &::after {
+      position: absolute;
+      content: '';
+      background: var(--color-text-3);
+    }
+
+    &::before {
+      inset: 5px 9px;
+    }
+
+    &::after {
+      inset: 9px 5px;
+    }
+  }
+
+  &__title {
+    overflow: hidden;
+    color: var(--color-text-2);
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 20px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__content {
+    position: relative;
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+    background: var(--color-bg-white);
+  }
+
+  &__state {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    color: var(--color-text-3);
+    background: var(--color-bg-white);
+    font-size: 13px;
+    text-align: center;
+
+    &--error {
+      color: var(--color-danger-6);
+    }
+  }
+}

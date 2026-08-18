@@ -82,8 +82,11 @@
   }
 
   &__item {
+    display: flex;
     min-width: 0;
     flex: 1;
+    align-items: center;
+    gap: var(--spacing-2);
     border: 0;
     background: transparent;
     color: var(--color-text-3);
@@ -107,6 +110,30 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  &__icon {
+    position: relative;
+    display: inline-flex;
+    width: 16px;
+    height: 16px;
+    flex: 0 0 16px;
+    align-items: center;
+    justify-content: center;
+    color: currentColor;
+  }
+
+  &__icon-fallback {
+    display: inline-flex;
+  }
+
+  &__icon-image {
+    position: absolute;
+    inset: 0;
+    width: 16px;
+    height: 16px;
+    border-radius: 4px;
+    object-fit: cover;
   }
 
   &__close {

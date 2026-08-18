@@ -13,7 +13,7 @@ const windowMock = vi.hoisted(() => ({
   unmaximize: vi.fn(() => Promise.resolve()),
   close: vi.fn(() => Promise.resolve()),
   hide: vi.fn(() => Promise.resolve()),
-  isMaximizable: vi.fn(() => Promise.resolve(false))
+  isMaximized: vi.fn(() => Promise.resolve(false))
 }))
 
 const topState = vi.hoisted(() => ({ value: false }))

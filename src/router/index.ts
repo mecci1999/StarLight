@@ -38,6 +38,11 @@ const routes: Array<RouteRecordRaw> = [
     component: () => import('@/domains/admin/pages/OnboardingPage')
   },
   {
+    path: '/micro-app-window',
+    name: 'micro-app-window',
+    component: () => import('@/domains/microApps/pages/MicroAppWindowPage')
+  },
+  {
     path: '/mobile',
     component: () => import('@/mobile/layout/MobileLayout'),
     redirect: { name: 'mobile-overview-v2' },

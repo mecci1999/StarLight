@@ -84,14 +84,14 @@ describe('MobileSettings', () => {
     await flushPromises()
 
     expect(requestClientNotificationPermission).not.toHaveBeenCalled()
-    expect(wrapper.text()).toContain('状态：未请求，应用内通知始终可用')
+    expect(wrapper.text()).toContain('状态：未请求，告警使用系统通知展示')
 
     await wrapper.get('.mobile-settings__notification-row .mobile-button').trigger('click')
     await flushPromises()
 
     expect(requestClientNotificationPermission).toHaveBeenCalledTimes(1)
     expect(mobileFeedback.success).toHaveBeenCalledWith('系统通知已开启')
-    expect(wrapper.text()).toContain('状态：已允许，应用内通知始终可用')
+    expect(wrapper.text()).toContain('状态：已允许，告警使用系统通知展示')
   })
 
   it('keeps the in-app notification fallback clear when permission is denied or unavailable', async () => {
@@ -102,8 +102,8 @@ describe('MobileSettings', () => {
     await wrapper.get('.mobile-settings__notification-row .mobile-button').trigger('click')
     await flushPromises()
 
-    expect(mobileFeedback.warning).toHaveBeenCalledWith('系统通知未开启，应用内通知仍会正常显示')
-    expect(wrapper.text()).toContain('状态：未允许，应用内通知始终可用')
+    expect(mobileFeedback.warning).toHaveBeenCalledWith('系统通知未开启，告警仍会保留在通知中心')
+    expect(wrapper.text()).toContain('状态：未允许，告警使用系统通知展示')
   })
 
   it('recovers a denied iOS notification state on remount and opens Settings only after its action is tapped', async () => {

@@ -62,15 +62,22 @@ export type MicroAppUploadPayload = {
   releaseChannel?: 'stable' | 'beta' | 'dev'
 }
 
-const MICRO_APP_UPLOAD_CHUNK_BASE64_SIZE = 6 * 1024 * 1024
+// The gateway RPC path is intentionally kept small. Larger packages are assembled
+// inside the micro-app service after their chunks have reached Redis.
+export const MICRO_APP_UPLOAD_CHUNK_BASE64_SIZE = 128 * 1024
 
 const createUploadId = (manifest: MicroAppManifest) =>
   `${manifest.appId}-${manifest.version}-${Date.now()}-${Math.random().toString(36).slice(2)}`
 
 export const uploadMicroApp = (data: MicroAppUploadPayload) => request.post(url.microAppUpload, data)
 
-export const uploadMicroAppChunk = (data: { uploadId: string; index: number; total: number; chunkBase64: string }) =>
-  request.postWithOptions(url.microAppUploadChunk, data, { suppressSuccessMessage: true, noRetry: true })
+export const uploadMicroAppChunk = (data: {
+  uploadId: string
+  index: number
+  total: number
+  chunkBase64: string
+  manifest?: MicroAppManifest
+}) => request.postWithOptions(url.microAppUploadChunk, data, { suppressSuccessMessage: true, noRetry: true })
 
 export const completeMicroAppUpload = (data: {
   uploadId: string
@@ -95,6 +102,7 @@ export const uploadMicroAppPackage = async (data: MicroAppUploadPayload) => {
       uploadId,
       index,
       total,
+      ...(index === 0 ? { manifest: data.manifest } : {}),
       chunkBase64: data.packageBase64.slice(
         index * MICRO_APP_UPLOAD_CHUNK_BASE64_SIZE,
         (index + 1) * MICRO_APP_UPLOAD_CHUNK_BASE64_SIZE

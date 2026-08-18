@@ -25,6 +25,9 @@ const settingStore = vi.hoisted(() => ({
     autoLogin: false,
     autoStartup: false
   },
+  microApps: {
+    openInNewWindow: false
+  },
   page: {
     shadow: false,
     fonts: 'System',
@@ -133,6 +136,7 @@ describe('SettingsPage from top-bar avatar menu', () => {
     settingStore.tips.notTips = false
     settingStore.login.autoLogin = false
     settingStore.login.autoStartup = false
+    settingStore.microApps.openInNewWindow = false
     settingStore.page.shadow = false
     settingStore.page.fonts = 'System'
     settingStore.page.blur = false
@@ -161,6 +165,7 @@ describe('SettingsPage from top-bar avatar menu', () => {
     await switches[3].setValue(true)
     await switches[4].setValue(true)
     await switches[5].setValue(true)
+    await switches[6].setValue(true)
 
     expect(settingStore.page.shadow).toBe(true)
     expect(settingStore.page.blur).toBe(true)
@@ -168,6 +173,7 @@ describe('SettingsPage from top-bar avatar menu', () => {
     expect(settingStore.escClose).toBe(true)
     expect(settingStore.login.autoLogin).toBe(true)
     expect(settingStore.login.autoStartup).toBe(true)
+    expect(settingStore.microApps.openInNewWindow).toBe(true)
   })
 
   it('resets interface settings to the documented defaults', async () => {

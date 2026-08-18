@@ -1,4 +1,10 @@
-import { PulseOutline, WarningOutline, NotificationsOutline, CheckmarkCircleOutline } from '@vicons/ionicons5'
+import {
+  CloseOutline,
+  PulseOutline,
+  WarningOutline,
+  NotificationsOutline,
+  CheckmarkCircleOutline
+} from '@vicons/ionicons5'
 import { NIcon } from 'naive-ui'
 import { computed, defineComponent, onMounted, onUnmounted, ref, watch } from 'vue'
 import { fetchNotifications } from '@/api/alerts'
@@ -8,6 +14,7 @@ import {
   clientNotifications,
   dismissClientNotification,
   hideClientNotification,
+  isMobileClientNotificationPlatform,
   pushClientNotification,
   syncClientNotificationBadge,
   type ClientNotificationEntry,
@@ -100,12 +107,13 @@ export default defineComponent({
     const hydrated = ref(false)
     const sessionStartedAt = Date.now()
     const pendingWebSocketAlerts = ref<ReturnType<typeof toClientAlertNotification>[]>([])
+    const isMobilePlatform = isMobileClientNotificationPlatform()
     const dismissTimers = new Map<string, number>()
     let pollTimer: number | null = null
     let polling = false
 
     const visibleNotifications = computed(() =>
-      clientNotifications.value.filter((item) => item.placement === 'bottom-right').slice(0, 4)
+      isMobilePlatform ? [] : clientNotifications.value.filter((item) => item.placement === 'bottom-right').slice(0, 4)
     )
 
     const markSeen = (id: string) => {
@@ -127,9 +135,11 @@ export default defineComponent({
         const notifications = ((await fetchNotifications({ channel: 'InApp' })) || []) as RawNotification[]
         const visibleItems = notifications.filter(isClientVisibleNotification)
         if (!hydrated.value) {
-          visibleItems
-            .filter((item) => resolveNotificationTime(item) < sessionStartedAt)
-            .forEach((item) => markSeen(resolveNotificationId(item)))
+          if (!isMobilePlatform) {
+            visibleItems
+              .filter((item) => resolveNotificationTime(item) < sessionStartedAt)
+              .forEach((item) => markSeen(resolveNotificationId(item)))
+          }
           hydrated.value = true
           syncClientNotificationBadge()
           const bufferedAlerts = pendingWebSocketAlerts.value
@@ -258,12 +268,7 @@ export default defineComponent({
               class="client-notification__close"
               aria-label="关闭通知"
               onClick={() => dismissClientNotification(notification.id)}>
-              <NIcon size={12}>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
-                  <line x1="18" y1="6" x2="6" y2="18" />
-                  <line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
-              </NIcon>
+              <NIcon size={16} component={CloseOutline} />
             </button>
             <div class="client-notification__progress">
               <div class="client-notification__progress-bar" />

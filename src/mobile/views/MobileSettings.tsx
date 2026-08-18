@@ -112,10 +112,10 @@ export default defineComponent({
         return
       }
       if (result.status === 'denied') {
-        mobileFeedback.warning('系统通知未开启，应用内通知仍会正常显示')
+        mobileFeedback.warning('系统通知未开启，告警仍会保留在通知中心')
         return
       }
-      mobileFeedback.warning('暂时无法开启系统通知，应用内通知仍会正常显示')
+      mobileFeedback.warning('暂时无法开启系统通知，告警仍会保留在通知中心')
     }
 
     const handleNotificationPermissionAction = async () => {
@@ -127,7 +127,7 @@ export default defineComponent({
       notificationPermissionLoading.value = true
       const opened = await openClientNotificationSettings()
       notificationPermissionLoading.value = false
-      if (!opened) mobileFeedback.warning('无法打开系统设置，请稍后重试，应用内通知仍会正常显示')
+      if (!opened) mobileFeedback.warning('无法打开系统设置，请稍后重试，告警仍会保留在通知中心')
     }
 
     const handleResetDefaults = () => {
@@ -318,7 +318,7 @@ export default defineComponent({
                 <div class="mobile-settings__notification-row">
                   <div class="mobile-settings__toggle-text">
                     <strong>系统通知</strong>
-                    <span>状态：{notificationPermissionLabel.value}，应用内通知始终可用</span>
+                    <span>状态：{notificationPermissionLabel.value}，告警使用系统通知展示</span>
                   </div>
                   <MobileButton
                     size="small"

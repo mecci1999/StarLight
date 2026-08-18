@@ -229,6 +229,17 @@ html[data-blur='1'] {
   }
 }
 
+html[data-theme='dark'] {
+  .n-button:not(.n-button--disabled) {
+    color: #fff !important;
+
+    .n-button__icon,
+    .n-button__content {
+      color: currentColor !important;
+    }
+  }
+}
+
 // 卡片样式优化
 .n-card {
   border-radius: var(--radius-lg);

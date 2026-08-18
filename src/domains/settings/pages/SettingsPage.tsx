@@ -6,6 +6,7 @@ import {
   BrushOutline,
   CloseCircleOutline,
   DesktopOutline,
+  OpenOutline,
   LogInOutline,
   MoonOutline,
   SunnyOutline
@@ -245,6 +246,26 @@ export default defineComponent({
                       value={settingStore.escClose}
                       onUpdateValue={(value: boolean) => (settingStore.escClose = value)}
                     />
+                  </div>
+
+                  <div class="settings-page__toggle-card settings-page__toggle-card--full">
+                    <div>
+                      <strong>微应用独立窗口</strong>
+                      <span>
+                        {settingStore.microApps.openInNewWindow
+                          ? '进入微应用时打开独立桌面窗口，可与星光主界面并排使用。'
+                          : '进入微应用时保留在星光客户端标签页内。'}
+                      </span>
+                    </div>
+                    <div class="settings-page__toggle-action">
+                      <NIcon size={18} aria-hidden="true">
+                        <OpenOutline />
+                      </NIcon>
+                      <NSwitch
+                        value={settingStore.microApps.openInNewWindow}
+                        onUpdateValue={(value: boolean) => (settingStore.microApps.openInNewWindow = value)}
+                      />
+                    </div>
                   </div>
                 </div>
               </NCard>

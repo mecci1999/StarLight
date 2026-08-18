@@ -349,6 +349,18 @@
     color: var(--color-text-2);
     font-size: var(--font-size-body-2);
 
+    > span {
+      display: grid;
+      gap: var(--spacing-1);
+      min-width: 0;
+      word-break: break-all;
+    }
+
+    small {
+      color: var(--color-text-3);
+      font-size: var(--font-size-body-1);
+    }
+
     &:last-child {
       border-bottom: 0;
     }

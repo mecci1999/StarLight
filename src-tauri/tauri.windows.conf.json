@@ -101,7 +101,7 @@
     ],
     "security": {
       "csp": null,
-      "capabilities": ["default-capability", "desktop-capability", "micro-app-capability"]
+      "capabilities": ["default-capability", "desktop-capability", "micro-app-capability", "micro-app-host-capability"]
     },
     "macOSPrivateApi": true
   }

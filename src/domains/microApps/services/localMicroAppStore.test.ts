@@ -1,6 +1,12 @@
 import { strToU8, zipSync } from 'fflate'
 import { describe, expect, it } from 'vitest'
-import { bytesToBase64, canonicalZipPath, parseMicroAppZip } from './localMicroAppStore'
+import {
+  bytesToBase64,
+  canonicalZipPath,
+  getMicroAppInstallRequirement,
+  parseMicroAppZip,
+  type InstalledMicroApp
+} from './localMicroAppStore'
 
 const manifest = {
   appId: 'trails',
@@ -13,6 +19,30 @@ const packageBase64 = (files: Record<string, string>) =>
   bytesToBase64(zipSync(Object.fromEntries(Object.entries(files).map(([path, content]) => [path, strToU8(content)]))))
 
 describe('local micro-app package validation', () => {
+  it('opens an identical local package and updates only when version or hash changes', () => {
+    const published = {
+      appId: manifest.appId,
+      version: manifest.version,
+      manifest,
+      packageSha256: 'sha-1',
+      packageSize: 1,
+      status: 'published' as const
+    }
+    const installed = {
+      appId: manifest.appId,
+      version: manifest.version,
+      manifest,
+      packageSha256: 'sha-1',
+      installedAt: new Date().toISOString(),
+      storage: 'localStorage' as const
+    } satisfies InstalledMicroApp
+
+    expect(getMicroAppInstallRequirement(installed, published)).toBe('open')
+    expect(getMicroAppInstallRequirement({ ...installed, packageSha256: 'old-sha' }, published)).toBe('update')
+    expect(getMicroAppInstallRequirement({ ...installed, version: '0.9.0' }, published)).toBe('update')
+    expect(getMicroAppInstallRequirement(null, published)).toBe('download')
+  })
+
   it('accepts canonical POSIX package paths and matching manifest identity', () => {
     const archive = packageBase64({
       'manifest.json': JSON.stringify(manifest),

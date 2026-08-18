@@ -21,6 +21,7 @@ describe('mobile data-state regressions', () => {
     expect(source).toContain('() => route.params.serviceId')
     expect(source).toContain('() => void loadServiceDetail()')
     expect(source).toContain('let detailRequestId = 0')
+    expect(source).toContain("route.name !== 'mobile-service-detail-v2' || !serviceId")
     expect(source).toContain('if (requestId !== detailRequestId) return')
     const detailRequest = source.slice(
       source.indexOf('const detailRes = await fetchServiceDetailSummary('),

@@ -1,4 +1,4 @@
-import { defineComponent, ref, onMounted, onBeforeUnmount, computed, nextTick } from 'vue'
+import { defineComponent, ref, onMounted, onBeforeUnmount, onActivated, onDeactivated, computed, nextTick } from 'vue'
 import { useRoute } from 'vue-router'
 import { Webview } from '@tauri-apps/api/webview'
 import { LogicalPosition, LogicalSize } from '@tauri-apps/api/dpi'
@@ -12,13 +12,16 @@ import {
   getInstalledMicroApp,
   getMicroAppPreviewRecord
 } from '../services/localMicroAppStore'
+import { microAppWebviewLabel } from './microAppWebviewLabel'
+import { closeMicroAppWebviewsForApp } from '../services/microAppLauncher'
 import './MicroAppRuntimePage.scss'
 
 const isTauriRuntime = () => Boolean((window as unknown as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__)
-const webviewLabel = (appId: string, version: string) => `micro_app_${appId}:${version}`
 const FLOATING_LAYER_SELECTOR = ['.n-message-container', '.n-popover', '.n-dropdown-menu'].join(',')
 const FLOATING_LAYER_GAP = 8
 const MIN_WEBVIEW_HEIGHT = 160
+
+type WebviewBounds = { x: number; y: number; width: number; height: number }
 
 const isVisibleFloatingLayer = (element: Element) => {
   const rect = element.getBoundingClientRect()
@@ -26,6 +29,20 @@ const isVisibleFloatingLayer = (element: Element) => {
   const style = window.getComputedStyle(element)
   return style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0'
 }
+
+const elementTouchesFloatingLayer = (node: Node) =>
+  node instanceof Element &&
+  (node.matches(FLOATING_LAYER_SELECTOR) || Boolean(node.querySelector(FLOATING_LAYER_SELECTOR)))
+
+const mutationTouchesFloatingLayer = (mutations: MutationRecord[]) =>
+  mutations.some(
+    (mutation) =>
+      (mutation.target instanceof Element &&
+        (mutation.target.matches(FLOATING_LAYER_SELECTOR) ||
+          Boolean(mutation.target.closest(FLOATING_LAYER_SELECTOR)))) ||
+      Array.from(mutation.addedNodes).some(elementTouchesFloatingLayer) ||
+      Array.from(mutation.removedNodes).some(elementTouchesFloatingLayer)
+  )
 
 export default defineComponent({
   name: 'MicroAppRuntimePage',
@@ -42,6 +59,9 @@ export default defineComponent({
     let resizeObserver: ResizeObserver | null = null
     let floatingLayerObserver: MutationObserver | null = null
     let boundsUpdateFrame = 0
+    let lastBounds: WebviewBounds | null = null
+    let lifecycleGeneration = 0
+    let wasDeactivated = false
 
     const updateWebviewBounds = async () => {
       const host = hostRef.value
@@ -60,10 +80,31 @@ export default defineComponent({
       )
       const maxTop = Math.max(rect.top, rect.bottom - MIN_WEBVIEW_HEIGHT)
       const top = Math.min(Math.max(rect.top, floatingLayerBottom + FLOATING_LAYER_GAP), maxTop)
-      await webview.setPosition(new LogicalPosition(Math.round(rect.left), Math.round(top)))
-      await webview.setSize(
-        new LogicalSize(Math.max(1, Math.round(rect.width)), Math.max(1, Math.round(rect.bottom - top)))
-      )
+      const nextBounds: WebviewBounds = {
+        x: Math.round(rect.left),
+        y: Math.round(top),
+        width: Math.max(1, Math.round(rect.width)),
+        height: Math.max(1, Math.round(rect.bottom - top))
+      }
+      const previousBounds = lastBounds
+      if (
+        previousBounds &&
+        previousBounds.x === nextBounds.x &&
+        previousBounds.y === nextBounds.y &&
+        previousBounds.width === nextBounds.width &&
+        previousBounds.height === nextBounds.height
+      ) {
+        return
+      }
+      lastBounds = nextBounds
+      const updates: Promise<void>[] = []
+      if (!previousBounds || previousBounds.x !== nextBounds.x || previousBounds.y !== nextBounds.y) {
+        updates.push(webview.setPosition(new LogicalPosition(nextBounds.x, nextBounds.y)))
+      }
+      if (!previousBounds || previousBounds.width !== nextBounds.width || previousBounds.height !== nextBounds.height) {
+        updates.push(webview.setSize(new LogicalSize(nextBounds.width, nextBounds.height)))
+      }
+      await Promise.all(updates)
     }
 
     const scheduleWebviewBoundsUpdate = () => {
@@ -77,10 +118,11 @@ export default defineComponent({
     const closeWebview = async () => {
       const webview = activeWebview.value
       activeWebview.value = null
+      lastBounds = null
       if (webview) await webview.close().catch(() => undefined)
     }
 
-    const mountWebview = async (nextUrl: string) => {
+    const mountWebview = async (nextUrl: string, generation: number) => {
       if (!isTauriRuntime()) {
         errorText.value = '当前环境不支持原生 Webview，请在 StarLight 桌面端中打开微应用。'
         return
@@ -88,15 +130,16 @@ export default defineComponent({
 
       await closeWebview()
       await nextTick()
+      if (generation !== lifecycleGeneration) return
       const host = hostRef.value
       if (!host) return
       const rect = host.getBoundingClientRect()
       const url = new URL(nextUrl)
       const [runtimeAppId, runtimeVersion] = url.pathname.split('/').filter(Boolean)
       if (!runtimeAppId || !runtimeVersion) throw new Error('微应用运行地址缺少包身份')
-      const label = webviewLabel(runtimeAppId, runtimeVersion)
-      const existing = await Webview.getByLabel(label)
-      if (existing) await existing.close().catch(() => undefined)
+      const label = microAppWebviewLabel(runtimeAppId, runtimeVersion)
+      await closeMicroAppWebviewsForApp(runtimeAppId)
+      if (generation !== lifecycleGeneration) return
 
       const webview = new Webview(getCurrentWindow(), label, {
         url: nextUrl,
@@ -121,6 +164,7 @@ export default defineComponent({
     }
 
     const boot = async () => {
+      const generation = ++lifecycleGeneration
       loading.value = true
       errorText.value = ''
       try {
@@ -131,16 +175,18 @@ export default defineComponent({
             return
           }
           runtimeUrl.value = previewRecord.runtimeUrl
-          await mountWebview(previewRecord.runtimeUrl)
+          await mountWebview(previewRecord.runtimeUrl, generation)
           return
         }
 
         const localApp = await getInstalledMicroApp(appId.value)
+        if (generation !== lifecycleGeneration) return
         if (!localApp) {
           errorText.value = '该微应用尚未下载到本地，请先回到微应用列表下载。'
           return
         }
         const runtimePayload = await getMicroAppRuntimeTicket({ appId: localApp.appId, version: localApp.version })
+        if (generation !== lifecycleGeneration) return
         const payloadWithEndpoints = {
           ...(runtimePayload as Record<string, unknown>),
           endpoints: {
@@ -149,20 +195,24 @@ export default defineComponent({
           }
         }
         runtimeUrl.value = await buildMicroAppRuntimeUrl(localApp, payloadWithEndpoints)
-        await mountWebview(runtimeUrl.value)
+        if (generation !== lifecycleGeneration) return
+        await mountWebview(runtimeUrl.value, generation)
       } catch (error) {
+        if (generation !== lifecycleGeneration) return
         console.error('Failed to boot micro app:', error)
         errorText.value = '微应用 Webview 加载失败，请确认包内容和访问权限。'
         message.error(errorText.value)
       } finally {
-        loading.value = false
+        if (generation === lifecycleGeneration) loading.value = false
       }
     }
 
     onMounted(() => {
       resizeObserver = new ResizeObserver(scheduleWebviewBoundsUpdate)
       if (hostRef.value) resizeObserver.observe(hostRef.value)
-      floatingLayerObserver = new MutationObserver(scheduleWebviewBoundsUpdate)
+      floatingLayerObserver = new MutationObserver((mutations) => {
+        if (mutationTouchesFloatingLayer(mutations)) scheduleWebviewBoundsUpdate()
+      })
       floatingLayerObserver.observe(document.body, {
         attributes: true,
         attributeFilter: ['class', 'style'],
@@ -176,7 +226,22 @@ export default defineComponent({
       void boot()
     })
 
+    onActivated(() => {
+      if (!wasDeactivated) return
+      wasDeactivated = false
+      void boot()
+    })
+
+    onDeactivated(() => {
+      wasDeactivated = true
+      lifecycleGeneration += 1
+      if (boundsUpdateFrame) window.cancelAnimationFrame(boundsUpdateFrame)
+      boundsUpdateFrame = 0
+      void closeWebview()
+    })
+
     onBeforeUnmount(() => {
+      lifecycleGeneration += 1
       resizeObserver?.disconnect()
       floatingLayerObserver?.disconnect()
       if (boundsUpdateFrame) window.cancelAnimationFrame(boundsUpdateFrame)

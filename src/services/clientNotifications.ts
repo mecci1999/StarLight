@@ -5,7 +5,7 @@ import { computed, ref } from 'vue'
 
 export type ClientNotificationLevel = 'critical' | 'warning' | 'info' | 'success'
 export type ClientNotificationSource = 'alerts' | 'system' | 'task' | 'custom'
-export type ClientNotificationPlacement = 'bottom-right'
+export type ClientNotificationPlacement = 'bottom-right' | 'system'
 
 export type ClientNotificationAction = {
   label: string
@@ -77,7 +77,21 @@ const NOTIFICATION_LIMIT = 5
 const DELIVERY_OUTCOME_LIMIT = 99
 const DEFAULT_DURATION_MS = 7000
 const UNREAD_STORAGE_KEY = 'starlight_client_notification_unread_ids_v1'
-const isIosTauri = () => isTauri() && getPlatformType() === 'ios'
+const getTauriPlatformType = () => {
+  if (!isTauri()) return null
+  try {
+    return getPlatformType()
+  } catch {
+    return null
+  }
+}
+
+const isIosTauri = () => getTauriPlatformType() === 'ios'
+
+export const isMobileClientNotificationPlatform = () => {
+  const platform = getTauriPlatformType()
+  return platform === 'ios' || platform === 'android'
+}
 
 export const canOpenClientNotificationSettings = () => isIosTauri()
 
@@ -307,18 +321,22 @@ export const pushClientNotification = async (payload: ClientNotificationPayload)
   const dedupeKey = payload.dedupeKey || id
   if (clientNotifications.value.some((item) => (item.dedupeKey || item.id) === dedupeKey)) return null
 
+  const source = payload.source || 'custom'
+  const mobilePlatform = isMobileClientNotificationPlatform()
+
   const notification: ClientNotificationEntry = {
     id,
     dedupeKey,
-    source: payload.source || 'custom',
+    source,
     level: payload.level || 'info',
     title: payload.title,
     body: payload.body,
     service: payload.service,
     createdAt,
     durationMs: payload.durationMs ?? DEFAULT_DURATION_MS,
-    placement: payload.placement || 'bottom-right',
-    native: payload.native ?? false,
+    // Mobile alert delivery uses the operating system notification surface. Desktop retains the in-app toast.
+    placement: mobilePlatform ? 'system' : payload.placement || 'bottom-right',
+    native: payload.native ?? (mobilePlatform && source === 'alerts'),
     badge: payload.badge ?? true,
     actions: payload.actions,
     metadata: payload.metadata

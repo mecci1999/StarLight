@@ -40,7 +40,7 @@ export default defineComponent({
         unmaximize: () => Promise.resolve(),
         close: () => Promise.resolve(),
         hide: () => Promise.resolve(),
-        isMaximizable: () => Promise.resolve(false)
+        isMaximized: () => Promise.resolve(false)
       }
     }
 
@@ -166,8 +166,8 @@ export default defineComponent({
      * 判断当前是否为全屏
      */
     const handleResize = () => {
-      appWindow.isMaximizable().then((res: boolean) => {
-        // state.windowMaxmized = res
+      appWindow.isMaximized().then((res: boolean) => {
+        state.windowMaxmized = res
       })
     }
 
@@ -225,6 +225,7 @@ export default defineComponent({
     onMounted(() => {
       window.addEventListener('resize', handleResize)
       state.osType = getOsType()
+      handleResize()
     })
 
     onUnmounted(() => {

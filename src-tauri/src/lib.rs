@@ -18,6 +18,9 @@ use desktops::tray;
 #[cfg(desktop)]
 use init::CustomInit;
 
+#[cfg(desktop)]
+const MICRO_APP_CONTENT_SECURITY_POLICY: &str = "default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; script-src 'self' starlight-micro://localhost 'unsafe-inline' blob:; style-src 'self' starlight-micro://localhost 'unsafe-inline' blob:; img-src 'self' starlight-micro://localhost https://media.starlight.host data: blob:; font-src 'self' starlight-micro://localhost data:; connect-src 'self' starlight-micro://localhost https://api.starlight.host https://starlight-media-prod-1313219189.cos.ap-guangzhou.myqcloud.com http://127.0.0.1:6670; media-src 'self' starlight-micro://localhost blob:; object-src 'none'";
+
 // 移动端依赖
 #[cfg(mobile)]
 mod mobiles;
@@ -86,11 +89,32 @@ fn micro_app_protocol_path(raw_path: &str) -> Option<std::path::PathBuf> {
 }
 
 #[cfg(desktop)]
-fn micro_app_label_identity(label: &str) -> Option<(&str, &str)> {
+fn decode_micro_app_label_segment(value: &str) -> Option<String> {
+    if value.is_empty() || value.len() % 2 != 0 || !value.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+        return None;
+    }
+    let bytes = (0..value.len())
+        .step_by(2)
+        .map(|offset| u8::from_str_radix(&value[offset..offset + 2], 16).ok())
+        .collect::<Option<Vec<_>>>()?;
+    let decoded = String::from_utf8(bytes).ok()?;
+    micro_app_path_segment_allowed(&decoded).then_some(decoded)
+}
+
+#[cfg(desktop)]
+fn micro_app_label_identity(label: &str) -> Option<(String, String)> {
+    if let Some(identity) = label.strip_prefix("micro_app_v1_") {
+        let (app_id, version) = identity.split_once(':')?;
+        return Some((
+            decode_micro_app_label_segment(app_id)?,
+            decode_micro_app_label_segment(version)?,
+        ));
+    }
+
     let identity = label.strip_prefix("micro_app_")?;
     let (app_id, version) = identity.split_once(':')?;
     if micro_app_path_segment_allowed(app_id) && micro_app_path_segment_allowed(version) {
-        Some((app_id, version))
+        Some((app_id.to_owned(), version.to_owned()))
     } else {
         None
     }
@@ -175,7 +199,7 @@ fn setup_desktop() {
                     .header(tauri::http::header::CONTENT_TYPE, micro_app_content_type(&canonical_file_path))
                     .header(
                         tauri::http::header::CONTENT_SECURITY_POLICY,
-                        "default-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; script-src 'self' starlight-micro://localhost 'unsafe-inline' blob:; style-src 'self' starlight-micro://localhost 'unsafe-inline' blob:; img-src 'self' starlight-micro://localhost data: blob:; font-src 'self' starlight-micro://localhost data:; connect-src 'self' starlight-micro://localhost https://api.starlight.host http://127.0.0.1:6670; media-src 'self' starlight-micro://localhost blob:; object-src 'none'",
+                        MICRO_APP_CONTENT_SECURITY_POLICY,
                     )
                     .body(data)
                     .unwrap(),
@@ -216,10 +240,20 @@ mod micro_app_tests {
     use super::*;
 
     #[test]
+    fn micro_app_csp_allows_the_trusted_media_cdn_for_images_only() {
+        assert!(MICRO_APP_CONTENT_SECURITY_POLICY.contains("img-src 'self' starlight-micro://localhost https://media.starlight.host data: blob:"));
+        assert!(!MICRO_APP_CONTENT_SECURITY_POLICY.contains("connect-src 'self' starlight-micro://localhost https://media.starlight.host"));
+    }
+
+    #[test]
     fn only_allows_navigation_within_the_labeled_package_root() {
         assert!(allows_micro_app_navigation(
             "micro_app_trails:1.0.0",
             &"starlight-micro://localhost/trails/1.0.0/index.html".parse().unwrap()
+        ));
+        assert!(allows_micro_app_navigation(
+            "micro_app_v1_737461726c696768742d747261696c732d776f726b7370616365:312e302e32",
+            &"starlight-micro://localhost/starlight-trails-workspace/1.0.2/index.html".parse().unwrap()
         ));
         assert!(!allows_micro_app_navigation(
             "micro_app_trails:1.0.0",

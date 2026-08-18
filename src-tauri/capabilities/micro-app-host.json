@@ -1,0 +1,26 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "micro-app-host-capability",
+  "description": "Trusted StarLight shell for independent micro-app windows",
+  "platforms": ["macOS", "windows", "linux"],
+  "webviews": ["micro_host_*"],
+  "permissions": [
+    "core:window:default",
+    "core:window:allow-start-dragging",
+    "core:window:allow-close",
+    "core:window:allow-hide",
+    "core:window:allow-show",
+    "core:window:allow-maximize",
+    "core:window:allow-minimize",
+    "core:window:allow-unminimize",
+    "core:window:allow-unmaximize",
+    "core:webview:allow-create-webview",
+    "core:webview:allow-get-all-webviews",
+    "core:webview:allow-set-webview-focus",
+    "core:webview:allow-set-webview-position",
+    "core:webview:allow-set-webview-size",
+    "core:webview:allow-webview-close",
+    "core:event:default",
+    "os:allow-os-type"
+  ]
+}

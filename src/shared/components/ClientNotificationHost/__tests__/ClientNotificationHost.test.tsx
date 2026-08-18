@@ -9,6 +9,7 @@ type RawMessageHandler = (message: unknown) => void | Promise<void>
 const fetchNotificationsMock = vi.fn()
 const pushClientNotificationMock = vi.fn()
 const syncClientNotificationBadgeMock = vi.fn()
+const isMobileClientNotificationPlatformMock = vi.fn()
 const rawMessageHandlers = new Set<RawMessageHandler>()
 const clientNotifications: Ref<ClientNotificationEntry[]> = ref([])
 
@@ -27,6 +28,7 @@ vi.mock('@/services/clientNotifications', () => ({
   clientNotifications,
   dismissClientNotification: vi.fn(),
   hideClientNotification: vi.fn(),
+  isMobileClientNotificationPlatform: isMobileClientNotificationPlatformMock,
   pushClientNotification: pushClientNotificationMock,
   syncClientNotificationBadge: syncClientNotificationBadgeMock
 }))
@@ -55,6 +57,7 @@ describe('ClientNotificationHost', () => {
     fetchNotificationsMock.mockReset()
     pushClientNotificationMock.mockReset()
     syncClientNotificationBadgeMock.mockReset()
+    isMobileClientNotificationPlatformMock.mockReturnValue(false)
     rawMessageHandlers.clear()
     clientNotifications.value = []
     storage.clear()
@@ -132,6 +135,19 @@ describe('ClientNotificationHost', () => {
     await flushPromises()
 
     expect(storage.get('starlight_client_notification_seen_ids_v1')).toBeUndefined()
+    wrapper.unmount()
+  })
+
+  it('delivers previously unseen mobile alerts without rendering an in-app popup', async () => {
+    isMobileClientNotificationPlatformMock.mockReturnValue(true)
+    fetchNotificationsMock.mockResolvedValue([createNotification('mobile-alert', '2020-01-01T00:00:00.000Z')])
+
+    const { default: ClientNotificationHost } = await import('../ClientNotificationHost')
+    const wrapper = mount(ClientNotificationHost, { props: { pollIntervalMs: 60_000 } })
+    await flushPromises()
+
+    expect(pushClientNotificationMock).toHaveBeenCalledWith(expect.objectContaining({ id: 'mobile-alert' }))
+    expect(wrapper.find('.client-notification').exists()).toBe(false)
     wrapper.unmount()
   })
 })

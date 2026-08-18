@@ -21,6 +21,7 @@ import {
 import type { DataTableColumns, TagProps } from 'naive-ui'
 import PageHeader from '@/shared/layout/PageHeader'
 import { getStoredUserInfo } from '@/services/authSession'
+import { useSettingStore } from '@/store/setting'
 import { resolveUploadedFileUrl, uploadFile } from '@/api/file'
 import {
   downloadMicroApp,
@@ -37,12 +38,15 @@ import {
   type MicroAppVersion
 } from '@/api/microApps'
 import {
+  getInstalledMicroApp,
   getInstalledMicroApps,
+  getMicroAppInstallRequirement,
   installMicroAppLocally,
   prepareMicroAppPreview,
   type InstalledMicroApp
 } from '../services/localMicroAppStore'
 import { parseMicroAppZip } from '../services/localMicroAppStore'
+import { openInstalledMicroApp } from '../services/microAppLauncher'
 import './MicroAppCenterPage.scss'
 
 const userListFromText = (value: string) =>
@@ -117,6 +121,7 @@ export default defineComponent({
   setup() {
     const router = useRouter()
     const message = useMessage()
+    const settingStore = useSettingStore()
     const loading = ref(false)
     const apps = ref<MicroAppItem[]>([])
     const installedApps = ref<InstalledMicroApp[]>([])
@@ -181,6 +186,10 @@ export default defineComponent({
 
     const approvedVersions = computed(() =>
       apps.value.flatMap((app) => app.versions || []).filter((version) => version.status === 'approved')
+    )
+
+    const publishedVersions = computed(() =>
+      apps.value.flatMap((app) => app.versions || []).filter((version) => version.status === 'published')
     )
 
     const isStablePublished = (app: MicroAppItem) =>
@@ -470,21 +479,39 @@ export default defineComponent({
       await loadApps()
     }
 
-    const downloadAndOpen = async (app: MicroAppItem) => {
+    const ensureInstalledAndOpen = async (app: MicroAppItem) => {
+      if (!app.latestPublished) return
+      const current = await getInstalledMicroApp(app.appId)
+      if (getMicroAppInstallRequirement(current, app.latestPublished) === 'open' && current) {
+        await openInstalledMicroApp({
+          app: current,
+          router,
+          openInNewWindow: settingStore.microApps.openInNewWindow
+        })
+        return
+      }
       const version = await downloadMicroApp({ appId: app.appId, version: app.latestPublished?.version })
-      await installMicroAppLocally(version)
-      message.success('微应用已下载到本地')
+      const installedApp = await installMicroAppLocally(version)
+      message.success(current ? '微应用已更新到本地' : '微应用已下载到本地')
       installedApps.value = getInstalledMicroApps()
-      router.push({
-        path: `/home/micro-apps/${app.appId}`,
-        query: { app: app.appId, version: version.version, title: version.manifest.name || app.name }
+      await openInstalledMicroApp({
+        app: installedApp,
+        router,
+        openInNewWindow: settingStore.microApps.openInNewWindow
       })
     }
 
-    const openInstalledApp = (app: InstalledMicroApp) => {
-      router.push({
-        path: `/home/micro-apps/${app.appId}`,
-        query: { app: app.appId, version: app.version, title: app.manifest.name || app.appId }
+    const appActionLabel = (app: MicroAppItem) => {
+      const installed = installedApps.value.find((item) => item.appId === app.appId)
+      const requirement = getMicroAppInstallRequirement(installed, app.latestPublished)
+      return requirement === 'open' ? '打开应用' : requirement === 'update' ? '更新并打开' : '下载并打开'
+    }
+
+    const openInstalledApp = async (app: InstalledMicroApp) => {
+      await openInstalledMicroApp({
+        app,
+        router,
+        openInNewWindow: settingStore.microApps.openInNewWindow
       })
     }
 
@@ -533,8 +560,12 @@ export default defineComponent({
         key: 'actions',
         render: (row) => (
           <NSpace class="micro-app-center__row-actions">
-            <NButton size="small" type="primary" disabled={!row.latestPublished} onClick={() => downloadAndOpen(row)}>
-              进入应用
+            <NButton
+              size="small"
+              type="primary"
+              disabled={!row.latestPublished}
+              onClick={() => ensureInstalledAndOpen(row)}>
+              {appActionLabel(row)}
             </NButton>
           </NSpace>
         )
@@ -579,8 +610,12 @@ export default defineComponent({
         key: 'adminActions',
         render: (row) => (
           <NSpace class="micro-app-center__row-actions">
-            <NButton size="small" type="primary" disabled={!row.latestPublished} onClick={() => downloadAndOpen(row)}>
-              进入应用
+            <NButton
+              size="small"
+              type="primary"
+              disabled={!row.latestPublished}
+              onClick={() => ensureInstalledAndOpen(row)}>
+              {appActionLabel(row)}
             </NButton>
             {isAdmin.value && (
               <NButton size="small" secondary onClick={() => openAccess(row)}>
@@ -689,8 +724,8 @@ export default defineComponent({
                           size="small"
                           type="primary"
                           disabled={!app.latestPublished}
-                          onClick={() => downloadAndOpen(app)}>
-                          进入应用
+                          onClick={() => ensureInstalledAndOpen(app)}>
+                          {appActionLabel(app)}
                         </NButton>
                       </div>
                     </article>
@@ -788,20 +823,35 @@ export default defineComponent({
               <NCard
                 bordered={false}
                 class="micro-app-center__card micro-app-center__publish-card"
-                title="已审核版本发布">
-                {approvedVersions.value.length ? (
-                  approvedVersions.value.map((version) => (
-                    <div class="micro-app-center__publish-row" key={`${version.appId}-${version.version}`}>
-                      <span>
-                        {version.appId} / {version.version}
-                      </span>
-                      <NButton size="small" type="primary" onClick={() => handlePublish(version)}>
-                        发布上线
-                      </NButton>
-                    </div>
-                  ))
+                title="审核与发布状态">
+                {approvedVersions.value.length || publishedVersions.value.length ? (
+                  <div class="micro-app-center__publish-list">
+                    {approvedVersions.value.map((version) => (
+                      <div class="micro-app-center__publish-row" key={`${version.appId}-${version.version}`}>
+                        <span>
+                          {version.appId} / {version.version}
+                        </span>
+                        <NButton size="small" type="primary" onClick={() => handlePublish(version)}>
+                          发布上线
+                        </NButton>
+                      </div>
+                    ))}
+                    {publishedVersions.value.map((version) => (
+                      <div class="micro-app-center__publish-row" key={`${version.appId}-${version.version}`}>
+                        <span>
+                          {version.appId} / {version.version}
+                          <small>
+                            {version.publishedAt
+                              ? `发布于 ${new Date(version.publishedAt).toLocaleString('zh-CN')}`
+                              : '已发布'}
+                          </small>
+                        </span>
+                        <NTag type="success">已发布</NTag>
+                      </div>
+                    ))}
+                  </div>
                 ) : (
-                  <NEmpty description="暂无可发布版本" />
+                  <NEmpty description="暂无审核通过或已发布版本" />
                 )}
               </NCard>
             </NTabPane>
