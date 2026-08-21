@@ -1,7 +1,7 @@
 {
   "name": "tauri-app",
   "private": true,
-  "version": "0.1.19",
+  "version": "1.0.0",
   "type": "module",
   "engines": {
     "node": "*",
@@ -27,6 +27,7 @@
     "tauri:build": "tauri build",
     "tauri:build:macos": "tauri build --config src-tauri/tauri.macos.conf.json",
     "tauri:build:windows": "tauri build --config src-tauri/tauri.windows.conf.json",
+    "macos:release": "bash scripts/macos-release.sh",
     "========= 打包后可调试并且可以弹出控制台 =========": "",
     "tauri:build:debug": "tauri build --debug",
     "========= 启动StarLight ios 程序 =========": "",

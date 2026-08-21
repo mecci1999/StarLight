@@ -45,6 +45,7 @@ export default defineComponent({
     const topologyData = ref<TopologyData | null>(null)
     const query = ref('')
     const statusFilter = ref('all')
+    const observationFilter = ref<'all' | 'observed' | 'risk'>('all')
     const autoRefresh = ref(true)
     const refreshIntervalMs = ref(15000)
     const lastUpdatedAt = ref<number | null>(null)
@@ -358,6 +359,7 @@ export default defineComponent({
 
     const showDetail = ref(false)
     const currentNode = ref<TopologyNode | null>(null)
+    const selectedEdge = ref<TopologyEdge | null>(null)
     const detailLoading = ref(false)
     const detailMetrics = ref<{
       cpu: number | null
@@ -381,7 +383,8 @@ export default defineComponent({
 
     const openDetail = async (node: TopologyNode) => {
       currentNode.value = node
-      showDetail.value = true
+      selectedEdge.value = null
+      showDetail.value = false
       detailLoading.value = true
       const nodeFallbackMetrics = {
         cpu: null,
@@ -447,14 +450,87 @@ export default defineComponent({
     const topologyStats = computed(() => {
       const nodes = topologyData.value?.nodes || []
       const edges = topologyData.value?.edges || []
+      const observedEdges = edges.filter((edge) => !edge.inferred)
+      const riskEdges = observedEdges.filter((edge) => {
+        const errorRate = Number(edge.errorRate || 0)
+        const normalizedErrorRate = errorRate >= 0 && errorRate <= 1 ? errorRate * 100 : errorRate
+        return (
+          edge.status === 'critical' ||
+          edge.status === 'warning' ||
+          normalizedErrorRate >= 1 ||
+          Number(edge.p99 || 0) >= 1500
+        )
+      })
       return {
         nodes: nodes.length,
-        edges: edges.length,
+        observedEdges: observedEdges.length,
+        inferredEdges: edges.filter((edge) => edge.inferred).length,
         healthy: nodes.filter((node) => isHealthyStatus(node.status)).length,
         warning: nodes.filter((node) => isWarningStatus(node.status)).length,
-        critical: nodes.filter((node) => isCriticalStatus(node.status)).length
+        critical: nodes.filter((node) => isCriticalStatus(node.status)).length,
+        riskEdges: riskEdges.length
       }
     })
+
+    const selectedEdgeKey = computed(() =>
+      selectedEdge.value ? `${String(selectedEdge.value.from)}=>${String(selectedEdge.value.to)}` : ''
+    )
+
+    const nodeById = computed(
+      () => new Map((filteredTopologyData.value?.nodes || []).map((node) => [String(node.id), node]))
+    )
+
+    const isRiskEdge = (edge: TopologyEdge) => {
+      const errorRate = Number(edge.errorRate || 0)
+      const normalizedErrorRate = errorRate >= 0 && errorRate <= 1 ? errorRate * 100 : errorRate
+      return (
+        edge.status === 'critical' ||
+        edge.status === 'warning' ||
+        normalizedErrorRate >= 1 ||
+        Number(edge.p99 || 0) >= 1500
+      )
+    }
+
+    const formatPercent = (value?: number | null) => {
+      if (typeof value !== 'number' || !Number.isFinite(value)) return '未知'
+      const normalized = value >= 0 && value <= 1 ? value * 100 : value
+      return `${normalized.toFixed(2)}%`
+    }
+
+    const getEdgeEndpoint = (edge: TopologyEdge, key: 'from' | 'to') => String(edge?.[key] || '')
+
+    const buildRelationshipRows = (direction: 'upstream' | 'downstream') => {
+      const nodeId = currentNode.value?.id
+      if (!nodeId) return []
+      return filteredTopologyData.value.edges
+        .filter((edge) =>
+          direction === 'upstream' ? getEdgeEndpoint(edge, 'to') === nodeId : getEdgeEndpoint(edge, 'from') === nodeId
+        )
+        .map((edge) => {
+          const relatedId = direction === 'upstream' ? getEdgeEndpoint(edge, 'from') : getEdgeEndpoint(edge, 'to')
+          return {
+            edge,
+            node: nodeById.value.get(relatedId),
+            id: relatedId
+          }
+        })
+    }
+
+    const upstreamRelationships = computed(() => buildRelationshipRows('upstream'))
+    const downstreamRelationships = computed(() => buildRelationshipRows('downstream'))
+
+    const selectEdge = (edge: TopologyEdge) => {
+      selectedEdge.value = edge
+      const targetNode = nodeById.value.get(getEdgeEndpoint(edge, 'to'))
+      if (targetNode) currentNode.value = targetNode
+    }
+
+    const clearSelection = () => {
+      currentNode.value = null
+      selectedEdge.value = null
+      showDetail.value = false
+      topologyRefreshKey.value += 1
+    }
 
     const filteredTopologyData = computed<TopologyData>(() => {
       const source = topologyData.value || { nodes: [], edges: [] }
@@ -469,10 +545,20 @@ export default defineComponent({
         return matchesKeyword && matchesStatus
       })
       const nodeIds = new Set(nodes.map((node) => String(node.id)))
-      const explicitEdges = source.edges.filter(
-        (edge) => nodeIds.has(String(edge.from)) && nodeIds.has(String(edge.to))
-      )
-      const inferredEdges = buildInferredTopologyEdges(nodes, explicitEdges)
+      let explicitEdges = source.edges.filter((edge) => nodeIds.has(String(edge.from)) && nodeIds.has(String(edge.to)))
+      if (observationFilter.value === 'observed') {
+        explicitEdges = explicitEdges.filter((edge) => !edge.inferred)
+      }
+      if (observationFilter.value === 'risk') {
+        explicitEdges = explicitEdges.filter((edge) => !edge.inferred && isRiskEdge(edge))
+        const relatedNodeIds = new Set(explicitEdges.flatMap((edge) => [String(edge.from), String(edge.to)]))
+        return {
+          nodes: nodes.filter((node) => relatedNodeIds.has(String(node.id))),
+          edges: explicitEdges,
+          meta: source.meta
+        }
+      }
+      const inferredEdges = observationFilter.value === 'all' ? buildInferredTopologyEdges(nodes, explicitEdges) : []
       return { nodes, edges: [...explicitEdges, ...inferredEdges], meta: source.meta }
     })
 
@@ -584,6 +670,12 @@ export default defineComponent({
       { label: '未知', value: 'unknown' }
     ]
 
+    const observationOptions = [
+      { label: '全部关系', value: 'all' },
+      { label: '仅实测关系', value: 'observed' },
+      { label: '风险关系', value: 'risk' }
+    ]
+
     const openServiceDetail = (node: TopologyNode) => {
       router.push({ path: `/home/services/${node.id}`, query: { timeRange: timeStore.timeRange } })
     }
@@ -624,34 +716,38 @@ export default defineComponent({
 
         <div class="topology-page__summary-strip">
           <NCard bordered={false} class="topology-page__summary-card topology-page__summary-card--total">
-            <div class="topology-page__summary-label">服务节点</div>
+            <div class="topology-page__summary-label">运行时服务</div>
             <div class="topology-page__summary-value">{topologyStats.value.nodes}</div>
+            <div class="topology-page__summary-hint">来自实时服务注册表</div>
           </NCard>
           <NCard bordered={false} class="topology-page__summary-card">
-            <div class="topology-page__summary-label">调用关系</div>
-            <div class="topology-page__summary-value">{topologyStats.value.edges}</div>
+            <div class="topology-page__summary-label">实测调用</div>
+            <div class="topology-page__summary-value">{topologyStats.value.observedEdges}</div>
+            <div class="topology-page__summary-hint">当前时间范围内有请求记录</div>
           </NCard>
           <NCard bordered={false} class="topology-page__summary-card topology-page__summary-card--healthy">
-            <div class="topology-page__summary-label">健康</div>
+            <div class="topology-page__summary-label">健康服务</div>
             <div class="topology-page__summary-value">{topologyStats.value.healthy}</div>
+            <div class="topology-page__summary-hint">可用且未命中退化阈值</div>
           </NCard>
           <NCard bordered={false} class="topology-page__summary-card topology-page__summary-card--warning">
-            <div class="topology-page__summary-label">告警/退化</div>
-            <div class="topology-page__summary-value">{topologyStats.value.warning}</div>
+            <div class="topology-page__summary-label">风险链路</div>
+            <div class="topology-page__summary-value">{topologyStats.value.riskEdges}</div>
+            <div class="topology-page__summary-hint">错误率、延迟或状态异常</div>
           </NCard>
           <NCard bordered={false} class="topology-page__summary-card topology-page__summary-card--critical">
-            <div class="topology-page__summary-label">异常</div>
-            <div class="topology-page__summary-value">{topologyStats.value.critical}</div>
+            <div class="topology-page__summary-label">待补链路</div>
+            <div class="topology-page__summary-value">{topologyStats.value.inferredEdges}</div>
+            <div class="topology-page__summary-hint">以虚线提示的未实测依赖</div>
           </NCard>
         </div>
 
         <NCard bordered class="topology-page__canvas-card" contentStyle={{ padding: 0 }}>
           <div class="topology-page__canvas-toolbar">
             <div>
-              <div class="topology-page__canvas-title">依赖地图</div>
+              <div class="topology-page__canvas-title">运行依赖图</div>
               <div class="topology-page__canvas-subtitle">
-                自动刷新 {autoRefresh.value ? `${refreshIntervalMs.value / 1000}s` : '已关闭'} · 最近更新{' '}
-                {lastUpdatedLabel.value}
+                选中服务突出显示其上下游；选中连线查看该调用的延迟、错误率与流量
               </div>
             </div>
             <div class="topology-page__canvas-actions">
@@ -691,11 +787,22 @@ export default defineComponent({
                   statusFilter.value = value
                 }}
               />
+              <NSelect
+                value={observationFilter.value}
+                options={observationOptions}
+                class="topology-page__observation-select"
+                onUpdateValue={(value: 'all' | 'observed' | 'risk') => {
+                  observationFilter.value = value
+                  clearSelection()
+                }}
+              />
               <NButton
                 secondary
                 onClick={() => {
                   query.value = ''
                   statusFilter.value = 'all'
+                  observationFilter.value = 'all'
+                  clearSelection()
                 }}>
                 重置视图
               </NButton>
@@ -706,9 +813,7 @@ export default defineComponent({
           </div>
           {isFallbackTopology.value && (
             <div class="topology-page__telemetry-warning">
-              当前真实调用关系不足，页面已用虚线补齐可视化依赖，避免节点孤岛。网关会从实际 API 请求中记录
-              <span> gateway → 目标服务 </span>
-              依赖，请产生一次接口访问并等待指标刷新后重试；外部服务间调用仍需要上报 target_service / peer_service。
+              部分连线尚未采集到真实请求，图中以虚线保留依赖上下文。它们不参与风险判断；产生请求并等待指标刷新后会替换为实测链路。
             </div>
           )}
           {topologyLoading.value ? (
@@ -716,61 +821,201 @@ export default defineComponent({
               <NSpin size="large" />
             </div>
           ) : (
-            <div class="topology-page__canvas-shell">
-              {filteredTopologyData.value.nodes.length ? (
-                <ServiceTopology
-                  data={filteredTopologyData.value}
-                  height="100%"
-                  selectedNodeId={currentNode.value?.id || ''}
-                  showLayerRegions={false}
-                  layerDefinitions={layerDefinitions}
-                  refreshKey={topologyRefreshKey.value}
-                  onNodeClick={openDetail}
-                  onNodeDblclick={openServiceDetail}
-                />
-              ) : (
-                <NEmpty description="暂无拓扑数据">
-                  <div class="topology-page__empty-tip">请确认服务注册中心是否正常运行，或清空当前筛选条件</div>
-                </NEmpty>
-              )}
+            <div class="topology-page__workspace">
+              <div class="topology-page__canvas-shell">
+                {filteredTopologyData.value.nodes.length ? (
+                  <ServiceTopology
+                    data={filteredTopologyData.value}
+                    height="100%"
+                    selectedNodeId={currentNode.value?.id || ''}
+                    selectedEdgeKey={selectedEdgeKey.value}
+                    showLayerRegions
+                    layerDefinitions={layerDefinitions}
+                    refreshKey={topologyRefreshKey.value}
+                    onNodeClick={openDetail}
+                    onNodeDblclick={openServiceDetail}
+                    onEdgeClick={selectEdge}
+                  />
+                ) : (
+                  <NEmpty description={observationFilter.value === 'risk' ? '当前范围没有风险链路' : '暂无拓扑数据'}>
+                    <div class="topology-page__empty-tip">
+                      {observationFilter.value === 'risk'
+                        ? '未发现达到风险阈值的实测调用关系'
+                        : '请确认服务注册中心是否正常运行，或清空当前筛选条件'}
+                    </div>
+                  </NEmpty>
+                )}
+              </div>
+
+              <aside class="topology-page__inspector" aria-live="polite">
+                <div class="topology-page__inspector-header">
+                  <div>
+                    <div class="topology-page__inspector-kicker">{selectedEdge.value ? '调用关系' : '关系检查器'}</div>
+                    <div class="topology-page__inspector-title">
+                      {selectedEdge.value
+                        ? `${nodeById.value.get(String(selectedEdge.value.from))?.name || selectedEdge.value.from} → ${nodeById.value.get(String(selectedEdge.value.to))?.name || selectedEdge.value.to}`
+                        : currentNode.value?.name || '选择服务或连线'}
+                    </div>
+                  </div>
+                  {(currentNode.value || selectedEdge.value) && (
+                    <NButton quaternary size="small" onClick={clearSelection}>
+                      清除
+                    </NButton>
+                  )}
+                </div>
+
+                {selectedEdge.value ? (
+                  <div class="topology-page__edge-inspector">
+                    <div class="topology-page__edge-flow">
+                      <span>
+                        {nodeById.value.get(String(selectedEdge.value.from))?.name || selectedEdge.value.from}
+                      </span>
+                      <span class="topology-page__edge-arrow">→</span>
+                      <span>{nodeById.value.get(String(selectedEdge.value.to))?.name || selectedEdge.value.to}</span>
+                    </div>
+                    <div class="topology-page__metric-grid">
+                      <div>
+                        <span>QPS</span>
+                        <strong>{displayMetric(selectedEdge.value.qps, '', 1)}</strong>
+                      </div>
+                      <div>
+                        <span>错误率</span>
+                        <strong class={isRiskEdge(selectedEdge.value) ? 'topology-page__metric-value--risk' : ''}>
+                          {formatPercent(selectedEdge.value.errorRate)}
+                        </strong>
+                      </div>
+                      <div>
+                        <span>P50</span>
+                        <strong>{displayMetric(selectedEdge.value.p50, 'ms', 0)}</strong>
+                      </div>
+                      <div>
+                        <span>P99</span>
+                        <strong
+                          class={
+                            Number(selectedEdge.value.p99 || 0) >= 1500 ? 'topology-page__metric-value--risk' : ''
+                          }>
+                          {displayMetric(selectedEdge.value.p99, 'ms', 0)}
+                        </strong>
+                      </div>
+                    </div>
+                    <div class="topology-page__edge-meta">
+                      <span>{selectedEdge.value.inferred ? '推断关系，不计入风险' : '实测调用关系'}</span>
+                      <span>{selectedEdge.value.protocol || '协议未知'}</span>
+                      <span>{selectedEdge.value.callType || '同步调用'}</span>
+                    </div>
+                    <NButton
+                      secondary
+                      type="primary"
+                      block
+                      onClick={() => {
+                        const target = nodeById.value.get(String(selectedEdge.value?.to || ''))
+                        if (target) void openDetail(target)
+                      }}>
+                      聚焦目标服务
+                    </NButton>
+                  </div>
+                ) : currentNode.value ? (
+                  <div class="topology-page__node-inspector">
+                    <div class="topology-page__node-status-row">
+                      <span
+                        class={`topology-page__status-dot topology-page__status-dot--${isCriticalStatus(currentNode.value.status) ? 'critical' : isWarningStatus(currentNode.value.status) ? 'warning' : 'healthy'}`}></span>
+                      <span>{currentNode.value.status}</span>
+                      <span>{currentNode.value.type || 'service'}</span>
+                      <span>{currentNode.value.env || 'prod'}</span>
+                    </div>
+                    <div class="topology-page__metric-grid">
+                      <div>
+                        <span>实例</span>
+                        <strong>{displayMetric(detailMetrics.value.instances)}</strong>
+                      </div>
+                      <div>
+                        <span>QPS</span>
+                        <strong>{displayMetric(detailMetrics.value.qps, '', 1)}</strong>
+                      </div>
+                      <div>
+                        <span>P95</span>
+                        <strong>{displayMetric(detailMetrics.value.responseTime, 'ms', 0)}</strong>
+                      </div>
+                      <div>
+                        <span>错误率</span>
+                        <strong
+                          class={
+                            typeof detailMetrics.value.errorRate === 'number' && detailMetrics.value.errorRate > 0
+                              ? 'topology-page__metric-value--risk'
+                              : ''
+                          }>
+                          {formatPercent(detailMetrics.value.errorRate)}
+                        </strong>
+                      </div>
+                    </div>
+                    <div class="topology-page__relationship-section">
+                      <div class="topology-page__relationship-heading">
+                        上游调用 <span>{upstreamRelationships.value.length}</span>
+                      </div>
+                      {upstreamRelationships.value.length ? (
+                        upstreamRelationships.value.map(({ edge, node, id }) => (
+                          <button
+                            class="topology-page__relationship-row"
+                            key={`upstream-${id}-${edge.from}`}
+                            onClick={() => selectEdge(edge)}>
+                            <span class="topology-page__relationship-name">{node?.name || id}</span>
+                            <span>{displayMetric(edge.qps, ' QPS', 1)}</span>
+                            <span>{displayMetric(edge.p99, 'ms', 0)}</span>
+                          </button>
+                        ))
+                      ) : (
+                        <div class="topology-page__relationship-empty">当前范围未观测到上游调用</div>
+                      )}
+                    </div>
+                    <div class="topology-page__relationship-section">
+                      <div class="topology-page__relationship-heading">
+                        下游依赖 <span>{downstreamRelationships.value.length}</span>
+                      </div>
+                      {downstreamRelationships.value.length ? (
+                        downstreamRelationships.value.map(({ edge, node, id }) => (
+                          <button
+                            class="topology-page__relationship-row"
+                            key={`downstream-${id}-${edge.to}`}
+                            onClick={() => selectEdge(edge)}>
+                            <span class="topology-page__relationship-name">{node?.name || id}</span>
+                            <span>{displayMetric(edge.qps, ' QPS', 1)}</span>
+                            <span>{displayMetric(edge.p99, 'ms', 0)}</span>
+                          </button>
+                        ))
+                      ) : (
+                        <div class="topology-page__relationship-empty">当前范围未观测到下游依赖</div>
+                      )}
+                    </div>
+                    <NButton
+                      secondary
+                      type="primary"
+                      block
+                      onClick={() => {
+                        showDetail.value = true
+                      }}>
+                      查看完整运行数据
+                    </NButton>
+                  </div>
+                ) : (
+                  <div class="topology-page__inspector-empty">
+                    <div class="topology-page__inspector-empty-symbol">↗</div>
+                    <p>点击服务突出显示它的上下游调用；点击连线可检查该请求的流量、延迟和错误率。</p>
+                    <div class="topology-page__inspector-state-list">
+                      <span>
+                        <i class="topology-page__status-dot topology-page__status-dot--healthy"></i> 健康
+                      </span>
+                      <span>
+                        <i class="topology-page__status-dot topology-page__status-dot--warning"></i> 退化
+                      </span>
+                      <span>
+                        <i class="topology-page__status-dot topology-page__status-dot--critical"></i> 风险
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </aside>
             </div>
           )}
-        </NCard>
-
-        <NCard bordered={false} class="topology-page__legend-card">
-          <div class="topology-page__legend-grid">
-            <div>
-              <div class="topology-page__legend-title">节点含义</div>
-              <div class="topology-page__legend-list">
-                <div>圆点节点：服务 / 实例</div>
-                <div>点击节点：打开 Inspector 侧栏</div>
-                <div>双击节点：进入服务详情</div>
-              </div>
-            </div>
-            <div>
-              <div class="topology-page__legend-title">边含义</div>
-              <div class="topology-page__legend-list">
-                <div>连线：调用关系</div>
-                <div>箭头方向：请求流向</div>
-                <div>线旁指标：QPS / 错误率 / P99 / 调用次数</div>
-                <div>灰色虚线：暂无真实 telemetry 时的可视化推断关系</div>
-              </div>
-            </div>
-            <div>
-              <div class="topology-page__legend-title">颜色含义</div>
-              <div class="topology-page__legend-list">
-                <div>
-                  <span class="topology-page__status-dot topology-page__status-dot--healthy"></span>健康
-                </div>
-                <div>
-                  <span class="topology-page__status-dot topology-page__status-dot--warning"></span>告警/退化
-                </div>
-                <div>
-                  <span class="topology-page__status-dot topology-page__status-dot--critical"></span>异常
-                </div>
-              </div>
-            </div>
-          </div>
         </NCard>
 
         <NModal
